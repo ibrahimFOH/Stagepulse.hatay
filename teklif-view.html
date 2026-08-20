@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Stagepulse Teklif</title>
+<link rel="stylesheet" href="style.css">
+<style>
+body{background:#080808;color:#eee;font-family:Inter,system-ui}
+.quote{max-width:850px;margin:50px auto;padding:28px}
+.qbox{background:#111;border:1px solid #2b2b2b;border-radius:16px;padding:26px}
+.qtotal{font-size:32px;font-weight:900;margin:20px 0}
+.qactions{display:flex;gap:10px;flex-wrap:wrap}
+.qbtn{padding:13px 18px;border-radius:9px;border:1px solid #333;background:#1b1b1b;color:#fff;cursor:pointer}
+.qbtn.ok{background:#ffb000;color:#111;border-color:#ffb000}
+.qbtn:disabled{opacity:.5;cursor:not-allowed}
+.muted{color:#888}
+</style>
+</head>
+<body>
+<main class="quote"><div class="qbox" id="quoteBox">Teklif yükleniyor…</div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const sb = window.supabase.createClient(
+  'https://mtjcqqrogjqaxkagwkti.supabase.co',
+  'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6'
+);
+const token = new URLSearchParams(location.search).get('token');
+
+const esc = s => String(s ?? '').replace(/[&<>'"]/g, c => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[c]));
+const money = v => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(v) || 0);
+
+function fail(msg) {
+  document.getElementById('quoteBox').innerHTML = '<h2>' + esc(msg) + '</h2>';
+}
+
+async function load() {
+  if (!token) return fail('Geçersiz teklif bağlantısı. Lütfen bağlantıyı kontrol edin.');
+
+  let data, error;
+  try {
+    ({ data, error } = await sb.rpc('get_public_quote', { p_token: token }));
+  } catch (_e) {
+    return fail('Teklif yüklenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
+  }
+  if (error || !data) return fail('Teklif bulunamadı veya bağlantının süresi dolmuş.');
+
+  const q = data;
+  document.title = (q.quote_number || 'Teklif') + ' | Stagepulse';
+
+  const canRespond = q.status === 'sent' || q.status === 'preparing';
+  const actionsHtml = canRespond
+    ? '<button class="qbtn ok" onclick="respond(\'accepted\')">Teklifi Onayla</button>'
+      + '<button class="qbtn" onclick="respond(\'rejected\')">Teklifi Reddet</button>'
+    : '<span class="muted">Durum: ' + esc(statusLabel(q.status)) + '</span>';
+
+  document.getElementById('quoteBox').innerHTML =
+    '<h1>STAGEPULSE</h1>'
+    + '<p class="muted">Profesyonel Ses & Sahne Teknolojileri</p><hr>'
+    + '<h2>Teklif ' + esc(q.quote_number) + '</h2>'
+    + '<p><b>' + esc(q.name) + '</b><br>' + esc(q.company || '') + '<br>' + esc(q.location || '') + '</p>'
+    + '<p>Etkinlik: ' + esc(q.event_type || q.type || '-') + ' · ' + esc(q.event_date || '-') + ' · ' + esc(q.people || '-') + ' kişi</p>'
+    + '<div class="qtotal">' + money(q.total) + '</div>'
+    + '<p>Geçerlilik: <b>' + esc(q.valid_until || '-') + '</b></p>'
+    + '<div class="qactions">' + actionsHtml + '</div>'
+    + '<p id="msg" class="muted"></p>';
+}
+
+function statusLabel(status) {
+  const map = {
+    accepted: 'Onaylandı', rejected: 'Reddedildi', cancelled: 'İptal edildi',
+    archived: 'Arşivlendi', expired: 'Süresi doldu', new: 'Yeni', reviewing: 'İnceleniyor'
+  };
+  return map[status] || status;
+}
+
+async function respond(action) {
+  const msgEl = document.getElementById('msg');
+  const buttons = document.querySelectorAll('.qbtn');
+  buttons.forEach(b => (b.disabled = true));
+  try {
+    const { error } = await sb.rpc('respond_to_quote', { p_token: token, p_action: action });
+    if (error) {
+      msgEl.textContent = 'İşlem gerçekleştirilemedi. Teklifin süresi dolmuş veya zaten yanıtlanmış olabilir.';
+      buttons.forEach(b => (b.disabled = false));
+      return;
+    }
+    msgEl.textContent = action === 'accepted'
+      ? 'Teklifiniz onaylandı. Stagepulse sizinle iletişime geçecektir.'
+      : 'Teklif reddedildi. İlginiz için teşekkürler.';
+    setTimeout(load, 500);
+  } catch (_e) {
+    msgEl.textContent = 'Bir bağlantı sorunu oluştu. Lütfen tekrar deneyin.';
+    buttons.forEach(b => (b.disabled = false));
+  }
+}
+
+load();
+</script>
+</body>
+</html>

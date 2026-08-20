@@ -1,0 +1,133 @@
+{
+  "generated_at": "2026-08-16T18:37:48.699900+00:00",
+  "gallery": [
+    {
+      "name": "0EAAE007-14C6-468D-80CB-6C5275CB6827.webp",
+      "path": "images/gallery/0EAAE007-14C6-468D-80CB-6C5275CB6827.webp",
+      "file": "images/gallery/0EAAE007-14C6-468D-80CB-6C5275CB6827.webp",
+      "size": 164522,
+      "size_human": "160.7 KB",
+      "modified": "2026-08-16T18:37:46.325001+00:00",
+      "type": "gallery",
+      "optimized": true
+    },
+    {
+      "name": "1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp",
+      "path": "images/gallery/1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp",
+      "file": "images/gallery/1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp",
+      "size": 263632,
+      "size_human": "257.5 KB",
+      "modified": "2026-08-16T18:37:46.859004+00:00",
+      "type": "gallery",
+      "optimized": true
+    },
+    {
+      "name": "11AD6679-02D7-4ADC-87AA-92059E510189.webp",
+      "path": "images/gallery/11AD6679-02D7-4ADC-87AA-92059E510189.webp",
+      "file": "images/gallery/11AD6679-02D7-4ADC-87AA-92059E510189.webp",
+      "size": 97350,
+      "size_human": "95.1 KB",
+      "modified": "2026-08-16T18:37:47.113005+00:00",
+      "type": "gallery",
+      "optimized": true
+    },
+    {
+      "name": "2025-12-10_22-07-22.webp",
+      "path": "images/gallery/2025-12-10_22-07-22.webp",
+      "file": "images/gallery/2025-12-10_22-07-22.webp",
+      "size": 164826,
+      "size_human": "161.0 KB",
+      "modified": "2026-08-16T18:37:47.521007+00:00",
+      "type": "gallery",
+      "optimized": true
+    },
+    {
+      "name": "2025-12-10_22-07-22_1.webp",
+      "path": "images/gallery/2025-12-10_22-07-22_1.webp",
+      "file": "images/gallery/2025-12-10_22-07-22_1.webp",
+      "size": 164826,
+      "size_human": "161.0 KB",
+      "modified": "2026-08-16T18:37:47.927009+00:00",
+      "type": "gallery",
+      "optimized": true
+    },
+    {
+      "name": "35E63E2A-949E-4AD5-AE11-E607E868C697.webp",
+      "path": "images/gallery/35E63E2A-949E-4AD5-AE11-E607E868C697.webp",
+      "file": "images/gallery/35E63E2A-949E-4AD5-AE11-E607E868C697.webp",
+      "size": 132424,
+      "size_human": "129.3 KB",
+      "modified": "2026-08-16T18:37:48.234011+00:00",
+      "type": "gallery",
+      "optimized": true
+    },
+    {
+      "name": "BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp",
+      "path": "images/gallery/BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp",
+      "file": "images/gallery/BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp",
+      "size": 96308,
+      "size_human": "94.1 KB",
+      "modified": "2026-08-16T18:37:48.468012+00:00",
+      "type": "gallery",
+      "optimized": true
+    },
+    {
+      "name": "DE228FEA-36C1-4CCD-9185-0E03014CD491.webp",
+      "path": "images/gallery/DE228FEA-36C1-4CCD-9185-0E03014CD491.webp",
+      "file": "images/gallery/DE228FEA-36C1-4CCD-9185-0E03014CD491.webp",
+      "size": 119182,
+      "size_human": "116.4 KB",
+      "modified": "2026-08-16T18:37:48.698014+00:00",
+      "type": "gallery",
+      "optimized": true
+    }
+  ],
+  "videos": [],
+  "documents": [
+    {
+      "name": "Stagepulse-Ornek-3D-Sahne.pdf",
+      "path": "documents/Stagepulse-Ornek-3D-Sahne.pdf",
+      "file": "documents/Stagepulse-Ornek-3D-Sahne.pdf",
+      "size": 407261,
+      "size_human": "397.7 KB",
+      "modified": "2026-08-16T18:37:40.666005+00:00",
+      "type": "document",
+      "title": "Stagepulse Ornek 3D Sahne"
+    },
+    {
+      "name": "Stagepulse-Ornek-Stage-Plot-Gorsel.pdf",
+      "path": "documents/Stagepulse-Ornek-Stage-Plot-Gorsel.pdf",
+      "file": "documents/Stagepulse-Ornek-Stage-Plot-Gorsel.pdf",
+      "size": 242487,
+      "size_human": "236.8 KB",
+      "modified": "2026-08-16T18:37:40.667005+00:00",
+      "type": "document",
+      "title": "Stagepulse Ornek Stage Plot Gorsel"
+    },
+    {
+      "name": "Stagepulse-Ornek-Teknik-Kesit.pdf",
+      "path": "documents/Stagepulse-Ornek-Teknik-Kesit.pdf",
+      "file": "documents/Stagepulse-Ornek-Teknik-Kesit.pdf",
+      "size": 298083,
+      "size_human": "291.1 KB",
+      "modified": "2026-08-16T18:37:40.669005+00:00",
+      "type": "document",
+      "title": "Stagepulse Ornek Teknik Kesit"
+    }
+  ],
+  "photos": [
+    "images/gallery/0EAAE007-14C6-468D-80CB-6C5275CB6827.webp",
+    "images/gallery/1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp",
+    "images/gallery/11AD6679-02D7-4ADC-87AA-92059E510189.webp",
+    "images/gallery/2025-12-10_22-07-22.webp",
+    "images/gallery/2025-12-10_22-07-22_1.webp",
+    "images/gallery/35E63E2A-949E-4AD5-AE11-E607E868C697.webp",
+    "images/gallery/BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp",
+    "images/gallery/DE228FEA-36C1-4CCD-9185-0E03014CD491.webp"
+  ],
+  "counts": {
+    "gallery": 8,
+    "videos": 0,
+    "documents": 3
+  }
+}
