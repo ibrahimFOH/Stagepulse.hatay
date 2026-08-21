@@ -67,27 +67,38 @@ jobs:
         run: |
           set -euo pipefail
           test -f supabase/config.toml
+          grep -qF '[functions.send-fcm-notification]' supabase/config.toml
+          grep -qF 'verify_jwt = true' supabase/config.toml
           test -f supabase/functions/staff-session/index.ts
           test -f supabase/functions/staff-manage/index.ts
+          test -f supabase/functions/send-fcm-notification/index.ts
           test -f supabase/migrations/20260821210643_add_fcm_device_token_registry_v29.sql
           grep -qF 'notification_devices' supabase/migrations/20260821210643_add_fcm_device_token_registry_v29.sql
           grep -qF 'GRANT EXECUTE ON FUNCTION public.register_notification_device' supabase/migrations/20260821210643_add_fcm_device_token_registry_v29.sql
-          test -f supabase/migrations/20260821234535_consolidate_performance_policies_free_plan_v41.sql
-          test -f supabase/migrations/20260821234542_restore_permission_admin_writes_v42.sql
-          test -f supabase/migrations/20260821234609_finish_policy_consolidation_free_plan_v43.sql
-          test -f supabase/migrations/20260821234623_remove_unused_indexes_free_plan_v44.sql
-          test -f supabase/migrations/20260821235000_canonicalize_my_jobs_staff_permission_v45.sql
+          for file in \
+            supabase/migrations/20260821234535_consolidate_performance_policies_free_plan_v41.sql \
+            supabase/migrations/20260821234542_restore_permission_admin_writes_v42.sql \
+            supabase/migrations/20260821234609_finish_policy_consolidation_free_plan_v43.sql \
+            supabase/migrations/20260821234623_remove_unused_indexes_free_plan_v44.sql \
+            supabase/migrations/20260821234846_canonicalize_my_jobs_staff_permission_v45.sql \
+            supabase/migrations/20260821235028_enforce_admin_only_staff_permission_management_v46.sql \
+            supabase/migrations/20260821235121_restore_rbac_policy_helper_execute_v47.sql \
+            supabase/migrations/20260821235137_grant_rbac_helper_dependency_read_v48.sql \
+            supabase/migrations/20260821235311_revoke_anon_view_write_privileges_v49.sql \
+            supabase/migrations/20260821235354_validate_offer_evaluation_status_constraint_v50.sql \
+            supabase/migrations/20260821235736_index_foreign_keys_free_plan_v51.sql; do test -f "$file"; done
       - name: Staff jobs compatibility
         shell: bash
         run: |
           set -euo pipefail
           view_migration=supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
           security_migration=supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
-          test -f "$view_migration" && test -f "$security_migration"
+          canonical=supabase/migrations/20260821234846_canonicalize_my_jobs_staff_permission_v45.sql
+          test -f "$view_migration" && test -f "$security_migration" && test -f "$canonical"
           grep -Eiq 'create[[:space:]]+(or[[:space:]]+replace[[:space:]]+)?view[[:space:]]+public[.]my_jobs_staff' "$view_migration"
           grep -Eiq 'staff_profiles|staff[[:space:]]+s' "$view_migration"
           grep -Eiq 'security_invoker[[:space:]]*=[[:space:]]*true' "$security_migration"
-          grep -Eiq "staff_has_perm\('jobs.view'" supabase/migrations/20260821235000_canonicalize_my_jobs_staff_permission_v45.sql
+          grep -Eiq "staff_has_perm\('jobs.view'" "$canonical"
       - name: Legacy notices
         shell: bash
         run: |
