@@ -4,6 +4,9 @@
 [functions.staff-manage]
 verify_jwt = false
 
+[functions.staff-session]
+verify_jwt = false
+
 [functions.staff-login]
 verify_jwt = false
 
