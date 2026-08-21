@@ -5,6 +5,7 @@
   const errorBox = document.getElementById('loginError');
   const noticeBox = document.getElementById('resetNotice');
   const resetUrl = `${location.origin}/admin/`;
+  const RESET_EMAIL = 'teklifal@stagepulse.com.tr';
   const strong = (p) => typeof p === 'string' && p.length >= 10 && p.length <= 128 && /[A-Za-zğüşıöçĞÜŞİÖÇ]/.test(p) && /\d/.test(p);
 
   function resetModal() {
@@ -28,15 +29,13 @@
   }
 
   async function forgotFlow() {
-    const email = window.prompt('Şifre sıfırlama e-postası hangi adrese gönderilsin?');
-    if (!email || !email.includes('@')) return;
     forgot.disabled=true;
-    if (noticeBox) noticeBox.textContent='Sıfırlama e-postası gönderiliyor…';
+    if (noticeBox) noticeBox.textContent=`${RESET_EMAIL} adresine sıfırlama bağlantısı gönderiliyor…`;
     if (errorBox) errorBox.textContent='';
-    const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: resetUrl });
+    const { error } = await sb.auth.resetPasswordForEmail(RESET_EMAIL, { redirectTo: resetUrl });
     forgot.disabled=false;
     if (error) { if (errorBox) errorBox.textContent=error.message; if (noticeBox) noticeBox.textContent=''; return; }
-    if (noticeBox) noticeBox.textContent='Sıfırlama bağlantısı gönderildi. E-postanızı kontrol edin.';
+    if (noticeBox) noticeBox.textContent=`Sıfırlama bağlantısı ${RESET_EMAIL} adresine gönderildi. E-postayı kontrol edin.`;
   }
 
   window.addEventListener('stagepulse:auth-recovery', resetModal);
