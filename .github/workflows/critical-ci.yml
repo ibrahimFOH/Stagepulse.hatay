@@ -5,6 +5,7 @@ on:
     branches: [main, critical-production-sync]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,6 +33,15 @@ jobs:
             fi
           done
 
+      - name: Verify portal uses live permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f portal/portal.js
+          ! grep -q 'DEFAULT_PERMS' portal/portal.js
+          grep -q 'staff_permissions' portal/portal.js
+          grep -q 'permission_catalog' portal/portal.js
+
       - name: Setup Deno
         uses: denoland/setup-deno@v1
         with:
@@ -54,3 +64,20 @@ jobs:
           grep -q '^\[functions.staff-session\]' supabase/config.toml
           grep -q 'staff_permissions' supabase/functions/staff-session/index.ts
           grep -q 'permission_catalog' supabase/functions/staff-manage/index.ts
+
+      - name: Verify staff jobs compatibility layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
+          grep -q 'CREATE OR REPLACE VIEW public.my_jobs_staff' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
+          grep -q 'staff_profiles' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
+          test -f supabase/staff-portal.sql.DEPRECATED.md
+          test -f functions/DEPRECATED.md
+
+      - name: Verify legacy SQL is explicitly deprecated
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/staff-portal.sql.DEPRECATED.md
+          grep -qi 'deprecated' supabase/staff-portal.sql.DEPRECATED.md
