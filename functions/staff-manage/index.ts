@@ -1,156 +1,23 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const DEFAULT_PERMS = {
-  jobs: true,
-  equipment: true,
-  offers: true,
-  update_job_status: true,
-};
-
-function normalizePerms(raw: unknown) {
-  const p = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  return {
-    jobs: p.jobs !== false,
-    equipment: p.equipment !== false,
-    offers: p.offers !== false,
-    update_job_status: p.update_job_status !== false,
-  };
-}
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
-  }
-
-  try {
-    const url = Deno.env.get("SUPABASE_URL")!;
-    const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const authHeader = req.headers.get("Authorization") || "";
-
-    // Çağıranın admin olduğunu doğrula
-    const userClient = createClient(url, anon, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) {
-      return Response.json({ error: "Oturum gerekli." }, { status: 401, headers: corsHeaders });
-    }
-
-    const admin = createClient(url, service, { auth: { persistSession: false } });
-    const { data: isAdminRow } = await admin
-      .from("admin_profiles")
-      .select("user_id")
-      .eq("user_id", userData.user.id)
-      .eq("active", true)
-      .maybeSingle();
-    if (!isAdminRow) {
-      return Response.json({ error: "Yetkisiz." }, { status: 403, headers: corsHeaders });
-    }
-
-    const body = await req.json();
-    const action = body.action as string;
-
-    // —— Oluştur ——
-    if (action === "create") {
-      const username = String(body.username || "").trim().toLowerCase();
-      const display_name = String(body.display_name || "").trim();
-      const password = String(body.password || "");
-      const role = String(body.role || "crew");
-      const phone = body.phone ? String(body.phone).trim() : null;
-      const email = body.email
-        ? String(body.email).trim()
-        : `${username}@staff.stagepulse.local`;
-      const permissions = normalizePerms(body.permissions ?? DEFAULT_PERMS);
-
-      if (!username || !display_name || password.length < 8) {
-        return Response.json(
-          { error: "Kullanıcı adı, ad ve en az 8 karakter şifre zorunlu." },
-          { status: 400, headers: corsHeaders }
-        );
-      }
-
-      const { data: created, error: cErr } = await admin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { role: "staff", username },
-      });
-      if (cErr || !created?.user) {
-        return Response.json(
-          { error: cErr?.message || "Kullanıcı oluşturulamadı." },
-          { status: 400, headers: corsHeaders }
-        );
-      }
-
-      const { error: pErr } = await admin.from("staff_profiles").insert({
-        user_id: created.user.id,
-        username,
-        display_name,
-        role,
-        phone,
-        active: true,
-        permissions,
-      });
-      if (pErr) {
-        await admin.auth.admin.deleteUser(created.user.id);
-        return Response.json({ error: pErr.message }, { status: 400, headers: corsHeaders });
-      }
-
-      return Response.json(
-        { ok: true, user_id: created.user.id, username, display_name, role, permissions },
-        { headers: corsHeaders }
-      );
-    }
-
-    // —— Güncelle ——
-    if (action === "update") {
-      const user_id = String(body.user_id || "");
-      if (!user_id) {
-        return Response.json({ error: "user_id gerekli." }, { status: 400, headers: corsHeaders });
-      }
-      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-      if (body.display_name != null) patch.display_name = String(body.display_name).trim();
-      if (body.role != null) patch.role = String(body.role);
-      if (body.phone != null) patch.phone = String(body.phone).trim() || null;
-      if (body.active != null) patch.active = !!body.active;
-      if (body.username != null) patch.username = String(body.username).trim().toLowerCase();
-      if (body.permissions != null) patch.permissions = normalizePerms(body.permissions);
-
-      const { error: uErr } = await admin.from("staff_profiles").update(patch).eq("user_id", user_id);
-      if (uErr) return Response.json({ error: uErr.message }, { status: 400, headers: corsHeaders });
-
-      if (body.password && String(body.password).length >= 8) {
-        const { error: pwErr } = await admin.auth.admin.updateUserById(user_id, {
-          password: String(body.password),
-        });
-        if (pwErr) return Response.json({ error: pwErr.message }, { status: 400, headers: corsHeaders });
-      }
-
-      return Response.json({ ok: true }, { headers: corsHeaders });
-    }
-
-    // —— Sil ——
-    if (action === "delete") {
-      const user_id = String(body.user_id || "");
-      if (!user_id) {
-        return Response.json({ error: "user_id gerekli." }, { status: 400, headers: corsHeaders });
-      }
-      await admin.from("staff_profiles").delete().eq("user_id", user_id);
-      await admin.auth.admin.deleteUser(user_id);
-      return Response.json({ ok: true }, { headers: corsHeaders });
-    }
-
-    return Response.json({ error: "Geçersiz action." }, { status: 400, headers: corsHeaders });
-  } catch (_e) {
-    return Response.json({ error: "İşlem başarısız." }, { status: 500, headers: corsHeaders });
-  }
-});
+const ALLOWED = new Set(["https://stagepulse.com.tr", "https://www.stagepulse.com.tr"]);
+const headers=(req:Request)=>{const origin=req.headers.get("origin")||"";return {"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":ALLOWED.has(origin)?origin:"https://stagepulse.com.tr","Vary":"Origin","Access-Control-Allow-Headers":"authorization,apikey,content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Cache-Control":"no-store"}};
+const out=(req:Request,b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:headers(req)});
+const url=Deno.env.get("SUPABASE_URL")!;const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;const admin=createClient(url,serviceKey,{auth:{persistSession:false}});
+async function requireAdmin(req:Request){const a=req.headers.get("authorization")||"";if(!a.toLowerCase().startsWith("bearer "))throw Object.assign(new Error("Oturum gerekli."),{status:401});const {data,error}=await admin.auth.getUser(a.slice(7).trim());if(error||!data.user)throw Object.assign(new Error("Oturum geçersiz."),{status:401});const {data:p,error:pe}=await admin.from("admin_profiles").select("user_id").eq("user_id",data.user.id).eq("active",true).maybeSingle();if(pe)throw Object.assign(new Error("Yönetici doğrulaması başarısız."),{status:503});if(!p)throw Object.assign(new Error("Yönetici yetkisi gerekli."),{status:403});return data.user;}
+const text=(v:unknown,n:number)=>typeof v==="string"?v.trim().slice(0,n):"";
+const role=(v:unknown)=>{const r=text(v,32).toLowerCase();return ["crew","tech","warehouse","lead"].includes(r)?r:"crew"};
+const password=(v:unknown)=>{const p=typeof v==="string"?v:"";if(p.length<10||p.length>128||!/[A-Za-zğüşıöçĞÜŞİÖÇ]/.test(p)||!/\d/.test(p))throw new Error("Şifre en az 10 karakter, bir harf ve bir rakam içermeli.");return p};
+const usernameOk=(v:string)=>/^[a-z0-9._-]{3,64}$/.test(v);
+Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response(null,{status:204,headers:headers(req)});if(req.method!=="POST")return out(req,{error:"Method Not Allowed"},405);try{const actor=await requireAdmin(req);const b=await req.json().catch(()=>({}));const action=text(b.action,40);
+if(action==="catalog"){const {data,error}=await admin.from("permission_catalog").select("key,category,label,description,sort_order,active").eq("active",true).order("sort_order").order("key");if(error)throw error;return out(req,{permissions:data||[]})}
+if(action==="list"){const {data:staff,error}=await admin.from("staff_profiles").select("user_id,username,display_name,role,phone,active,notes,created_at,updated_at").neq("role","admin").order("display_name");if(error)throw error;const ids=(staff||[]).map(s=>s.user_id);const {data:perms,error:pe}=ids.length?await admin.from("staff_permissions").select("user_id,permission_key,enabled").in("user_id",ids):{data:[],error:null};if(pe)throw pe;const map=new Map<string,Record<string,boolean>>();for(const r of perms||[]){if(!map.has(r.user_id))map.set(r.user_id,{});map.get(r.user_id)![r.permission_key]=!!r.enabled}return out(req,{staff:(staff||[]).map(s=>({...s,permissions:map.get(s.user_id)||{}}))})}
+const userId=text(b.user_id,64);if(action!=="create"&&!userId)throw new Error("user_id gerekli.");
+if(action==="create"){const u=text(b.username,64).toLowerCase();const d=text(b.display_name,120);const pw=password(b.password);const r=role(b.role);const phone=text(b.phone,40)||null;if(!usernameOk(u)||!d)throw new Error("Geçerli kullanıcı adı ve ad soyad gerekli.");const {data:exists,error:xe}=await admin.from("staff_profiles").select("user_id").eq("username",u).maybeSingle();if(xe)throw xe;if(exists)throw new Error("Bu kullanıcı adı zaten kullanılıyor.");const email=`${u}@staff.stagepulse.com.tr`;const {data:created,error:ce}=await admin.auth.admin.createUser({email,password:pw,email_confirm:true,user_metadata:{username:u,display_name:d,role:r}});if(ce||!created.user)throw ce||new Error("Auth hesabı oluşturulamadı.");const {data:profile,error:pe}=await admin.from("staff_profiles").insert({user_id:created.user.id,username:u,display_name:d,role:r,phone,active:true}).select("user_id,username,display_name,role,phone,active,notes,created_at,updated_at").single();if(pe){await admin.auth.admin.deleteUser(created.user.id).catch(()=>{});throw pe}const {data:catalog,error:ce2}=await admin.from("permission_catalog").select("key").eq("active",true);if(ce2)throw ce2;const reqPerm=(b.permissions&&typeof b.permissions==="object")?b.permissions:{};if((catalog||[]).length){const {error:pie}=await admin.from("staff_permissions").insert((catalog||[]).map(p=>({user_id:created.user.id,permission_key:p.key,enabled:reqPerm[p.key]===true})));if(pie)throw pie}await admin.from("activity_logs").insert({actor_id:actor.id,action:"staff_created",entity_type:"staff",entity_id:created.user.id,metadata:{username:u}}).catch(()=>{});return out(req,{ok:true,staff:profile})}
+const {data:target,error:te}=await admin.from("staff_profiles").select("user_id,username,role,active").eq("user_id",userId).maybeSingle();if(te||!target||target.role==="admin")throw new Error("Personel hesabı bulunamadı.");
+if(action==="update"){const patch:Record<string,unknown>={updated_at:new Date().toISOString()};if(b.display_name!=null)patch.display_name=text(b.display_name,120);if(b.role!=null)patch.role=role(b.role);if(b.phone!=null)patch.phone=text(b.phone,40)||null;if(b.notes!=null)patch.notes=text(b.notes,2000)||null;const {data,error}=await admin.from("staff_profiles").update(patch).eq("user_id",userId).select("user_id,username,display_name,role,phone,active,notes,created_at,updated_at").single();if(error)throw error;if(b.password!=null&&String(b.password).length){const pw=password(b.password);const {error:pe}=await admin.auth.admin.updateUserById(userId,{password:pw});if(pe)throw pe;await admin.auth.admin.signOut(userId).catch(()=>{})}await admin.from("activity_logs").insert({actor_id:actor.id,action:"staff_updated",entity_type:"staff",entity_id:userId,metadata:{}}).catch(()=>{});return out(req,{ok:true,staff:data})}
+if(action==="set_active"){const active=b.active===true;const {error}=await admin.from("staff_profiles").update({active,updated_at:new Date().toISOString()}).eq("user_id",userId);if(error)throw error;if(!active)await admin.auth.admin.signOut(userId).catch(()=>{});return out(req,{ok:true,active})}
+if(action==="permissions"){const raw=b.permissions;if(!raw||typeof raw!=="object")throw new Error("permissions nesnesi gerekli.");const {data:catalog,error:ce}=await admin.from("permission_catalog").select("key").eq("active",true);if(ce)throw ce;const {error:de}=await admin.from("staff_permissions").delete().eq("user_id",userId);if(de)throw de;const rows=(catalog||[]).map(p=>({user_id:userId,permission_key:p.key,enabled:raw[p.key]===true,updated_at:new Date().toISOString()}));if(rows.length){const {error}=await admin.from("staff_permissions").insert(rows);if(error)throw error}await admin.from("activity_logs").insert({actor_id:actor.id,action:"staff_permissions_updated",entity_type:"staff",entity_id:userId,metadata:{permission_count:rows.filter(x=>x.enabled).length}}).catch(()=>{});return out(req,{ok:true,enabled_count:rows.filter(x=>x.enabled).length})}
+if(action==="reset_password"){const pw=password(b.password);const {error}=await admin.auth.admin.updateUserById(userId,{password:pw});if(error)throw error;await admin.auth.admin.signOut(userId).catch(()=>{});return out(req,{ok:true})}
+if(action==="delete"){const {error:pe}=await admin.from("staff_permissions").delete().eq("user_id",userId);if(pe)throw pe;const {error:sp}=await admin.from("staff_profiles").delete().eq("user_id",userId);if(sp)throw sp;const {error}=await admin.auth.admin.deleteUser(userId);if(error)throw error;return out(req,{ok:true})}
+throw new Error("Geçersiz işlem.");}catch(e){const status=e&&typeof e==="object"&&"status"in e&&typeof e.status==="number"?e.status:400;return out(req,{error:e instanceof Error?e.message:"İşlem başarısız."},status)}});
