@@ -40,7 +40,7 @@ jobs:
           test -f portal/portal.js
           ! grep -q 'DEFAULT_PERMS' portal/portal.js
           grep -q 'staff_permissions' portal/portal.js
-          grep -q 'permission_catalog' portal/portal.js
+          grep -q 'permission_catalog' supabase/functions/staff-session/index.ts
 
       - name: Setup Deno
         uses: denoland/setup-deno@v1
