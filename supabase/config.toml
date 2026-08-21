@@ -1,5 +1,5 @@
 # Stagepulse Supabase config
-# Edge Function JWT doğrulaması kapalı — auth fonksiyon içinde yapılıyor
+# Legacy auth endpoints validate sessions inside their handlers.
 
 [functions.staff-manage]
 verify_jwt = false
@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.admin-password-reset]
 verify_jwt = false
+
+[functions.send-fcm-notification]
+verify_jwt = true
