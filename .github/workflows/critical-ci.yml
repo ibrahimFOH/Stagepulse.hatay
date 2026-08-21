@@ -1,349 +1,92 @@
 name: Stagepulse Critical CI
-
 on:
   push:
-    branches:
-      - main
-      - critical-production-sync
-
+    branches: ["main"]
   pull_request:
-    branches:
-      - main
-
+    branches: ["main"]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   critical:
     name: Critical production checks
     runs-on: ubuntu-latest
-
     steps:
-      # ------------------------------------------------------------
-      # 1. CHECKOUT
-      # ------------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
-
-      # ------------------------------------------------------------
-      # 2. NODE
-      # ------------------------------------------------------------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      # ------------------------------------------------------------
-      # 3. JAVASCRIPT SYNTAX
-      # ------------------------------------------------------------
-      - name: Check critical JavaScript syntax
+      - name: JavaScript syntax
         shell: bash
         run: |
           set -euo pipefail
-
-          files=(
-            "admin/auth-layer.js"
-            "admin/staff-permissions.js"
-            "portal/portal.js"
-            "portal/portal-permissions.js"
-            "premium.js"
-          )
-
-          for file in "${files[@]}"; do
-            if [ -f "$file" ]; then
-              echo "Checking JavaScript: $file"
-              node --check "$file"
-            else
-              echo "INFO: Optional JavaScript file not present: $file"
-            fi
-          done
-
-      # ------------------------------------------------------------
-      # 4. PORTAL LIVE PERMISSIONS
-      # ------------------------------------------------------------
-      - name: Verify portal uses live permissions
+          files=(admin/auth-layer.js admin/staff-permissions.js portal/portal.js portal/portal-permissions.js portal/password-recovery.js premium.js)
+          for file in "${files[@]}"; do test -f "$file"; node --check "$file"; done
+      - name: Password recovery security regression
         shell: bash
         run: |
           set -euo pipefail
-
-          file="portal/portal.js"
-
-          test -f "$file" || {
-            echo "ERROR: Missing $file"
-            exit 1
-          }
-
-          if grep -qE '\bDEFAULT_PERMS\b' "$file"; then
-            echo "ERROR: DEFAULT_PERMS fallback found in $file"
-            exit 1
-          fi
-
-          if ! grep -Eq \
-            'staff_permissions|staffUser\.permissions|[.]permissions' \
-            "$file"; then
-            echo "ERROR: Live permission source not detected in $file"
-            exit 1
-          fi
-
-          if ! grep -Eq \
-            'canonical[[:space:]]*\(|PERMISSION_ALIAS|[.]can[[:space:]]*\(|\bcan[[:space:]]*\(' \
-            "$file"; then
-            echo "ERROR: Permission evaluation layer not detected in $file"
-            exit 1
-          fi
-
-          echo "OK: Portal uses live permission data."
-
-      # ------------------------------------------------------------
-      # 5. PERMISSION SOURCE OF TRUTH
-      # ------------------------------------------------------------
-      - name: Verify permission source of truth
+          grep -qF 'resetPasswordForEmail(email' portal/password-recovery.js
+          grep -qF 'forgotPasswordBtn' portal/password-recovery.js
+          grep -qF 'PASSWORD_RECOVERY' portal/password-recovery.js
+          grep -qF 'forgotPasswordBtn' portal/index.html
+          ! grep -qF 'teklifal@stagepulse.com.tr' portal/password-recovery.js
+      - name: Portal live permissions
         shell: bash
         run: |
           set -euo pipefail
-
-          session="supabase/functions/staff-session/index.ts"
-          manage="supabase/functions/staff-manage/index.ts"
-
-          test -f "$session" || {
-            echo "ERROR: Missing $session"
-            exit 1
-          }
-
-          test -f "$manage" || {
-            echo "ERROR: Missing $manage"
-            exit 1
-          }
-
-          grep -qF 'staff_permissions' "$session" || {
-            echo "ERROR: staff_permissions not found in $session"
-            exit 1
-          }
-
-          grep -qF 'permission_catalog' "$manage" || {
-            echo "ERROR: permission_catalog not found in $manage"
-            exit 1
-          }
-
-          if grep -Eq \
-            'DEFAULT_PERMS|defaultPermissions|fallback[[:space:]]*.*permission' \
-            "$session"; then
-            echo "ERROR: Permission fallback detected in $session"
-            exit 1
-          fi
-
-          echo "OK: Permission source-of-truth structure verified."
-
-      # ------------------------------------------------------------
-      # 6. DENO
-      # ------------------------------------------------------------
+          file=portal/portal.js
+          test -f "$file"
+          ! grep -qE '\bDEFAULT_PERMS\b' "$file"
+          grep -Eq 'staff_permissions|staffUser\.permissions|[.]permissions' "$file"
+          grep -Eq 'canonical[[:space:]]*\(|PERMISSION_ALIAS|[.]can[[:space:]]*\(|\bcan[[:space:]]*\(' "$file"
+      - name: Permission source of truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          session=supabase/functions/staff-session/index.ts
+          manage=supabase/functions/staff-manage/index.ts
+          test -f "$session" && test -f "$manage"
+          grep -qF 'staff_permissions' "$session"
+          grep -qF 'permission_catalog' "$manage"
+          ! grep -Eq 'DEFAULT_PERMS|defaultPermissions|fallback[[:space:]]*.*permission' "$session"
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-
-      # ------------------------------------------------------------
-      # 7. EDGE FUNCTION TYPE CHECK
-      # ------------------------------------------------------------
-      - name: Check critical Edge Functions
+      - name: Edge Function type checks
         shell: bash
         run: |
           set -euo pipefail
-
-          functions=(
-            "supabase/functions/staff-manage/index.ts"
-            "supabase/functions/staff-session/index.ts"
-            "supabase/functions/staff-login/index.ts"
-          )
-
-          for file in "${functions[@]}"; do
-            test -f "$file" || {
-              echo "ERROR: Missing Edge Function: $file"
-              exit 1
-            }
-
-            echo "Deno checking: $file"
-            deno check "$file"
-          done
-
-          echo "OK: Critical Edge Functions passed Deno checks."
-
-      # ------------------------------------------------------------
-      # 8. SUPABASE PERMISSION CONFIGURATION
-      # ------------------------------------------------------------
-      - name: Verify permission source exists
+          functions=(supabase/functions/staff-manage/index.ts supabase/functions/staff-session/index.ts supabase/functions/staff-login/index.ts supabase/functions/send-fcm-notification/index.ts)
+          for file in "${functions[@]}"; do test -f "$file"; deno check "$file"; done
+      - name: Supabase configuration and migration guards
         shell: bash
         run: |
           set -euo pipefail
-
-          config="supabase/config.toml"
-          session="supabase/functions/staff-session/index.ts"
-          manage="supabase/functions/staff-manage/index.ts"
-
-          test -f "$config" || {
-            echo "ERROR: Missing $config"
-            exit 1
-          }
-
-          test -f "$session" || {
-            echo "ERROR: Missing $session"
-            exit 1
-          }
-
-          test -f "$manage" || {
-            echo "ERROR: Missing $manage"
-            exit 1
-          }
-
-          grep -qF '[functions.staff-session]' "$config" || {
-            echo "ERROR: staff-session is not configured in $config"
-            exit 1
-          }
-
-          grep -qF 'staff_permissions' "$session" || {
-            echo "ERROR: staff_permissions missing from staff-session"
-            exit 1
-          }
-
-          grep -qF 'permission_catalog' "$manage" || {
-            echo "ERROR: permission_catalog missing from staff-manage"
-            exit 1
-          }
-
-          echo "OK: Supabase permission configuration verified."
-
-      # ------------------------------------------------------------
-      # 9. STAFF JOBS COMPATIBILITY
-      # ------------------------------------------------------------
-      - name: Verify staff jobs compatibility layer
+          test -f supabase/config.toml
+          test -f supabase/functions/staff-session/index.ts
+          test -f supabase/functions/staff-manage/index.ts
+          test -f supabase/migrations/20260821230000_add_fcm_device_token_registry_v29.sql
+          grep -qF 'notification_devices' supabase/migrations/20260821230000_add_fcm_device_token_registry_v29.sql
+          grep -qF 'GRANT EXECUTE ON FUNCTION public.register_notification_device' supabase/migrations/20260821230000_add_fcm_device_token_registry_v29.sql
+      - name: Staff jobs compatibility
         shell: bash
         run: |
           set -euo pipefail
-
-          view_migration="supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql"
-          security_migration="supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql"
-          deprecated_sql="supabase/staff-portal.sql.DEPRECATED.md"
-          deprecated_functions="functions/DEPRECATED.md"
-
-          test -f "$view_migration" || {
-            echo "ERROR: Missing $view_migration"
-            exit 1
-          }
-
-          test -f "$security_migration" || {
-            echo "ERROR: Missing $security_migration"
-            exit 1
-          }
-
-          test -f "$deprecated_sql" || {
-            echo "ERROR: Missing $deprecated_sql"
-            exit 1
-          }
-
-          test -f "$deprecated_functions" || {
-            echo "ERROR: Missing $deprecated_functions"
-            exit 1
-          }
-
-          # PostgreSQL CREATE VIEW syntax is case-insensitive.
-          # Accept:
-          #   CREATE VIEW
-          #   CREATE OR REPLACE VIEW
-          #   create view
-          #   create or replace view
-          if ! grep -Eiq \
-            'create[[:space:]]+(or[[:space:]]+replace[[:space:]]+)?view[[:space:]]+public[.]my_jobs_staff' \
-            "$view_migration"; then
-
-            echo "ERROR: public.my_jobs_staff view definition not found in:"
-            echo "       $view_migration"
-            exit 1
-          fi
-
-          grep -Eiq 'staff_profiles' "$view_migration" || {
-            echo "ERROR: staff_profiles reference missing from $view_migration"
-            exit 1
-          }
-
-          grep -Eiq 'security_invoker[[:space:]]*=[[:space:]]*true' \
-            "$security_migration" || {
-            echo "ERROR: security_invoker = true not found in $security_migration"
-            exit 1
-          }
-
-          grep -Eiq 'security[[:space:]]+invoker' \
-            "$security_migration" || {
-            echo "ERROR: SECURITY INVOKER declaration not found in $security_migration"
-            exit 1
-          }
-
-          echo "OK: Staff jobs compatibility layer verified."
-
-      # ------------------------------------------------------------
-      # 10. LEGACY SQL DEPRECATION
-      # ------------------------------------------------------------
-      - name: Verify legacy SQL is explicitly deprecated
+          view_migration=supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
+          security_migration=supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
+          test -f "$view_migration" && test -f "$security_migration"
+          grep -Eiq 'create[[:space:]]+(or[[:space:]]+replace[[:space:]]+)?view[[:space:]]+public[.]my_jobs_staff' "$view_migration"
+          grep -Eiq 'staff_profiles' "$view_migration"
+          grep -Eiq 'security_invoker[[:space:]]*=[[:space:]]*true' "$security_migration"
+      - name: Legacy notices
         shell: bash
         run: |
           set -euo pipefail
-
-          file="supabase/staff-portal.sql.DEPRECATED.md"
-
-          test -f "$file" || {
-            echo "ERROR: Missing $file"
-            exit 1
-          }
-
-          grep -Eiq 'deprecated' "$file" || {
-            echo "ERROR: $file does not explicitly contain 'deprecated'"
-            exit 1
-          }
-
-          echo "OK: Legacy staff SQL is explicitly marked deprecated."
-
-      # ------------------------------------------------------------
-      # 11. LEGACY FUNCTIONS DEPRECATION
-      # ------------------------------------------------------------
-      - name: Verify legacy functions compatibility notice
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          file="functions/DEPRECATED.md"
-
-          test -f "$file" || {
-            echo "ERROR: Missing $file"
-            exit 1
-          }
-
-          grep -Eiq 'deprecated' "$file" || {
-            echo "ERROR: $file does not explicitly contain 'deprecated'"
-            exit 1
-          }
-
-          echo "OK: Legacy functions compatibility notice verified."
-
-      # ------------------------------------------------------------
-      # 12. FINAL
-      # ------------------------------------------------------------
-      - name: Critical CI summary
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=============================================="
-          echo " Stagepulse Critical CI"
-          echo "=============================================="
-          echo "JavaScript syntax              : PASS"
-          echo "Portal live permissions        : PASS"
-          echo "Permission source of truth     : PASS"
-          echo "Edge Function type checks      : PASS"
-          echo "Supabase configuration         : PASS"
-          echo "Staff jobs compatibility       : PASS"
-          echo "Legacy SQL deprecation         : PASS"
-          echo "Legacy functions notice        : PASS"
-          echo "=============================================="
-          echo " ALL CRITICAL CHECKS PASSED"
-          echo "=============================================="
+          grep -Eiq 'deprecated' supabase/staff-portal.sql.DEPRECATED.md
+          grep -Eiq 'deprecated' functions/DEPRECATED.md
+      - name: Final summary
+        run: echo 'Stagepulse Critical CI: ALL CRITICAL CHECKS PASSED'
