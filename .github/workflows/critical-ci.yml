@@ -33,6 +33,7 @@ jobs:
             fi
           done
 
+      # Permission validation intentionally checks the layer that owns each source of truth.
       - name: Verify portal uses live permissions
         shell: bash
         run: |
