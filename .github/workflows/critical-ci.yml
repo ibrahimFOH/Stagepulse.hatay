@@ -38,9 +38,25 @@ jobs:
         run: |
           set -euo pipefail
           test -f portal/portal.js
-          ! grep -q 'DEFAULT_PERMS' portal/portal.js
-          grep -q 'staff_permissions' portal/portal.js
-          grep -q 'permission_catalog' supabase/functions/staff-session/index.ts
+          if grep -q 'DEFAULT_PERMS' portal/portal.js; then
+            echo 'ERROR: portal/portal.js still contains DEFAULT_PERMS fallback.'
+            exit 1
+          fi
+          grep -Eq "staff_permissions|staffUser\.permissions|\.permissions" portal/portal.js
+          grep -Eq "canonical\(|PERMISSION_ALIAS|can\(" portal/portal.js
+
+      - name: Verify permission source of truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/functions/staff-session/index.ts
+          test -f supabase/functions/staff-manage/index.ts
+          grep -q 'staff_permissions' supabase/functions/staff-session/index.ts
+          grep -q 'permission_catalog' supabase/functions/staff-manage/index.ts
+          if grep -Eq 'DEFAULT_PERMS|defaultPermissions|fallback.*permission' supabase/functions/staff-session/index.ts; then
+            echo 'ERROR: staff-session contains a permission fallback.'
+            exit 1
+          fi
 
       - name: Setup Deno
         uses: denoland/setup-deno@v1
