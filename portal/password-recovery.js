@@ -1,6 +1,5 @@
-/* Stagepulse Personel — centralized password recovery */
+/* Stagepulse Personel — secure self-service password recovery */
 (() => {
-  const RESET_EMAIL = 'teklifal@stagepulse.com.tr';
   const resetUrl = `${location.origin}/portal/`;
   const $ = (s) => document.querySelector(s);
   const strong = (p) => typeof p === 'string' && p.length >= 10 && p.length <= 128 && /[A-Za-zğüşıöçĞÜŞİÖÇ]/.test(p) && /\d/.test(p);
@@ -8,12 +7,14 @@
   async function forgotPassword() {
     const btn = $('#forgotPasswordBtn');
     const err = $('#loginErr');
+    const email = String($('#loginUser')?.value || '').trim().toLowerCase();
+    if (!email || !email.includes('@')) { if (err) { err.hidden = false; err.textContent = 'Önce hesabınızda kayıtlı e-posta adresini girin.'; } return; }
     if (btn) btn.disabled = true;
-    if (err) { err.hidden = false; err.textContent = `${RESET_EMAIL} adresine sıfırlama bağlantısı gönderiliyor…`; }
-    const { error } = await sb.auth.resetPasswordForEmail(RESET_EMAIL, { redirectTo: resetUrl });
+    if (err) { err.hidden = false; err.textContent = 'Sıfırlama bağlantısı gönderiliyor…'; }
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: resetUrl });
     if (btn) btn.disabled = false;
     if (error) { if (err) err.textContent = error.message || 'Sıfırlama e-postası gönderilemedi.'; return; }
-    if (err) err.textContent = `Sıfırlama bağlantısı ${RESET_EMAIL} adresine gönderildi. E-postayı kontrol edin.`;
+    if (err) err.textContent = 'Eğer bu e-posta kayıtlıysa, sıfırlama bağlantısı gönderildi. E-postanızı kontrol edin.';
   }
 
   function recoveryModal() {
@@ -32,7 +33,7 @@
       if (error) { e.textContent=error.message; return; }
       await sb.auth.signOut();
       document.getElementById('spPortalResetModal')?.remove();
-      if (errBox()) errBox().textContent='Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz.';
+      if (errBox()) { errBox().hidden = false; errBox().textContent='Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz.'; }
       document.getElementById('loginView')?.classList.remove('is-hidden');
       if (document.getElementById('loginView')) document.getElementById('loginView').hidden=false;
       document.getElementById('appView')?.classList.add('is-hidden');
