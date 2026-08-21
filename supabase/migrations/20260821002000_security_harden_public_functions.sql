@@ -62,4 +62,8 @@ drop function public.is_admin();
 
 -- Public quote access is served only by the hardened Edge Function.
 revoke all on function public.get_public_quote(text) from public;
+revoke all on function public.get_public_quote(text) from anon;
+revoke all on function public.get_public_quote(text) from authenticated;
 revoke all on function public.respond_to_quote(text, text) from public;
+revoke all on function public.respond_to_quote(text, text) from anon;
+revoke all on function public.respond_to_quote(text, text) from authenticated;
