@@ -1,98 +1,89 @@
 -- StagePulse Staff Portal v2
--- Safe additive migration for the live staff permission architecture.
--- Does not drop or remove legacy columns/tables.
--- Production permission source: permission_catalog + staff_permissions.
+-- SAFE / ADDITIVE MIGRATION
+-- Production permission source: public.permission_catalog + public.staff_permissions.
+-- IMPORTANT: Existing tables/columns and legacy permissions are preserved.
+-- This migration does NOT drop, rename, or delete anything.
+-- It is intentionally aligned with the LIVE schema used by staff-manage:
+-- permission_catalog.key / active and staff_permissions.permission_key / enabled.
 
+-- Create the canonical tables only if they do not already exist.
+-- On the current production schema these statements are no-ops.
 create table if not exists public.permission_catalog (
-  permission_key text primary key,
+  key text primary key,
+  category text not null default 'Genel',
   label text not null,
   description text,
-  category text not null default 'Genel',
   sort_order integer not null default 0,
-  enabled boolean not null default true,
-  created_at timestamptz not null default now()
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.staff_permissions (
   user_id uuid not null references auth.users(id) on delete cascade,
-  permission_key text not null references public.permission_catalog(permission_key) on delete cascade,
+  permission_key text not null references public.permission_catalog(key) on delete cascade,
   enabled boolean not null default false,
   updated_at timestamptz not null default now(),
   primary key (user_id, permission_key)
 );
 
-insert into public.permission_catalog
-  (permission_key, label, description, category, sort_order)
+-- Keep the existing catalog intact and add only missing capabilities.
+-- Existing keys are deliberately not renamed or overwritten.
+insert into public.permission_catalog (key, category, label, description, sort_order, active)
 values
-  ('dashboard.view', 'Genel Bakış / Dashboard görüntüleme', 'Dashboard ve özet bilgilerini görüntüleme', 'Genel', 10),
-  ('offers.view', 'Teklifleri görüntüleme', 'Teklif kayıtlarını görüntüleme', 'Teklifler', 20),
-  ('offers.manage', 'Teklif oluşturma / düzenleme', 'Teklif oluşturma ve mevcut teklifleri düzenleme', 'Teklifler', 30),
-  ('offers.delete', 'Teklif silme', 'Teklif kayıtlarını silme', 'Teklifler', 40),
-  ('customers.view', 'Müşterileri görüntüleme', 'Müşteri kayıtlarını görüntüleme', 'Müşteriler', 50),
-  ('customers.manage', 'Müşteri ekleme / düzenleme', 'Müşteri oluşturma ve düzenleme', 'Müşteriler', 60),
-  ('customers.delete', 'Müşteri silme', 'Müşteri kayıtlarını silme', 'Müşteriler', 70),
-  ('equipment.view', 'Ekipman listesini görüntüleme', 'Ekipman kayıtlarını görüntüleme', 'Ekipman', 80),
-  ('equipment.manage', 'Ekipman ekleme / düzenleme', 'Ekipman oluşturma ve düzenleme', 'Ekipman', 90),
-  ('equipment.delete', 'Ekipman silme', 'Ekipman kayıtlarını silme', 'Ekipman', 100),
-  ('schedule.view', 'Takvim / İş programı görüntüleme', 'Takvim ve iş programını görüntüleme', 'İşler', 110),
-  ('schedule.manage', 'Takvim / İş programı düzenleme', 'Takvim ve iş programında değişiklik yapma', 'İşler', 120),
-  ('settlements.view', 'Gelir-Gider (Settlements) görüntüleme', 'Gelir-gider ve settlement kayıtlarını görüntüleme', 'Finans', 130),
-  ('payments.view', 'Ödemeler / Finans görüntüleme', 'Ödeme ve finans bilgilerini görüntüleme', 'Finans', 140),
-  ('pricing.view', 'Fiyatlandırma görüntüleme', 'Fiyatlandırma kayıtlarını görüntüleme', 'Fiyatlandırma', 150),
-  ('pricing.manage', 'Fiyatlandırma düzenleme', 'Fiyatlandırma kayıtlarını düzenleme', 'Fiyatlandırma', 160),
-  ('staff.view', 'Personel listesini görüntüleme', 'Personel listesini görüntüleme', 'Personel', 170),
-  ('notifications.view', 'Bildirimleri görüntüleme', 'Sistem bildirimlerini görüntüleme', 'Genel', 180),
-  ('activity_logs.view', 'Aktivite loglarını görüntüleme', 'Aktivite ve işlem kayıtlarını görüntüleme', 'Güvenlik', 190),
-  ('analytics.view', 'Analitik / Raporları görüntüleme', 'Analitik ve raporları görüntüleme', 'Raporlar', 200),
-  ('profile.manage', 'Ayarlar / Profil düzenleme', 'Kendi profil ve hesap ayarlarını düzenleme', 'Profil', 210),
-  ('files.upload', 'Dosya yükleme', 'Portal üzerinden dosya yükleme', 'Dosyalar', 220),
-  ('offers.approve', 'Teklif onaylama', 'Teklifleri onaylama veya reddetme', 'Teklifler', 230),
-  ('notifications.send', 'WhatsApp / Bildirim gönderme', 'Yetkili bildirim kanallarından mesaj gönderme', 'Bildirimler', 240),
-  ('jobs.manage', 'İş oluşturma / düzenleme', 'İş kayıtlarını oluşturma ve düzenleme', 'İşler', 250),
-  ('jobs.delete', 'İş silme', 'İş kayıtlarını silme', 'İşler', 260),
-  ('staff.manage', 'Personel yetkilerini yönetme', 'Personel hesaplarını ve yetkilerini yönetme', 'Personel', 270),
-  ('activity_logs.export', 'Aktivite loglarını dışa aktarma', 'Aktivite kayıtlarını dışa aktarma', 'Güvenlik', 280)
-on conflict (permission_key) do update set
-  label = excluded.label,
-  description = excluded.description,
-  category = excluded.category,
-  sort_order = excluded.sort_order,
-  enabled = true;
+  ('dashboard_view', 'dashboard', 'Genel Bakış / Dashboard görüntüleme', 'Dashboard ve özet bilgilerini görüntüleme', 10, true),
+  ('offers_view', 'offers', 'Teklifleri görüntüleme', 'Teklif kayıtlarını görüntüleme', 20, true),
+  ('offers_manage', 'offers', 'Teklif oluşturma / düzenleme', 'Teklif oluşturma ve mevcut teklifleri düzenleme', 21, true),
+  ('offers_delete', 'offers', 'Teklif silme', 'Teklif kayıtlarını silme', 4, true),
+  ('customers_view', 'customers', 'Müşterileri görüntüleme', 'Müşteri kayıtlarını görüntüleme', 30, true),
+  ('customers_manage', 'customers', 'Müşteri ekleme / düzenleme', 'Müşteri oluşturma ve düzenleme', 31, true),
+  ('customers_delete', 'customers', 'Müşteri silme', 'Müşteri kayıtlarını silme', 7, true),
+  ('equipment_view', 'equipment', 'Ekipman listesini görüntüleme', 'Ekipman kayıtlarını görüntüleme', 40, true),
+  ('equipment_manage', 'equipment', 'Ekipman ekleme / düzenleme', 'Ekipman oluşturma ve düzenleme', 41, true),
+  ('equipment_delete', 'equipment', 'Ekipman silme', 'Ekipman kayıtlarını silme', 10, true),
+  ('calendar_view', 'calendar', 'Takvim / İş programı görüntüleme', 'Takvim ve iş programını görüntüleme', 11, true),
+  ('calendar_edit', 'calendar', 'Takvim / İş programı düzenleme', 'Takvim ve iş programında değişiklik yapma', 12, true),
+  ('settlements_view', 'finance', 'Gelir-Gider (Settlements) görüntüleme', 'Gelir-gider ve settlement kayıtlarını görüntüleme', 13, true),
+  ('finance_view', 'finance', 'Ödemeler / Finans görüntüleme', 'Ödeme ve finans bilgilerini görüntüleme', 80, true),
+  ('pricing_view', 'pricing', 'Fiyatlandırma görüntüleme', 'Fiyatlandırma kayıtlarını görüntüleme', 90, true),
+  ('pricing_manage', 'pricing', 'Fiyatlandırma düzenleme', 'Fiyatlandırma kayıtlarını düzenleme', 16, true),
+  ('personnel_view', 'personnel', 'Personel listesini görüntüleme', 'Personel listesini görüntüleme', 17, true),
+  ('notifications_view', 'settings', 'Bildirimleri görüntüleme', 'Sistem bildirimlerini görüntüleme', 111, true),
+  ('activity_view', 'reports', 'Aktivite loglarını görüntüleme', 'Aktivite ve işlem kayıtlarını görüntüleme', 102, true),
+  ('analytics_view', 'reports', 'Analitik / Raporları görüntüleme', 'Analitik ve raporları görüntüleme', 101, true),
+  ('settings_manage', 'settings', 'Ayarlar / Profil düzenleme', 'Profil ve hesap ayarlarını düzenleme', 110, true),
+  ('file_upload', 'operations', 'Dosya yükleme', 'Portal üzerinden dosya yükleme', 31, true),
+  ('offer_approve', 'offers', 'Teklif onaylama', 'Teklifleri onaylama', 33, true),
+  ('whatsapp_send', 'communication', 'WhatsApp bildirim gönderme', 'Yetkili bildirim kanallarından mesaj gönderme', 32, true),
+  ('personnel_manage', 'personnel', 'Personel yönetme', 'Personel hesaplarını ve yetkilerini yönetme', 71, true),
+  ('activity_export', 'reports', 'Aktivite loglarını dışa aktarma', 'Aktivite kayıtlarını dışa aktarma', 103, true),
+  ('offers_export', 'offers', 'Teklifleri dışa aktarma', 'Teklif kayıtlarını dışa aktarma', 34, true),
+  ('customers_export', 'customers', 'Müşterileri dışa aktarma', 'Müşteri kayıtlarını dışa aktarma', 35, true)
+on conflict (key) do nothing;
 
+-- Make the canonical per-user permission table available to the API/index planner.
 create index if not exists idx_staff_permissions_user_id
   on public.staff_permissions(user_id);
 
 create index if not exists idx_staff_permissions_key_enabled
   on public.staff_permissions(permission_key, enabled);
 
+-- Keep RLS enabled. Existing production policies are intentionally preserved.
 alter table public.permission_catalog enable row level security;
 alter table public.staff_permissions enable row level security;
 
--- These policies are intentionally additive and use the existing admin helper.
--- If the live project exposes a different admin helper signature, apply the
--- equivalent policy through the existing production migration rather than
--- replacing the live helper.
-drop policy if exists permission_catalog_authenticated_read on public.permission_catalog;
-create policy permission_catalog_authenticated_read
-  on public.permission_catalog
-  for select
-  to authenticated
-  using (enabled = true);
-
-drop policy if exists staff_permissions_self_read on public.staff_permissions;
-create policy staff_permissions_self_read
-  on public.staff_permissions
-  for select
-  to authenticated
-  using (user_id = auth.uid());
-
--- Seed missing permission rows for existing active staff accounts.
+-- Seed only missing permission rows for existing ACTIVE staff accounts.
+-- Existing enabled/disabled choices are never overwritten.
 insert into public.staff_permissions (user_id, permission_key, enabled)
-select sp.user_id, pc.permission_key, false
+select sp.user_id, pc.key, false
 from public.staff_profiles sp
 cross join public.permission_catalog pc
 where sp.active = true
+  and pc.active = true
 on conflict (user_id, permission_key) do nothing;
 
-comment on table public.permission_catalog is 'StagePulse canonical staff permission catalog. Additive v2 architecture.';
-comment on table public.staff_permissions is 'StagePulse canonical per-user staff permissions. Source of truth for portal authorization.';
+comment on table public.permission_catalog is
+  'StagePulse canonical staff permission catalog. Existing keys are preserved; v2 migration is additive.';
+
+comment on table public.staff_permissions is
+  'StagePulse canonical per-user staff permissions. Source of truth for portal authorization.';
