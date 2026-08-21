@@ -72,6 +72,9 @@ jobs:
           test -f supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
           grep -q 'CREATE OR REPLACE VIEW public.my_jobs_staff' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
           grep -q 'staff_profiles' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
+          test -f supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
+          grep -q 'security_invoker = true' supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
+          grep -q 'SECURITY INVOKER' supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
           test -f supabase/staff-portal.sql.DEPRECATED.md
           test -f functions/DEPRECATED.md
 
