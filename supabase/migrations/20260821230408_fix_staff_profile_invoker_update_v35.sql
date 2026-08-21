@@ -1,0 +1,8 @@
+CREATE OR REPLACE FUNCTION private.touch_staff_profile_updated_at() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ BEGIN NEW.updated_at := now(); RETURN NEW; END; $$;
+REVOKE ALL ON FUNCTION private.touch_staff_profile_updated_at() FROM PUBLIC;
+DROP TRIGGER IF EXISTS trg_staff_profile_touch_updated_at ON public.staff_profiles;
+CREATE TRIGGER trg_staff_profile_touch_updated_at BEFORE UPDATE OF display_name,phone ON public.staff_profiles FOR EACH ROW EXECUTE FUNCTION private.touch_staff_profile_updated_at();
+CREATE OR REPLACE FUNCTION public.staff_update_profile(p_display_name text DEFAULT NULL,p_phone text DEFAULT NULL) RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$ declare u uuid := auth.uid(); r public.staff_profiles; begin if u is null then raise exception using errcode='42501',message='Oturum gerekli'; end if; select * into r from public.staff_profiles where user_id=u and active=true for update; if not found then raise exception using errcode='42501',message='Aktif personel hesabı gerekli'; end if; update public.staff_profiles set display_name=coalesce(p_display_name,display_name),phone=coalesce(p_phone,phone) where user_id=u returning * into r; return jsonb_build_object('id',r.id,'user_id',r.user_id,'username',r.username,'display_name',r.display_name,'phone',r.phone,'role',r.role,'active',r.active); end; $$;
+REVOKE ALL ON FUNCTION public.staff_update_profile(text,text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.staff_update_profile(text,text) FROM anon;
+GRANT EXECUTE ON FUNCTION public.staff_update_profile(text,text) TO authenticated;
