@@ -1,197 +1,137 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  corsHeadersFor,
-  handleOptions,
-  isStrongPassword,
-  jsonError,
-} from "../_shared/security.ts";
 
-// Temel yetkiler varsayılan olarak açık; hassas/mali yetkiler admin
-// açıkça işaretlemeden asla açılmaz (varsayılan false).
-const DEFAULT_PERMS = {
-  jobs: true,
-  equipment: true,
-  offers: true,
-  view_assigned_jobs: true,
-  accept_job: true,
-  reject_job: true,
-  update_job_status: true,
-  customers: false,
-  finance: false,
-  pricing: false,
-  financials: false,
-};
+const ALLOWED = new Set(["https://stagepulse.com.tr", "https://www.stagepulse.com.tr"]);
+const headers = (req: Request) => { const origin = req.headers.get("origin") || ""; return { "Content-Type":"application/json; charset=utf-8", "Access-Control-Allow-Origin": ALLOWED.has(origin) ? origin : "https://stagepulse.com.tr", "Vary":"Origin", "Access-Control-Allow-Headers":"authorization, apikey, content-type", "Access-Control-Allow-Methods":"POST, OPTIONS", "Cache-Control":"no-store" }; };
+const out = (req: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: headers(req) });
 
-// Admin panelindeki "Portalda ne görsün?" listesiyle birebir eşleşmeli.
-// Buradaki liste tek doğrulama noktasıdır: personel oluşturma/güncelleme
-// isteğinde bu listede olmayan hiçbir alan veritabanına yazılmaz.
-const PERMISSION_KEYS = Object.keys(DEFAULT_PERMS) as (keyof typeof DEFAULT_PERMS)[];
+const url = Deno.env.get("SUPABASE_URL")!;
+const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
-const PASSWORD_POLICY_MSG =
-  "Şifre en az 10 karakter, en az bir harf ve bir rakam içermelidir.";
-
-function normalizePerms(raw: unknown) {
-  const p = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const out: Record<string, boolean> = {};
-  for (const key of PERMISSION_KEYS) {
-    // Temel (default true) yetkiler: açıkça false verilmediyse açık kalır.
-    // Hassas (default false) yetkiler: admin açıkça true vermediyse kapalı kalır.
-    out[key] = DEFAULT_PERMS[key]
-      ? p[key] !== false
-      : p[key] === true;
-  }
-  return out;
+async function requireAdmin(req: Request) {
+  const auth = req.headers.get("authorization") || "";
+  if (!auth.toLowerCase().startsWith("bearer ")) throw Object.assign(new Error("Oturum gerekli."), { status: 401 });
+  const token = auth.slice(7).trim();
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data.user) throw Object.assign(new Error("Oturum geçersiz."), { status: 401 });
+  const { data: profile, error: pErr } = await admin.from("admin_profiles").select("user_id").eq("user_id", data.user.id).eq("active", true).maybeSingle();
+  if (pErr) throw Object.assign(new Error("Yönetici doğrulaması başarısız."), { status: 503 });
+  if (!profile) throw Object.assign(new Error("Yönetici yetkisi gerekli."), { status: 403 });
+  return data.user;
 }
 
-// username + rastgele bir token birleştirerek tahmin edilemez ve çakışmayan
-// bir yerel (@stagepulse.local) e-posta üretir.
-function generateLocalEmail(username: string): string {
-  const token = crypto.randomUUID().split("-")[0];
-  return `${username}.${token}@staff.stagepulse.local`;
-}
+function cleanText(v: unknown, max: number) { return typeof v === "string" ? v.trim().slice(0, max) : ""; }
+function normalizeRole(v: unknown) { const r = cleanText(v, 32).toLowerCase(); return ["crew","tech","warehouse","lead"].includes(r) ? r : "crew"; }
+function strongPassword(v: unknown) { const p = typeof v === "string" ? v : ""; if (p.length < 10 || p.length > 128 || !/[A-Za-zğüşıöçĞÜŞİÖÇ]/.test(p) || !/\d/.test(p)) throw new Error("Şifre en az 10 karakter, bir harf ve bir rakam içermeli."); return p; }
+function validUsername(v: string) { return /^[a-z0-9._-]{3,64}$/.test(v); }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-Deno.serve(async (req) => {
-  const opt = handleOptions(req);
-  if (opt) return opt;
-  const corsHeaders = corsHeadersFor(req);
-
-  if (req.method !== "POST") {
-    return jsonError("Method Not Allowed", 405, corsHeaders);
-  }
-
+Deno.serve(async req => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: headers(req) });
+  if (req.method !== "POST") return out(req, { error:"Method Not Allowed" }, 405);
   try {
-    const url = Deno.env.get("SUPABASE_URL")!;
-    const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const authHeader = req.headers.get("Authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return jsonError("Oturum gerekli.", 401, corsHeaders);
+    const adminUser = await requireAdmin(req);
+    const b = await req.json().catch(() => ({}));
+    const action = cleanText(b.action, 40);
+
+    if (action === "catalog") {
+      const { data, error } = await admin.from("permission_catalog").select("key,category,label,description,sort_order,active").eq("active", true).order("sort_order").order("key");
+      if (error) throw error;
+      return out(req, { permissions: data || [] });
+    }
+    if (action === "list") {
+      const { data: staff, error } = await admin.from("staff_profiles").select("user_id,username,display_name,role,phone,active,notes,created_at,updated_at").neq("role","admin").order("display_name");
+      if (error) throw error;
+      const ids = (staff || []).map(x => x.user_id);
+      const { data: perms, error: pe } = ids.length ? await admin.from("staff_permissions").select("user_id,permission_key,enabled").in("user_id", ids) : { data: [], error: null };
+      if (pe) throw pe;
+      const map = new Map<string, Record<string, boolean>>();
+      for (const row of perms || []) { if (!map.has(row.user_id)) map.set(row.user_id, {}); map.get(row.user_id)![row.permission_key] = !!row.enabled; }
+      return out(req, { staff: (staff || []).map(s => ({ ...s, permissions: map.get(s.user_id) || {} })) });
     }
 
-    // Çağıranın admin olduğunu doğrula
-    const userClient = createClient(url, anon, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) {
-      return jsonError("Oturum gerekli.", 401, corsHeaders);
-    }
+    const userId = cleanText(b.user_id, 64);
+    if (action !== "create" && !userId) throw new Error("user_id gerekli.");
 
-    const admin = createClient(url, service, { auth: { persistSession: false } });
-    const { data: isAdminRow } = await admin
-      .from("admin_profiles")
-      .select("user_id")
-      .eq("user_id", userData.user.id)
-      .eq("active", true)
-      .maybeSingle();
-    if (!isAdminRow) {
-      return jsonError("Yetkisiz.", 403, corsHeaders);
-    }
-
-    const body = await req.json().catch(() => null);
-    if (!body || typeof body !== "object") {
-      return jsonError("Geçersiz istek.", 400, corsHeaders);
-    }
-    const action = body.action as string;
-
-    // —— Oluştur ——
     if (action === "create") {
-      const username = String(body.username || "").trim().toLowerCase();
-      const display_name = String(body.display_name || "").trim();
-      const password = String(body.password || "");
-      const role = String(body.role || "crew");
-      const phone = body.phone ? String(body.phone).trim() : null;
-      const rawEmail = body.email ? String(body.email).trim() : "";
-      if (rawEmail && !EMAIL_RE.test(rawEmail)) {
-        return jsonError("Geçerli bir e-posta adresi girin.", 400, corsHeaders);
-      }
-      const email = rawEmail || generateLocalEmail(username);
-      const permissions = normalizePerms(body.permissions ?? DEFAULT_PERMS);
-
-      if (!username || !display_name || !isStrongPassword(password)) {
-        return jsonError(
-          `Kullanıcı adı, ad zorunlu. ${PASSWORD_POLICY_MSG}`,
-          400,
-          corsHeaders
-        );
-      }
-
-      const { data: created, error: cErr } = await admin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { role: "staff", username },
-      });
-      if (cErr || !created?.user) {
-        return jsonError(cErr?.message || "Kullanıcı oluşturulamadı.", 400, corsHeaders);
-      }
-
-      const { error: pErr } = await admin.from("staff_profiles").insert({
-        user_id: created.user.id,
-        username,
-        display_name,
-        role,
-        phone,
-        active: true,
-        permissions,
-      });
-      if (pErr) {
-        await admin.auth.admin.deleteUser(created.user.id);
-        return jsonError(pErr.message, 400, corsHeaders);
-      }
-
-      return Response.json(
-        { ok: true, user_id: created.user.id, username, display_name, role, permissions },
-        { headers: corsHeaders }
-      );
+      const username = cleanText(b.username, 64).toLowerCase();
+      const display = cleanText(b.display_name, 120);
+      const password = strongPassword(b.password);
+      const role = normalizeRole(b.role);
+      const phone = cleanText(b.phone, 40) || null;
+      if (!validUsername(username) || !display) throw new Error("Geçerli kullanıcı adı ve ad soyad gerekli.");
+      const { data: exists, error: xe } = await admin.from("staff_profiles").select("user_id").eq("username", username).maybeSingle();
+      if (xe) throw xe;
+      if (exists) throw new Error("Bu kullanıcı adı zaten kullanılıyor.");
+      const email = `${username}@staff.stagepulse.com.tr`;
+      const { data: created, error: ce } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { username, display_name: display, role } });
+      if (ce || !created.user) throw ce || new Error("Auth hesabı oluşturulamadı.");
+      const { data: profile, error: pe } = await admin.from("staff_profiles").insert({ user_id: created.user.id, username, display_name: display, role, phone, active: true }).select("user_id,username,display_name,role,phone,active,notes,created_at,updated_at").single();
+      if (pe) { await admin.auth.admin.deleteUser(created.user.id).catch(()=>{}); throw pe; }
+      const { data: catalog, error: ce2 } = await admin.from("permission_catalog").select("key").eq("active", true);
+      if (ce2) throw ce2;
+      const requested = (b.permissions && typeof b.permissions === "object") ? b.permissions : {};
+      if ((catalog || []).length) await admin.from("staff_permissions").insert((catalog || []).map(p => ({ user_id: created.user.id, permission_key: p.key, enabled: requested[p.key] === true })));
+      await admin.from("activity_logs").insert({ actor_id: adminUser.id, action:"staff_created", entity_type:"staff", entity_id: created.user.id, metadata:{ username } }).catch(()=>{});
+      return out(req, { ok:true, staff:profile });
     }
 
-    // —— Güncelle ——
+    const { data: target, error: te } = await admin.from("staff_profiles").select("user_id,username,role,active").eq("user_id", userId).maybeSingle();
+    if (te || !target || target.role === "admin") throw new Error("Personel hesabı bulunamadı.");
+
     if (action === "update") {
-      const user_id = String(body.user_id || "");
-      if (!user_id) {
-        return jsonError("user_id gerekli.", 400, corsHeaders);
-      }
       const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-      if (body.display_name != null) patch.display_name = String(body.display_name).trim();
-      if (body.role != null) patch.role = String(body.role);
-      if (body.phone != null) patch.phone = String(body.phone).trim() || null;
-      if (body.active != null) patch.active = !!body.active;
-      if (body.username != null) patch.username = String(body.username).trim().toLowerCase();
-      if (body.permissions != null) patch.permissions = normalizePerms(body.permissions);
-
-      const { error: uErr } = await admin.from("staff_profiles").update(patch).eq("user_id", user_id);
-      if (uErr) return jsonError(uErr.message, 400, corsHeaders);
-
-      if (body.password) {
-        if (!isStrongPassword(String(body.password))) {
-          return jsonError(PASSWORD_POLICY_MSG, 400, corsHeaders);
-        }
-        const { error: pwErr } = await admin.auth.admin.updateUserById(user_id, {
-          password: String(body.password),
-        });
-        if (pwErr) return jsonError(pwErr.message, 400, corsHeaders);
-      }
-
-      return Response.json({ ok: true }, { headers: corsHeaders });
+      if (b.display_name != null) patch.display_name = cleanText(b.display_name, 120);
+      if (b.role != null) patch.role = normalizeRole(b.role);
+      if (b.phone != null) patch.phone = cleanText(b.phone, 40) || null;
+      if (b.notes != null) patch.notes = cleanText(b.notes, 2000) || null;
+      const { data, error } = await admin.from("staff_profiles").update(patch).eq("user_id", userId).select("user_id,username,display_name,role,phone,active,notes,created_at,updated_at").single();
+      if (error) throw error;
+      if (b.password != null && String(b.password).length) { const password = strongPassword(b.password); const { error: pe } = await admin.auth.admin.updateUserById(userId, { password }); if (pe) throw pe; await admin.auth.admin.signOut(userId).catch(()=>{}); }
+      await admin.from("activity_logs").insert({ actor_id: adminUser.id, action:"staff_updated", entity_type:"staff", entity_id:userId, metadata:{} }).catch(()=>{});
+      return out(req, { ok:true, staff:data });
     }
 
-    // —— Sil ——
+    if (action === "set_active") {
+      const active = b.active === true;
+      const { error } = await admin.from("staff_profiles").update({ active, updated_at: new Date().toISOString() }).eq("user_id", userId);
+      if (error) throw error;
+      if (!active) await admin.auth.admin.signOut(userId).catch(()=>{});
+      await admin.from("activity_logs").insert({ actor_id: adminUser.id, action: active ? "staff_activated" : "staff_deactivated", entity_type:"staff", entity_id:userId, metadata:{} }).catch(()=>{});
+      return out(req, { ok:true, active });
+    }
+
+    if (action === "permissions") {
+      const raw = b.permissions;
+      if (!raw || typeof raw !== "object") throw new Error("permissions nesnesi gerekli.");
+      const { data: catalog, error: ce } = await admin.from("permission_catalog").select("key").eq("active", true);
+      if (ce) throw ce;
+      await admin.from("staff_permissions").delete().eq("user_id", userId);
+      const rows = (catalog || []).map(p => ({ user_id:userId, permission_key:p.key, enabled: raw[p.key] === true, updated_at:new Date().toISOString() }));
+      if (rows.length) { const { error } = await admin.from("staff_permissions").insert(rows); if (error) throw error; }
+      await admin.from("activity_logs").insert({ actor_id: adminUser.id, action:"staff_permissions_updated", entity_type:"staff", entity_id:userId, metadata:{ permission_count: rows.filter(x=>x.enabled).length } }).catch(()=>{});
+      return out(req, { ok:true, enabled_count: rows.filter(x=>x.enabled).length });
+    }
+
+    if (action === "reset_password") {
+      const password = strongPassword(b.password);
+      const { error } = await admin.auth.admin.updateUserById(userId, { password });
+      if (error) throw error;
+      await admin.auth.admin.signOut(userId).catch(()=>{});
+      await admin.from("activity_logs").insert({ actor_id: adminUser.id, action:"staff_password_reset", entity_type:"staff", entity_id:userId, metadata:{} }).catch(()=>{});
+      return out(req, { ok:true });
+    }
+
     if (action === "delete") {
-      const user_id = String(body.user_id || "");
-      if (!user_id) {
-        return jsonError("user_id gerekli.", 400, corsHeaders);
-      }
-      await admin.from("staff_profiles").delete().eq("user_id", user_id);
-      await admin.auth.admin.deleteUser(user_id);
-      return Response.json({ ok: true }, { headers: corsHeaders });
+      await admin.from("staff_permissions").delete().eq("user_id", userId);
+      await admin.from("staff_profiles").delete().eq("user_id", userId);
+      const { error } = await admin.auth.admin.deleteUser(userId);
+      if (error) throw error;
+      return out(req, { ok:true, deleted_user_id:userId });
     }
-
-    return jsonError("Geçersiz action.", 400, corsHeaders);
-  } catch (_e) {
-    return jsonError("İşlem başarısız.", 500, corsHeadersFor(req));
+    throw new Error("Geçersiz işlem.");
+  } catch (e) {
+    const status = (e && typeof e === "object" && "status" in e && typeof e.status === "number") ? e.status : 400;
+    return out(req, { error: e instanceof Error ? e.message : "İşlem başarısız." }, status);
   }
 });
