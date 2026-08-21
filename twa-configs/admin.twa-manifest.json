@@ -11,15 +11,12 @@
   "navigationDividerColor": "#090909",
   "navigationDividerColorDark": "#090909",
   "backgroundColor": "#070707",
-  "enableNotifications": false,
+  "enableNotifications": true,
   "startUrl": "/admin/",
   "iconUrl": "https://stagepulse.com.tr/icon-512.png",
   "maskableIconUrl": "https://stagepulse.com.tr/icon-512.png",
   "splashScreenFadeOutDuration": 300,
-  "signingKey": {
-    "path": "./android.keystore",
-    "alias": "android"
-  },
+  "signingKey": { "path": "./android.keystore", "alias": "android" },
   "appVersion": "1.0.0",
   "appVersionCode": 1,
   "shortcuts": [],
@@ -27,9 +24,7 @@
   "webManifestUrl": "https://stagepulse.com.tr/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
-  "alphaDependencies": {
-    "enabled": false
-  },
+  "alphaDependencies": { "enabled": false },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
