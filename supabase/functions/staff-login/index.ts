@@ -8,12 +8,11 @@ import {
   jsonError,
 } from "../_shared/security.ts";
 
-const DEFAULT_PERMS = {
-  jobs: true,
-  equipment: true,
-  offers: true,
-  update_job_status: true,
-};
+// DEPRECATED compatibility endpoint.
+// Production source of truth for staff authorization is Supabase Auth +
+// staff_profiles + staff_permissions, surfaced through staff-session.
+// Keep this endpoint while existing portal clients migrate; do not add new
+// permission logic here.
 
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -44,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: profile, error: pe } = await admin
       .from("staff_profiles")
-      .select("user_id,active,username,display_name,role,permissions")
+      .select("user_id,active,username,display_name,role")
       .eq("username", username.trim().toLowerCase())
       .maybeSingle();
 
@@ -64,7 +63,24 @@ Deno.serve(async (req) => {
       return jsonError(GENERIC_LOGIN_ERROR, 401, corsHeaders);
     }
 
-    const perms = { ...DEFAULT_PERMS, ...(profile.permissions || {}) };
+    // Compatibility response: read permissions only from the live
+    // staff_permissions table. Do not fall back to DEFAULT_PERMS or the
+    // legacy staff_profiles.permissions JSONB field.
+    const { data: permissionRows, error: permissionError } = await admin
+      .from("staff_permissions")
+      .select("permission_key,enabled")
+      .eq("user_id", profile.user_id);
+
+    if (permissionError) {
+      return jsonError("Personel yetkileri alınamadı.", 500, corsHeaders);
+    }
+
+    const permissions: Record<string, boolean> = {};
+    for (const row of permissionRows || []) {
+      if (typeof row.permission_key === "string") {
+        permissions[row.permission_key] = !!row.enabled;
+      }
+    }
 
     return Response.json(
       {
@@ -74,7 +90,7 @@ Deno.serve(async (req) => {
           username: profile.username,
           display_name: profile.display_name,
           role: profile.role,
-          permissions: perms,
+          permissions,
         },
       },
       { headers: corsHeaders }
