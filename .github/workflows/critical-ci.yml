@@ -85,7 +85,10 @@ jobs:
           check_file() { test -f "$1" || { echo "MISSING FILE: $1"; failed=1; }; }
           check_text() { grep -qF -- "$1" "$2" || { echo "MISSING TEXT: $1 in $2"; failed=1; }; }
           check_file supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
-          check_text 'CREATE OR REPLACE VIEW public.my_jobs_staff' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
+          if ! grep -Eq 'create[[:space:]]+(or[[:space:]]+replace[[:space:]]+)?view[[:space:]]+public\.my_jobs_staff' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql; then
+            echo 'MISSING VIEW DEFINITION: public.my_jobs_staff in supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql'
+            failed=1
+          fi
           check_text 'staff_profiles' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
           check_file supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
           check_text 'security_invoker = true' supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
