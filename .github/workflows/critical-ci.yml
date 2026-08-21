@@ -69,9 +69,14 @@ jobs:
           test -f supabase/config.toml
           test -f supabase/functions/staff-session/index.ts
           test -f supabase/functions/staff-manage/index.ts
-          test -f supabase/migrations/20260821230000_add_fcm_device_token_registry_v29.sql
-          grep -qF 'notification_devices' supabase/migrations/20260821230000_add_fcm_device_token_registry_v29.sql
-          grep -qF 'GRANT EXECUTE ON FUNCTION public.register_notification_device' supabase/migrations/20260821230000_add_fcm_device_token_registry_v29.sql
+          test -f supabase/migrations/20260821210643_add_fcm_device_token_registry_v29.sql
+          grep -qF 'notification_devices' supabase/migrations/20260821210643_add_fcm_device_token_registry_v29.sql
+          grep -qF 'GRANT EXECUTE ON FUNCTION public.register_notification_device' supabase/migrations/20260821210643_add_fcm_device_token_registry_v29.sql
+          test -f supabase/migrations/20260821234535_consolidate_performance_policies_free_plan_v41.sql
+          test -f supabase/migrations/20260821234542_restore_permission_admin_writes_v42.sql
+          test -f supabase/migrations/20260821234609_finish_policy_consolidation_free_plan_v43.sql
+          test -f supabase/migrations/20260821234623_remove_unused_indexes_free_plan_v44.sql
+          test -f supabase/migrations/20260821235000_canonicalize_my_jobs_staff_permission_v45.sql
       - name: Staff jobs compatibility
         shell: bash
         run: |
@@ -80,8 +85,9 @@ jobs:
           security_migration=supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
           test -f "$view_migration" && test -f "$security_migration"
           grep -Eiq 'create[[:space:]]+(or[[:space:]]+replace[[:space:]]+)?view[[:space:]]+public[.]my_jobs_staff' "$view_migration"
-          grep -Eiq 'staff_profiles' "$view_migration"
+          grep -Eiq 'staff_profiles|staff[[:space:]]+s' "$view_migration"
           grep -Eiq 'security_invoker[[:space:]]*=[[:space:]]*true' "$security_migration"
+          grep -Eiq "staff_has_perm\('jobs.view'" supabase/migrations/20260821235000_canonicalize_my_jobs_staff_permission_v45.sql
       - name: Legacy notices
         shell: bash
         run: |
