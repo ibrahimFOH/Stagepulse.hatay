@@ -3,21 +3,34 @@
   const SESSION_EDGE = `${SUPABASE_URL}/functions/v1/staff-session`;
   const resetUrl = `${location.origin}/portal/`;
   const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+
+  // Canonical permission keys are the production source of truth.
+  // Legacy portal keys remain accepted through this compatibility map.
   const alias = {
-    jobs:'jobs_view_assigned', equipment:'equipment_view', offers:'offers_view',
-    customers:'customers_view', finance:'finance_view', pricing:'pricing_view',
-    view_assigned_jobs:'jobs_view_assigned', accept_job:'job_accept',
-    reject_job:'job_reject', update_job_status:'job_status_update',
-    update_job_notes:'job_notes_update', manage_job_equipment:'job_equipment_manage',
-    view_job_contacts:'job_contacts_view', view_job_documents:'job_documents_view',
-    equipment_checkout:'equipment_checkout', equipment_return:'equipment_return',
-    report_issue:'issue_report', view_team:'team_view', financials:'financials_view'
+    jobs:'schedule.view', equipment:'equipment.view', offers:'offers.view',
+    customers:'customers.view', finance:'payments.view', pricing:'pricing.view',
+    view_assigned_jobs:'schedule.view', accept_job:'jobs.manage',
+    reject_job:'jobs.manage', update_job_status:'jobs.manage',
+    update_job_notes:'jobs.manage', manage_job_equipment:'jobs.manage',
+    view_job_contacts:'schedule.view', view_job_documents:'schedule.view',
+    equipment_checkout:'equipment.manage', equipment_return:'equipment.manage',
+    report_issue:'notifications.send', view_team:'staff.view', financials:'settlements.view',
+    dashboard_view:'dashboard.view', jobs_view_assigned:'schedule.view',
+    equipment_view:'equipment.view', offers_view:'offers.view',
+    customers_view:'customers.view', finance_view:'payments.view',
+    pricing_view:'pricing.view', analytics_view:'analytics.view',
+    activity_view:'activity_logs.view', notifications_view:'notifications.view',
+    settings_manage:'profile.manage', calendar_view:'schedule.view',
+    calendar_edit:'schedule.manage', settlements_view:'settlements.view',
+    personnel_view:'staff.view', pricing_manage:'pricing.manage',
+    file_upload:'files.upload', offer_approve:'offers.approve',
+    whatsapp_send:'notifications.send', personnel_manage:'staff.manage'
   };
   const views = {
-    home:'dashboard_view', jobs:'jobs_view_assigned', equipment:'equipment_view',
-    offers:'offers_view', customers:'customers_view', finance:'finance_view',
-    pricing:'pricing_view', analytics:'analytics_view', activity:'activity_view',
-    notifications:'notifications_view', settings:'settings_manage'
+    home:'dashboard.view', jobs:'schedule.view', equipment:'equipment.view',
+    offers:'offers.view', customers:'customers.view', finance:'payments.view',
+    pricing:'pricing.view', analytics:'analytics.view', activity:'activity_logs.view',
+    notifications:'notifications.view', settings:'profile.manage'
   };
   const navItems = [
     ['home','Özet'], ['jobs','İşler'], ['equipment','Ekipman'], ['offers','Teklifler'],
@@ -31,7 +44,8 @@
   let sessionBusy = false;
   let sessionTimer = null;
 
-  const canLive = (key) => live[alias[key] || key] === true;
+  const canonical = (key) => alias[key] || key;
+  const canLive = (key) => live[canonical(key)] === true;
   const firstAllowed = () => navItems.map(([v]) => v).find((v) => v === 'home' || canLive(views[v])) || null;
   const permissionCount = () => Object.values(live).filter(Boolean).length;
 
@@ -213,7 +227,7 @@
     loadLiveView(views[h] && (h === 'home' || canLive(views[h])) ? h : (firstAllowed() || 'home'));
   }
 
-  async function external(v) {
+  function external(v) {
     const labels = { analytics:'Analitik', activity:'Aktivite', notifications:'Bildirimler', settings:'Ayarlar' };
     $('#content').innerHTML = `<div class="panel portal-placeholder"><h2>${esc(labels[v] || 'Bölüm')}</h2><p class="muted">Bu bölüm için yetkiniz aktif. Modül verisi hazır olduğunda burada görüntülenecek.</p></div>`;
   }
@@ -241,7 +255,7 @@
     const fn = m[v];
     try {
       if (typeof fn === 'function') return await fn();
-      return await external(v);
+      return external(v);
     } catch (error) {
       console.error('Portal view error:', error);
       $('#content').innerHTML = `<div class="panel portal-error"><b>Bu bölüm yüklenemedi.</b><p class="muted">${esc(error?.message || 'Beklenmeyen bir hata oluştu.')}</p><button class="btn" type="button" onclick="loadView('home')">Özete dön</button></div>`;
