@@ -1,11 +1,11 @@
 /* ============================================
-   STAGEPULSE – Service Worker v5
+   STAGEPULSE – Service Worker v7
    Network-first for HTML/JS
    Cache-first for images, videos, fonts, CSS
    Video ve büyük medya için hazır
    ============================================ */
 
-const CACHE_VERSION = 'stagepulse-v6';
+const CACHE_VERSION = 'stagepulse-v7';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const MEDIA_CACHE = `media-${CACHE_VERSION}`;
 
@@ -62,6 +62,7 @@ self.addEventListener('fetch', (event) => {
   // Sadece same-origin
   if (url.origin !== self.location.origin) return;
 
+  // Admin/Portal JS artık asla eski cache'ten gelmez – 2026-08-21
   // HTML + kritik JS + media.json → Network First
   const isNetworkFirst =
     NETWORK_FIRST_PATHS.some((p) => url.pathname === p || url.pathname.endsWith(p)) ||
@@ -69,7 +70,15 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('script.js') ||
     url.pathname.endsWith('i18n.js') ||
-    url.pathname.endsWith('media.json');
+    url.pathname.endsWith('media.json') ||
+    (
+      url.pathname.startsWith('/admin/') &&
+      url.pathname.endsWith('.js')
+    ) ||
+    (
+      url.pathname.startsWith('/portal/') &&
+      url.pathname.endsWith('.js')
+    );
 
   if (isNetworkFirst) {
     event.respondWith(
