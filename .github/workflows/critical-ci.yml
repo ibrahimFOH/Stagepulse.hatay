@@ -39,12 +39,9 @@ jobs:
         run: |
           set -euo pipefail
           test -f portal/portal.js
-          if grep -q 'DEFAULT_PERMS' portal/portal.js; then
-            echo 'ERROR: portal/portal.js still contains DEFAULT_PERMS fallback.'
-            exit 1
-          fi
-          grep -Eq "staff_permissions|staffUser\.permissions|\.permissions" portal/portal.js
-          grep -Eq "canonical\(|PERMISSION_ALIAS|can\(" portal/portal.js
+          ! grep -q 'DEFAULT_PERMS' portal/portal.js
+          grep -Eq 'staff_permissions|staffUser\.permissions|\.permissions' portal/portal.js
+          grep -Eq 'canonical\(|PERMISSION_ALIAS|can\(' portal/portal.js
 
       - name: Verify permission source of truth
         shell: bash
@@ -54,10 +51,7 @@ jobs:
           test -f supabase/functions/staff-manage/index.ts
           grep -q 'staff_permissions' supabase/functions/staff-session/index.ts
           grep -q 'permission_catalog' supabase/functions/staff-manage/index.ts
-          if grep -Eq 'DEFAULT_PERMS|defaultPermissions|fallback.*permission' supabase/functions/staff-session/index.ts; then
-            echo 'ERROR: staff-session contains a permission fallback.'
-            exit 1
-          fi
+          ! grep -Eq 'DEFAULT_PERMS|defaultPermissions|fallback.*permission' supabase/functions/staff-session/index.ts
 
       - name: Setup Deno
         uses: denoland/setup-deno@v1
@@ -86,14 +80,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
-          grep -q 'CREATE OR REPLACE VIEW public.my_jobs_staff' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
-          grep -q 'staff_profiles' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
-          test -f supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
-          grep -q 'security_invoker = true' supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
-          grep -q 'SECURITY INVOKER' supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
-          test -f supabase/staff-portal.sql.DEPRECATED.md
-          test -f functions/DEPRECATED.md
+          set +e
+          failed=0
+          check_file() { test -f "$1" || { echo "MISSING FILE: $1"; failed=1; }; }
+          check_text() { grep -qF -- "$1" "$2" || { echo "MISSING TEXT: $1 in $2"; failed=1; }; }
+          check_file supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
+          check_text 'CREATE OR REPLACE VIEW public.my_jobs_staff' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
+          check_text 'staff_profiles' supabase/migrations/20260821000000_fix_my_jobs_staff_view.sql
+          check_file supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
+          check_text 'security_invoker = true' supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
+          check_text 'SECURITY INVOKER' supabase/migrations/20260821001000_harden_staff_jobs_view_security.sql
+          check_file supabase/staff-portal.sql.DEPRECATED.md
+          check_file functions/DEPRECATED.md
+          set -e
+          if [ "$failed" -ne 0 ]; then
+            echo 'ERROR: staff jobs compatibility layer validation failed.'
+            exit 1
+          fi
 
       - name: Verify legacy SQL is explicitly deprecated
         shell: bash
