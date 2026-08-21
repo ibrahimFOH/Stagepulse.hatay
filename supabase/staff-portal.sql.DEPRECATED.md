@@ -1,4 +1,4 @@
-# Legacy staff-portal.sql
+# DEPRECATED: Legacy staff-portal.sql
 
 Bu dosya korunmaktadır ve silinmemiştir; ancak production için artık source-of-truth değildir.
 
