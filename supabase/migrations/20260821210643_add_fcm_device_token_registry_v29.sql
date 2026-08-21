@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS public.notification_devices (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, token text NOT NULL, platform text NOT NULL CHECK (platform IN ('android','web')), app_variant text NOT NULL CHECK (app_variant IN ('admin','staff')), active boolean NOT NULL DEFAULT true, last_seen_at timestamptz NOT NULL DEFAULT now(), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE(token));
+CREATE INDEX IF NOT EXISTS notification_devices_user_active_idx ON public.notification_devices(user_id, active);
+ALTER TABLE public.notification_devices ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS notification_devices_self_select ON public.notification_devices;
+DROP POLICY IF EXISTS notification_devices_self_insert ON public.notification_devices;
+DROP POLICY IF EXISTS notification_devices_self_update ON public.notification_devices;
+DROP POLICY IF EXISTS notification_devices_self_delete ON public.notification_devices;
+CREATE POLICY notification_devices_self_select ON public.notification_devices FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY notification_devices_self_insert ON public.notification_devices FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+CREATE POLICY notification_devices_self_update ON public.notification_devices FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY notification_devices_self_delete ON public.notification_devices FOR DELETE TO authenticated USING (user_id = auth.uid());
+REVOKE ALL ON TABLE public.notification_devices FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.notification_devices TO authenticated;
+CREATE OR REPLACE FUNCTION public.register_notification_device(p_token text,p_platform text,p_app_variant text) RETURNS public.notification_devices LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ DECLARE r public.notification_devices; BEGIN IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Oturum gerekli'; END IF; IF length(trim(coalesce(p_token,''))) < 20 THEN RAISE EXCEPTION 'Geçersiz bildirim tokenı'; END IF; IF p_platform NOT IN ('android','web') THEN RAISE EXCEPTION 'Geçersiz platform'; END IF; IF p_app_variant NOT IN ('admin','staff') THEN RAISE EXCEPTION 'Geçersiz uygulama'; END IF; INSERT INTO public.notification_devices(user_id,token,platform,app_variant,active,last_seen_at,updated_at) VALUES(auth.uid(),trim(p_token),p_platform,p_app_variant,true,now(),now()) ON CONFLICT(token) DO UPDATE SET user_id=excluded.user_id,platform=excluded.platform,app_variant=excluded.app_variant,active=true,last_seen_at=now(),updated_at=now() RETURNING * INTO r; RETURN r; END; $$;
+REVOKE ALL ON FUNCTION public.register_notification_device(text,text,text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.register_notification_device(text,text,text) FROM anon;
+GRANT EXECUTE ON FUNCTION public.register_notification_device(text,text,text) TO authenticated;
