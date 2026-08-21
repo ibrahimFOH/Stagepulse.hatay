@@ -1,23 +1,17 @@
 /* Stagepulse Personel Portalı — mali alanlar yok + yetki bazlı menü */
-const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
-const EDGE_LOGIN = `${SUPABASE_URL}/functions/v1/staff-login`;
-
-if (!window.supabase) {
-  document.body.innerHTML = '<div style="padding:40px;font-family:system-ui;color:#fff;background:#090909">Supabase yüklenemedi.</div>';
-  throw new Error('Supabase missing');
-}
-
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-window.addEventListener('unhandledrejection', (event) => { console.error('Unhandled promise rejection:', event.reason); try { toast((event.reason && event.reason.message) || 'Beklenmeyen bir hata oluştu.', false); } catch (_) {} event.preventDefault(); });
-const $=(s)=>document.querySelector(s), $$=(s)=>[...document.querySelectorAll(s)], esc=(s)=>String(s??'').replace(/[&<>'"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])), money=(v)=>new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:0}).format(Number(v)||0), num=(v)=>Number(v)||0;
-
+const SUPABASE_URL='https://mtjcqqrogjqaxkagwkti.supabase.co';
+const SUPABASE_KEY='sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
+const EDGE_LOGIN=`${SUPABASE_URL}/functions/v1/staff-login`;
+if(!window.supabase){document.body.innerHTML='<div style="padding:40px;font-family:system-ui;color:#fff;background:#090909">Supabase yüklenemedi.</div>';throw new Error('Supabase missing')}
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+window.addEventListener('unhandledrejection',(event)=>{console.error('Unhandled promise rejection:',event.reason);try{toast((event.reason&&event.reason.message)||'Beklenmeyen bir hata oluştu.',false)}catch(_){}event.preventDefault()});
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])),money=v=>new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:0}).format(Number(v)||0),num=v=>Number(v)||0;
 // SECURITY: live staff_permissions is the only permission source of truth. Missing = denied.
 const PERMISSION_ALIAS={jobs:'schedule.view',equipment:'equipment.view',offers:'offers.view',customers:'customers.view',finance:'payments.view',pricing:'pricing.view',view_assigned_jobs:'schedule.view',accept_job:'jobs.manage',reject_job:'jobs.manage',update_job_status:'jobs.manage',update_job_notes:'jobs.manage',manage_job_equipment:'equipment.manage',view_job_contacts:'schedule.view',view_job_documents:'schedule.view',equipment_checkout:'equipment.manage',equipment_return:'equipment.manage',report_issue:'notifications.send',view_team:'staff.view',financials:'settlements.view',dashboard_view:'dashboard.view',analytics:'analytics.view',activity_view:'activity_logs.view',notifications_view:'notifications.view',settings_manage:'profile.manage',calendar_view:'schedule.view',calendar_edit:'schedule.manage',settlements_view:'settlements.view',personnel_view:'staff.view',pricing_manage:'pricing.manage',file_upload:'files.upload',offer_approve:'offers.approve',whatsapp_send:'notifications.send',personnel_manage:'staff.manage'};
-const canonical=(key)=>PERMISSION_ALIAS[key]||key;
+const canonical=key=>PERMISSION_ALIAS[key]||key;
 let staffUser=null,jobs=[],equipment=[],offers=[],jobEquipment=[];
 const jobStatusTr={planned:'Planlandı',confirmed:'Onaylı',in_progress:'Devam',done:'Bitti',cancelled:'İptal'},roleTr={crew:'Ekip',tech:'Teknik',warehouse:'Depo',lead:'Sorumlu'};
-function perms(){return (staffUser?.permissions&&typeof staffUser.permissions==='object')?staffUser.permissions:Object.create(null)}
+function perms(){return staffUser?.permissions&&typeof staffUser.permissions==='object'?staffUser.permissions:Object.create(null)}
 function can(key){const p=perms(),c=canonical(key);return p[c]===true||p[key]===true}
 function showLogin(){$('#loginView')?.classList.remove('is-hidden');if($('#loginView'))$('#loginView').hidden=false;$('#appView')?.classList.add('is-hidden');if($('#appView'))$('#appView').hidden=true}
 function showApp(){$('#loginView')?.classList.add('is-hidden');if($('#loginView'))$('#loginView').hidden=true;$('#appView')?.classList.remove('is-hidden');if($('#appView'))$('#appView').hidden=false}
@@ -27,8 +21,8 @@ const VIEW_PERM={home:'dashboard.view',jobs:'schedule.view',equipment:'equipment
 function applyNavPermissions(){$$('#sideNav button[data-view]').forEach(btn=>{const v=btn.dataset.view;btn.style.display=can(VIEW_PERM[v])?'':'none'})}
 function firstAllowedView(){return Object.keys(VIEW_PERM).find(v=>can(VIEW_PERM[v]))||null}
 function afterLogin(){showApp();$('#staffName').textContent=staffUser?.display_name||'Personel';$('#staffRole').textContent=roleTr[staffUser?.role]||staffUser?.role||'';applyNavPermissions();bindShell();const hash=(location.hash||'').slice(1),fallback=firstAllowedView();loadView(VIEW_PERM[hash]&&can(VIEW_PERM[hash])?hash:(fallback||null))}
-function bindShell(){$$('#sideNav button[data-view]').forEach(btn=>{btn.onclick=()=>loadView(btn.dataset.view)});$('#logoutBtn')?.addEventListener('click',async()=>{await sb.auth.signOut();localStorage.removeItem('sp_staff_meta');location.reload()})}
-async function loadView(v){const need=VIEW_PERM[v];if(!need||!can(need)){const fallback=firstAllowedView();if(fallback&&fallback!==v)return loadView(fallback);$('#content').innerHTML='<div class="panel"><b>Erişim yetkiniz yok.</b><p class="muted">Bu sayfa için yöneticinizden yetki istemelisiniz.</p></div>';return}history.replaceState(null,'','#'+v);$$('#sideNav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));const map={home:homeView,jobs:jobsView,equipment:equipmentView,offers:offersView,customers:customersView,finance:financeView,pricing:pricingView};const fn=map[v];try{if(typeof fn==='function')return await fn();$('#content').innerHTML='<div class="panel"><b>Bölüm</b><p class="muted">Bu bölüm için yetkiniz aktif.</p></div>'}catch(e){console.error(e);$('#content').innerHTML=`<div class="panel"><b>Hata</b><p class="muted">${esc(e.message||e)}</p><p class="muted">Yetki veya tablo eksik olabilir. Admin’e staff-portal.sql çalıştırıldığını sorun.</p></div>`}}
+function bindShell(){$$('#sideNav button[data-view]').forEach(btn=>{btn.onclick=()=>loadView(btn.dataset.view)});$('#logoutBtn')?.addEventListener('click',async()=>{await sb.auth.signOut();localStorage.removeItem('sp_staff_meta');location.reload()});const open=()=>{$('#sidebar')?.classList.add('open');const ov=$('#mobileOverlay');if(ov){ov.hidden=false;ov.classList.add('open')}};const close=()=>{$('#sidebar')?.classList.remove('open');const ov=$('#mobileOverlay');if(ov){ov.hidden=true;ov.classList.remove('open')}};$('#menuBtn')?.addEventListener('click',open);$('#mobileOverlay')?.addEventListener('click',close)}
+async function loadView(v){const need=VIEW_PERM[v];if(!need||!can(need)){const fallback=firstAllowedView();if(fallback&&fallback!==v)return loadView(fallback);$('#content').innerHTML='<div class="panel"><b>Erişim yetkiniz yok.</b><p class="muted">Bu sayfa için yöneticinizden yetki istemelisiniz.</p></div>';return}history.replaceState(null,'','#'+v);$$('#sideNav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));$('#sidebar')?.classList.remove('open');const ov=$('#mobileOverlay');if(ov){ov.hidden=true;ov.classList.remove('open')}const map={home:homeView,jobs:jobsView,equipment:equipmentView,offers:offersView,customers:customersView,finance:financeView,pricing:pricingView};const fn=map[v];try{if(typeof fn==='function')return await fn();$('#content').innerHTML='<div class="panel"><b>Bölüm</b><p class="muted">Bu bölüm için yetkiniz aktif.</p></div>'}catch(e){console.error(e);$('#content').innerHTML=`<div class="panel"><b>Hata</b><p class="muted">${esc(e.message||e)}</p><p class="muted">Yetki veya tablo eksik olabilir. Admin’e staff-portal.sql çalıştırıldığını sorun.</p></div>`}}
 async function fetchJobs(){if(!can('jobs')){jobs=[];return}const source=can('view_assigned_jobs')?'my_jobs_staff':'jobs';const {data,error}=await sb.from(source).select('*').order('event_at',{ascending:true,nullsFirst:false});if(error)throw error;jobs=data||[]}
 async function fetchEquipment(){if(!can('equipment')&&!can('jobs')){equipment=[];return}const {data,error}=await sb.from('equipment_staff').select('id,category,brand,model,quantity,active,notes').order('category');if(error)throw error;equipment=data||[]}
 async function fetchOffers(){if(!can('offers')){offers=[];return}const {data,error}=await sb.from('offers_staff').select('id,quote_number,name,company,location,people,event_date,event_type,type,agreed_amount,currency,status,created_at').order('event_date',{ascending:true,nullsFirst:false});if(error)throw error;offers=data||[]}
@@ -52,5 +46,17 @@ async function customersView(){await fetchCustomers();$('#content').innerHTML=`<
 async function financeView(){await fetchPayments();$('#content').innerHTML=`<div class="page-head"><div><h1>Tahsilat / Ödemeler</h1><p class="muted">Ödeme kayıtları</p></div></div><div class="panel"><div class="table-wrap"><table class="data-table"><thead><tr><th>Teklif</th><th>Müşteri</th><th>Açıklama</th><th>Tutar</th><th>Vade</th><th>Ödendi</th><th>Durum</th></tr></thead><tbody>${payments.map(p=>`<tr><td>${esc(p.quote_number||'—')}</td><td>${esc(p.customer_name||'—')}</td><td>${esc(p.description||'—')}</td><td><b>${money(p.amount)}</b></td><td>${esc(p.due_date||'—')}</td><td>${esc((p.paid_at||'').slice(0,10)||'—')}</td><td><span class="status">${esc(p.status)}</span></td></tr>`).join('')||'<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">Kayıt yok</td></tr>'}</tbody></table></div></div>`}
 async function pricingView(){await fetchPricing();$('#content').innerHTML=`<div class="page-head"><div><h1>Fiyat listesi</h1><p class="muted">Hizmet ve fiyatlandırma kuralları</p></div></div><div class="panel"><div class="table-wrap"><table class="data-table"><thead><tr><th>Ad</th><th>Açıklama</th><th>Fiyat / değer</th></tr></thead><tbody>${pricing.map(r=>`<tr><td><strong>${esc(r.name)}</strong></td><td class="muted">${esc(r.description||'—')}</td><td>${money(r.base_price)}</td></tr>`).join('')||'<tr><td colspan="3" class="muted" style="text-align:center;padding:24px">Kayıt yok</td></tr>'}</tbody></table></div></div>`}
 window.loadView=loadView;
-async function init(){$('#loginForm')?.addEventListener('submit',login);const {data:{session}}=await sb.auth.getSession();if(session){const {data:prof}=await sb.from('staff_profiles').select('user_id,username,display_name,role,active').eq('user_id',session.user.id).maybeSingle();if(prof?.active){const {data:permissionRows,error:permissionError}=await sb.from('staff_permissions').select('permission_key,enabled').eq('user_id',session.user.id);if(!permissionError){const permissions={};for(const row of permissionRows||[]){if(typeof row.permission_key==='string')permissions[row.permission_key]=!!row.enabled}staffUser={id:prof.user_id,username:prof.username,display_name:prof.display_name,role:prof.role,permissions};localStorage.setItem('sp_staff_meta',JSON.stringify(staffUser));afterLogin();return}}await sb.auth.signOut()}showLogin()}
+async function init(){
+  $('#loginForm')?.addEventListener('submit',login);
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){
+    const {data:prof}=await sb.from('staff_profiles').select('user_id,username,display_name,role,active').eq('user_id',session.user.id).maybeSingle();
+    if(prof?.active){
+      const {data:permissionRows,error:permissionError}=await sb.from('staff_permissions').select('permission_key,enabled').eq('user_id',session.user.id);
+      if(!permissionError){const permissions={};for(const row of permissionRows||[]){if(typeof row.permission_key==='string')permissions[row.permission_key]=row.enabled===true}staffUser={id:prof.user_id,username:prof.username,display_name:prof.display_name,role:prof.role,permissions};localStorage.setItem('sp_staff_meta',JSON.stringify(staffUser));afterLogin();return}
+    }
+    await sb.auth.signOut();
+  }
+  showLogin();
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
