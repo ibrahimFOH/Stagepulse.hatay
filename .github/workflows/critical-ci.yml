@@ -1,0 +1,56 @@
+name: Stagepulse Critical CI
+
+on:
+  push:
+    branches: [main, critical-production-sync]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  critical:
+    name: Critical production checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check critical JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in admin/auth-layer.js admin/staff-permissions.js portal/portal.js portal/portal-permissions.js premium.js; do
+            if [ -f "$file" ]; then
+              node --check "$file"
+            fi
+          done
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+
+      - name: Check critical Edge Functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno check supabase/functions/staff-manage/index.ts
+          deno check supabase/functions/staff-session/index.ts
+
+      - name: Verify permission source exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/functions/staff-manage/index.ts
+          test -f supabase/functions/staff-session/index.ts
+          test -f supabase/config.toml
+          grep -q '^\[functions.staff-session\]' supabase/config.toml
+          grep -q 'staff_permissions' supabase/functions/staff-session/index.ts
+          grep -q 'permission_catalog' supabase/functions/staff-manage/index.ts
