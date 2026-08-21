@@ -1,0 +1,1 @@
+Temporary service worker CI marker.
