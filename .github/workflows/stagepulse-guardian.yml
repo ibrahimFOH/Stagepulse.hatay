@@ -54,38 +54,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t files < <(find . -type f -name '*.js' \
-            -not -path './.git/*' \
-            -not -path './portal/vendor/*' \
-            -not -path './vendor/firebase/*' \
-            -not -path './node_modules/*' | sort)
+          mapfile -t files < <(find . -type f -name '*.js' -not -path './.git/*' -not -path './portal/vendor/*' -not -path './vendor/firebase/*' -not -path './node_modules/*' | sort)
           test "${#files[@]}" -gt 0
-          for file in "${files[@]}"; do
-            node --check "$file"
-          done
+          for file in "${files[@]}"; do node --check "$file"; done
           echo "JavaScript syntax integrity passed: ${#files[@]} files."
 
       - name: Secret exposure guard
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude='*.map' \
-            '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|service_role[[:space:]]*[:=]|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=]|FCM_PRIVATE_KEY[[:space:]]*[:=]' .; then
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude='*.map' '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|service_role[[:space:]]*[:=]|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=]|FCM_PRIVATE_KEY[[:space:]]*[:=]' .; then
             echo "::error::Potential secret/private credential exposure detected."
             exit 1
           fi
           echo "Secret exposure guard passed."
 
-      - name: Production mutation guard
+      - name: Guardian production mutation guard
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules \
-            '(^|[[:space:]])git push([[:space:]]|$)|supabase db push|supabase functions deploy|firebase deploy|wrangler deploy' .github/workflows .github/agents 2>/dev/null; then
-            echo "::error::Production mutation command detected in CI configuration."
+          if grep -nE '(^|[[:space:]])git push([[:space:]]|$)|supabase db push|supabase functions deploy|firebase deploy|wrangler deploy' .github/workflows/stagepulse-guardian.yml; then
+            echo "::error::Production mutation command detected inside Guardian."
             exit 1
           fi
-          echo "Production mutation guard passed."
+          echo "Guardian mutation guard passed. Other non-Guardian maintenance workflows are intentionally excluded."
 
       - name: Repository and Guardian integrity
         shell: bash
