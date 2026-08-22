@@ -9,18 +9,12 @@
   X-XSS-Protection: 0
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; connect-src 'self' https://*.supabase.co https://formspree.io https://*.google-analytics.com https://www.googletagmanager.com https://region1.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com https://fcm.googleapis.com https://firebase.googleapis.com https://www.googleapis.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://formspree.io; upgrade-insecure-requests; object-src 'none';
   # 'unsafe-inline' is currently required by legacy inline UI/GA code. Migrate to nonces/hashes in a later CSP-only pass.
-  # Firebase FCM web SDK uses gstatic for SDK delivery and Google/Firebase endpoints for registration.
+  # Firebase FCM web SDK uses the local pinned SDK and Google/Firebase endpoints for registration.
 
 /firebase-messaging-sw.js
   Cache-Control: no-store
 
 /portal/fcm-config.js
-  Cache-Control: no-store
-
-/portal/fcm-register.js
-  Cache-Control: no-store
-
-/portal/fcm-register-v2.js
   Cache-Control: no-store
 
 /portal/fcm-register-v3.js
