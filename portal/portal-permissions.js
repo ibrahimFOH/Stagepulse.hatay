@@ -39,7 +39,8 @@
       live = Object.create(null);
       for (const key of Object.keys(body.permissions || {})) if (body.permissions[key] === true) live[key] = true;
       window.staffUser = profile;
-      localStorage.setItem('sp_staff_meta', JSON.stringify({ id: profile.user_id, display_name: profile.display_name, role: profile.role }));
+      // Do not persist auth/session material; keep only non-sensitive display metadata.
+      localStorage.setItem('sp_staff_meta', JSON.stringify({ id: profile.id, display_name: profile.display_name, role: profile.role }));
       document.documentElement.dataset.portalPermissionCount = String(permissionCount());
       return profile;
     } finally { sessionBusy = false; }
@@ -111,7 +112,7 @@
     const map = { home:window.homeView, jobs:window.jobsView, equipment:window.equipmentView, offers:window.offersView, customers:window.customersView, finance:window.financeView, pricing:window.pricingView, analytics:window.analyticsView, activity:window.activityView, notifications:window.notificationsView, settings:window.settingsView };
     const fn = map[v];
     try { if (typeof fn === 'function') return await fn(); return external(v); }
-    catch (error) { console.error('Portal view error:', error); $('#content').innerHTML = `<div class="panel portal-error"><b>Bu bölüm yüklenemedi.</b><p class="muted">${esc(error?.message || 'Beklenmeyen bir hata oluştu.')}</p><button class="btn" type="button" onclick="loadView('home')">Özete dön</button></div>`; }
+    catch (error) { console.error('Portal view error:', error); $('#content').innerHTML = `<div class="panel portal-error"><b>Bu bölüm yüklenemedi.</b><p class="muted">${esc(error?.message || 'Beklenmeyen bir hata oluştu.')}</p><button class="btn" type="button" onclick="loadView('home')">Özete dön</button>`; }
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
