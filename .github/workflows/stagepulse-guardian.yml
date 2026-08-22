@@ -151,6 +151,13 @@ jobs:
           check_endpoint "Firebase Installations" "https://firebaseinstallations.googleapis.com/"
           check_endpoint "FCM Registration" "https://fcmregistrations.googleapis.com/"
 
+      - name: Customer-facing smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x scripts/customer-smoke.sh
+          DOMAIN="$DOMAIN" ./scripts/customer-smoke.sh
+
       - name: Domain health
         shell: bash
         run: |
@@ -198,4 +205,5 @@ jobs:
             echo "Automatic merge: **disabled**"
             echo ""
             echo "FCM chain gates: configuration → service worker → portal entrypoint → TWA notification delegation → endpoint reachability."
+            echo "Customer gates: public routes → homepage CTA → offer form structure."
           } >> "$GITHUB_STEP_SUMMARY"
