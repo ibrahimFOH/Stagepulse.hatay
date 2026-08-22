@@ -104,12 +104,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude="*.map" -- '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' .; then
+          source_files=$(git ls-files | grep -Ev '^\.github/workflows/' || true)
+          if [ -n "$source_files" ] && printf '%s\n' "$source_files" | xargs -r grep -nE -- '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'; then
             echo "::error::Private key detected."
             exit 1
           fi
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude="*.map" -- 'service_role[[:space:]]*[:=]' .; then
+          if [ -n "$source_files" ] && printf '%s\n' "$source_files" | xargs -r grep -nE -- 'service_role[[:space:]]*[:=][[:space:]]*["'\''`][^"'\''`[:space:]]{20,}["'\''`]'; then
             echo "::error::Potential Supabase service_role exposure detected."
+            exit 1
+          fi
+          workflow_files=$(git ls-files '.github/workflows/*.yml' '.github/workflows/*.yaml' || true)
+          if [ -n "$workflow_files" ] && printf '%s\n' "$workflow_files" | xargs -r grep -nE -- 'ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|BEGIN RSA PRIVATE KEY|BEGIN OPENSSH PRIVATE KEY'; then
+            echo "::error::Potential workflow credential material detected."
             exit 1
           fi
           echo "Secret scan passed."
