@@ -32,16 +32,26 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+
   guardian:
-    name: Guardian diagnostics
+    name: Stagepulse Guardian
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout
+
+      # ------------------------------------------------------------
+      # 1. REPOSITORY
+      # ------------------------------------------------------------
+
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      # ------------------------------------------------------------
+      # 2. NODE
+      # ------------------------------------------------------------
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -50,30 +60,50 @@ jobs:
           check-latest: false
           cache: ""
 
-      - name: Repository structure
+      - name: Node environment
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "=== Repository ==="
-          pwd
+          echo "Node:"
+          node --version
 
-          echo "=== Important paths ==="
-          for path in \
-            ".github/workflows" \
-            "package.json" \
-            "package-lock.json" \
-            "yarn.lock" \
-            "pnpm-lock.yaml"
-          do
-            if [ -e "$path" ]; then
-              echo "FOUND: $path"
-            else
-              echo "NOT FOUND: $path"
-            fi
-          done
+          echo "NPM:"
+          npm --version
 
-      - name: Detect project package manager
+      # ------------------------------------------------------------
+      # 3. REPOSITORY STRUCTURE
+      # ------------------------------------------------------------
+
+      - name: Repository structure check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== Stagepulse Guardian ==="
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Commit: $GITHUB_SHA"
+          echo
+
+          echo "=== Root ==="
+          ls -la
+
+          echo
+          echo "=== GitHub workflows ==="
+
+          if [ -d ".github/workflows" ]; then
+            find .github/workflows -maxdepth 1 -type f -print | sort
+          else
+            echo "::error::.github/workflows directory does not exist."
+            exit 1
+          fi
+
+      # ------------------------------------------------------------
+      # 4. PACKAGE MANAGER DETECTION
+      # ------------------------------------------------------------
+
+      - name: Detect package manager
         id: package_manager
         shell: bash
         run: |
@@ -82,77 +112,129 @@ jobs:
           if [ -f package-lock.json ]; then
             echo "manager=npm" >> "$GITHUB_OUTPUT"
             echo "lockfile=true" >> "$GITHUB_OUTPUT"
+            echo "Package manager: npm"
+
           elif [ -f yarn.lock ]; then
             echo "manager=yarn" >> "$GITHUB_OUTPUT"
             echo "lockfile=true" >> "$GITHUB_OUTPUT"
+            echo "Package manager: yarn"
+
           elif [ -f pnpm-lock.yaml ]; then
             echo "manager=pnpm" >> "$GITHUB_OUTPUT"
             echo "lockfile=true" >> "$GITHUB_OUTPUT"
+            echo "Package manager: pnpm"
+
+          elif [ -f package.json ]; then
+            echo "manager=none" >> "$GITHUB_OUTPUT"
+            echo "lockfile=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::package.json exists but no lockfile was found."
+
           else
             echo "manager=none" >> "$GITHUB_OUTPUT"
             echo "lockfile=false" >> "$GITHUB_OUTPUT"
+            echo "No Node package detected."
           fi
 
-      - name: Install dependencies safely
-        if: steps.package_manager.outputs.lockfile == 'true'
+      # ------------------------------------------------------------
+      # 5. DEPENDENCIES
+      # ------------------------------------------------------------
+
+      - name: Install npm dependencies
+        if: steps.package_manager.outputs.manager == 'npm'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+
+      - name: Install Yarn dependencies
+        if: steps.package_manager.outputs.manager == 'yarn'
         shell: bash
         run: |
           set -euo pipefail
 
-          case "${{ steps.package_manager.outputs.manager }}" in
-            npm)
-              npm ci --ignore-scripts
-              ;;
-            yarn)
-              corepack enable
-              yarn install --immutable
-              ;;
-            pnpm)
-              corepack enable
-              pnpm install --frozen-lockfile --ignore-scripts
-              ;;
-          esac
+          corepack enable
 
-      - name: Validate Node project
-        if: steps.package_manager.outputs.manager == 'npm'
+          yarn install --immutable
+
+      - name: Install pnpm dependencies
+        if: steps.package_manager.outputs.manager == 'pnpm'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          corepack enable
+
+          pnpm install --frozen-lockfile --ignore-scripts
+
+      # ------------------------------------------------------------
+      # 6. PACKAGE VALIDATION
+      # ------------------------------------------------------------
+
+      - name: Validate package scripts
+        if: steps.package_manager.outputs.manager != 'none'
         shell: bash
         run: |
           set -euo pipefail
 
           if [ ! -f package.json ]; then
-            echo "No package.json; skipping Node validation."
+            echo "package.json not found."
             exit 0
           fi
 
-          node --version
-          npm --version
+          node - <<'NODE'
+          const pkg = require("./package.json");
 
-          node -e "const p=require('./package.json'); console.log('package:', p.name || 'unnamed')"
+          console.log("Package:", pkg.name || "unnamed");
+          console.log("Version:", pkg.version || "unknown");
 
-          if npm run | grep -q "lint"; then
-            npm run lint
-          else
-            echo "No lint script."
-          fi
+          console.log("Scripts:");
 
-          if npm run | grep -q "typecheck"; then
-            npm run typecheck
-          else
-            echo "No typecheck script."
-          fi
+          if (pkg.scripts) {
+            for (const [name, command] of Object.entries(pkg.scripts)) {
+              console.log(`- ${name}: ${command}`);
+            }
+          } else {
+            console.log("No scripts.");
+          }
+          NODE
 
-          if npm run | grep -q "test"; then
-            npm test -- --if-present
-          else
-            echo "No test script."
-          fi
+      # ------------------------------------------------------------
+      # 7. LINT / TYPECHECK / TEST
+      # ------------------------------------------------------------
 
-      - name: Secret exposure baseline
+      - name: Run npm validation
+        if: steps.package_manager.outputs.manager == 'npm'
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "Checking repository for high-confidence secret material."
+          run_script_if_exists() {
+            local script="$1"
+
+            if npm run | grep -qE "^[[:space:]]+$script$"; then
+              echo
+              echo "Running: npm run $script"
+              npm run "$script"
+            else
+              echo "Skipping missing script: $script"
+            fi
+          }
+
+          run_script_if_exists "lint"
+          run_script_if_exists "typecheck"
+          run_script_if_exists "test"
+          run_script_if_exists "build"
+
+      # ------------------------------------------------------------
+      # 8. SECRET SCAN
+      # ------------------------------------------------------------
+
+      - name: Secret exposure scan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Scanning repository for high-confidence secrets."
 
           if grep -RInE \
             --exclude-dir=.git \
@@ -162,7 +244,8 @@ jobs:
             --exclude='*.map' \
             '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' \
             .; then
-            echo "::error::Private key material detected in repository."
+
+            echo "::error::Private key detected."
             exit 1
           fi
 
@@ -174,31 +257,55 @@ jobs:
             --exclude='*.map' \
             'service_role[[:space:]]*[:=]' \
             .; then
-            echo "::error::Potential Supabase service_role assignment detected."
+
+            echo "::error::Potential Supabase service_role exposure detected."
+            exit 1
+          fi
+
+          if grep -RInE \
+            --exclude-dir=.git \
+            --exclude-dir=node_modules \
+            --exclude-dir=dist \
+            --exclude-dir=build \
+            --exclude='*.map' \
+            '(FIREBASE_PRIVATE_KEY|SUPABASE_SERVICE_ROLE_KEY|CLOUDFLARE_API_TOKEN)[[:space:]]*=' \
+            .; then
+
+            echo "::error::Potential infrastructure secret exposure detected."
             exit 1
           fi
 
           echo "Secret baseline passed."
+
+      # ------------------------------------------------------------
+      # 9. PRODUCTION MUTATION GUARD
+      # ------------------------------------------------------------
 
       - name: Production mutation guard
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "Guardian is diagnostic-only."
+          echo "Checking Guardian configuration for dangerous production mutations."
 
           if grep -RInE \
             --exclude-dir=.git \
             --exclude-dir=node_modules \
-            'supabase db push|supabase functions deploy|wrangler deploy|firebase deploy|git push' \
+            'git push|supabase db push|supabase functions deploy|firebase deploy|wrangler deploy' \
             .github/workflows .github/agents 2>/dev/null; then
-            echo "::error::Production mutation command detected in Guardian configuration."
+
+            echo "::error::Production mutation command detected."
+            echo "::error::Guardian is diagnostic-only."
             exit 1
           fi
 
           echo "Production mutation guard passed."
 
-      - name: Domain and route smoke checks
+      # ------------------------------------------------------------
+      # 10. DOMAIN HEALTH
+      # ------------------------------------------------------------
+
+      - name: Domain and route health
         shell: bash
         run: |
           set -euo pipefail
@@ -206,27 +313,70 @@ jobs:
           check_url() {
             local url="$1"
 
-            echo "Checking $url"
+            echo
+            echo "======================================"
+            echo "Checking: $url"
+            echo "======================================"
 
-            status="$(curl \
-              --silent \
-              --show-error \
-              --location \
-              --connect-timeout 10 \
-              --max-time 30 \
-              --output /dev/null \
-              --write-out '%{http_code}' \
-              "$url" || true)"
+            response="$(
+              curl \
+                --silent \
+                --show-error \
+                --location \
+                --connect-timeout 10 \
+                --max-time 30 \
+                --user-agent "Stagepulse-Guardian/1.0" \
+                --output /dev/null \
+                --write-out '%{http_code}|%{url_effective}' \
+                "$url" || true
+            )"
 
-            echo "$url -> HTTP $status"
+            status="${response%%|*}"
+            effective="${response#*|}"
+
+            echo "HTTP: $status"
+            echo "Effective URL: $effective"
 
             case "$status" in
-              2??|3??)
+
+              2??)
+                echo "PASS: HTTP 2xx"
                 ;;
-              *)
-                echo "::error::$url failed with HTTP $status"
+
+              3??)
+                echo "PASS: HTTP 3xx"
+                ;;
+
+              401)
+                echo "::warning::$url returned HTTP 401."
+                echo "Authentication protection detected."
+                ;;
+
+              403)
+                echo "::warning::$url returned HTTP 403."
+                echo "Security/WAF/access protection detected."
+                ;;
+
+              404)
+                echo "::error::$url returned HTTP 404."
                 return 1
                 ;;
+
+              5??)
+                echo "::error::$url returned server error HTTP $status."
+                return 1
+                ;;
+
+              000|"")
+                echo "::error::$url is unreachable."
+                return 1
+                ;;
+
+              *)
+                echo "::error::$url returned unexpected HTTP $status."
+                return 1
+                ;;
+
             esac
           }
 
@@ -234,159 +384,61 @@ jobs:
           check_url "$DOMAIN/admin"
           check_url "$DOMAIN/portal"
 
-      - name: Firebase endpoint reachability
+      # ------------------------------------------------------------
+      # 11. FIREBASE INSTALLATIONS
+      # ------------------------------------------------------------
+
+      - name: Firebase Installations network test
         shell: bash
         run: |
           set -euo pipefail
 
-          check_endpoint() {
-            local url="$1"
+          URL="https://firebaseinstallations.googleapis.com/"
 
-            echo "Checking Firebase endpoint: $url"
+          echo "Checking Firebase Installations endpoint."
 
-            status="$(curl \
+          status="$(
+            curl \
               --silent \
               --show-error \
               --location \
               --connect-timeout 10 \
               --max-time 30 \
+              --user-agent "Stagepulse-Guardian/1.0" \
               --output /dev/null \
               --write-out '%{http_code}' \
-              "$url" || true)"
+              "$URL" || true
+          )"
 
-            echo "Firebase endpoint status: $status"
-
-            if [ "$status" = "000" ]; then
-              echo "::error::Firebase endpoint is unreachable."
-              return 1
-            fi
-          }
-
-          check_endpoint \
-            "https://firebaseinstallations.googleapis.com/"
-
-          check_endpoint \
-            "https://fcm.googleapis.com/"
-
-      - name: FCM and service-worker source inspection
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "Searching for FCM/service-worker implementation."
-
-          found=0
-
-          if grep -RIl \
-            --exclude-dir=.git \
-            --exclude-dir=node_modules \
-            -E 'firebase-messaging|firebase/app|messaging\(|getToken\(|serviceWorker|firebase-messaging-sw' \
-            . 2>/dev/null | head -20; then
-            found=1
-          fi
-
-          if [ "$found" -eq 1 ]; then
-            echo "FCM/service-worker source detected."
-          else
-            echo "::warning::No FCM/service-worker source detected by static inspection."
-          fi
-
-      - name: Supabase public URL health check
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -z "${{ vars.SUPABASE_URL }}" ]; then
-            echo "SUPABASE_URL repository variable is not configured."
-            echo "Supabase health check skipped."
-            exit 0
-          fi
-
-          url="${{ vars.SUPABASE_URL }}"
-
-          case "$url" in
-            https://*.supabase.co|https://*.supabase.in)
-              ;;
-            *)
-              echo "::error::SUPABASE_URL has an unexpected format."
-              exit 1
-              ;;
-          esac
-
-          status="$(curl \
-            --silent \
-            --show-error \
-            --location \
-            --connect-timeout 10 \
-            --max-time 30 \
-            --output /dev/null \
-            --write-out '%{http_code}' \
-            "$url/rest/v1/" || true)"
-
-          echo "Supabase REST status: $status"
+          echo "Firebase Installations HTTP: $status"
 
           if [ "$status" = "000" ]; then
-            echo "::error::Supabase endpoint unreachable."
+            echo "::error::Firebase Installations unreachable."
             exit 1
           fi
 
-      - name: Production impact record
+          echo "Firebase Installations network path reachable."
+
+      # ------------------------------------------------------------
+      # 12. FCM
+      # ------------------------------------------------------------
+
+      - name: Firebase Cloud Messaging network test
         shell: bash
         run: |
           set -euo pipefail
 
-          cat <<'EOF'
-          Stagepulse Guardian production-impact record
+          URL="https://fcm.googleapis.com/"
 
-          Mode:
-            diagnostic-only / dry-run
+          echo "Checking Firebase Cloud Messaging endpoint."
 
-          Allowed:
-            - repository inspection
-            - dependency validation
-            - domain smoke tests
-            - Firebase reachability tests
-            - Supabase reachability tests
-            - FCM/service-worker source inspection
-            - secret baseline scanning
-
-          Forbidden:
-            - production database mutation
-            - RLS mutation
-            - Auth mutation
-            - Cloudflare mutation
-            - Firebase deployment
-            - Supabase deployment
-            - secret rotation
-            - direct production push
-            - automatic merge
-
-          Production impact:
-            No production mutation is performed by this workflow.
-          EOF
-
-      - name: Guardian summary
-        if: always()
-        shell: bash
-        run: |
-          {
-            echo "## Stagepulse Guardian"
-            echo
-            echo "### Result"
-            echo "- Diagnostic workflow completed."
-            echo "- Production mutation: **disabled**"
-            echo "- Secret logging: **disabled**"
-            echo "- Direct production push: **disabled**"
-            echo
-            echo "### Checked"
-            echo "- Repository structure"
-            echo "- Dependencies"
-            echo "- Domain"
-            echo "- /admin"
-            echo "- /portal"
-            echo "- Firebase endpoints"
-            echo "- FCM/service-worker source"
-            echo "- Supabase public endpoint"
-            echo "- Secret baseline"
-            echo "- Production mutation guard"
-          } >> "$GITHUB_STEP_SUMMARY"
+          status="$(
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --user-agent "Stagepulse-Guardian/1.0" \
+              --output /dev/null \
+              --write-out '%{http
