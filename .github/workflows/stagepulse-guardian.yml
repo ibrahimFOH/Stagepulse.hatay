@@ -106,28 +106,22 @@ jobs:
         run: |
           set -euo pipefail
           found=0
-
-          # Detect long literal credential assignments. Env lookups such as Deno.env.get("KEY") are allowed.
           if git ls-files -z | xargs -0 -r grep -IlE --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' \
             '(SUPABASE_SERVICE_ROLE_KEY|FCM_PRIVATE_KEY|FIREBASE_ADMIN_KEY|CLOUDFLARE_API_TOKEN|FORMSPREE_API_KEY)[[:space:]]*(=|:)[[:space:]]*[\"]?[A-Za-z0-9_./+=:-]{20,}'; then
             echo "Potential literal credential assignment detected."
             found=1
           fi
-
-          # Detect an actual PEM header on its own line; source-code regex strings do not match this.
           if git ls-files -z | xargs -0 -r grep -IlE --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' \
             '^-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[[:space:]]*$'; then
             echo "Potential private key material detected."
             found=1
           fi
-
           while IFS= read -r -d '' file; do
             case "$file" in
               .env.example|.env.sample|.env.template) ;;
               *) echo "ERROR: tracked environment file: $file"; found=1 ;;
             esac
           done < <(git ls-files -z -- '.env' '.env.*')
-
           if [ "$found" -ne 0 ]; then exit 1; fi
           echo "Secret exposure baseline passed."
 
@@ -157,8 +151,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSI --max-time 20 https://firebaseinstallations.googleapis.com/ >/dev/null
-          curl -fsSI --max-time 20 https://fcm.googleapis.com/ >/dev/null
+          for url in https://firebaseinstallations.googleapis.com/ https://fcm.googleapis.com/; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url")
+            echo "$url -> $code"
+            case "$code" in 2*|3*|4*) ;; *) exit 1 ;; esac
+          done
           echo "Firebase public endpoints reachable."
 
       - name: FCM and service-worker source inspection
@@ -190,5 +187,5 @@ jobs:
             echo "- Production mutation: **blocked**"
             echo "- Secret logging: **blocked**"
             echo "- Direct main push: **blocked**"
-            echo "- Required fix path: branch -> minimal patch -> tests -> CI -> PR -> human approval when required -> merge -> deploy"
+            echo "- Required fix path: branch -> minimal patch -> tests -> CI -> human approval when required -> merge -> deploy"
           } >> "$GITHUB_STEP_SUMMARY"
