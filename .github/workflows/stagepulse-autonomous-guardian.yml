@@ -2,24 +2,19 @@ name: Stagepulse Autonomous Guardian
 
 on:
   push:
-    branches:
-      - main
-      - "guardian/**"
+    branches: ['**']
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
+    types: [opened, synchronize, reopened]
   schedule:
-    - cron: "17 * * * *"
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
   actions: read
   checks: read
-  pull-requests: write
-  issues: write
+  pull-requests: read
+  issues: read
   security-events: read
 
 concurrency:
@@ -27,296 +22,129 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: '22'
 
 jobs:
   guardian:
-    name: Guardian - Repository Health
+    name: Guardian diagnostics
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      - name: Setup Node.js
+      - name: Setup Node.js (no cache dependency)
+        if: ${{ hashFiles('package.json') != '' }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+
+      - name: Validate Guardian structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/ai-guardian.config.yml
+          for f in guardian debugger tester fixer; do
+            test -f ".github/agents/${f}.md"
+          done
+          echo 'Guardian structure OK.'
 
       - name: Detect project structure
         id: detect
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "=== Stagepulse Guardian ==="
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Branch: $GITHUB_REF_NAME"
-          echo "Commit: $GITHUB_SHA"
-
-          if [ -f package.json ]; then
-            echo "node_project=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "node_project=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if [ -f package-lock.json ]; then
-            echo "lockfile=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "lockfile=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if [ -d .github/workflows ]; then
-            echo "workflows=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "workflows=false" >> "$GITHUB_OUTPUT"
-          fi
+          if [ -f package.json ]; then echo 'node_project=true' >> "$GITHUB_OUTPUT"; else echo 'node_project=false' >> "$GITHUB_OUTPUT"; fi
+          if [ -f package-lock.json ]; then echo 'lockfile=true' >> "$GITHUB_OUTPUT"; else echo 'lockfile=false' >> "$GITHUB_OUTPUT"; fi
 
       - name: Install dependencies
         if: steps.detect.outputs.node_project == 'true'
         shell: bash
         run: |
           set -euo pipefail
+          if [ "${{ steps.detect.outputs.lockfile }}" = 'true' ]; then npm ci; else npm install; fi
 
-          if [ "${{ steps.detect.outputs.lockfile }}" = "true" ]; then
-            npm ci
-          else
-            npm install
+      - name: Secret baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*[^[:space:]]{20,}' .; then
+            found=1
           fi
-
-      - name: Repository security baseline
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "Checking for accidentally committed secrets..."
-
-          if grep -RInE \
-            --exclude-dir=.git \
-            --exclude='*.map' \
-            --exclude='ai-guardian.yml' \
-            --exclude='package-lock.json' \
-            'service_role|SUPABASE_SERVICE_ROLE_KEY|PRIVATE_KEY|BEGIN RSA PRIVATE KEY|BEGIN PRIVATE KEY|AIza[0-9A-Za-z_-]{20,}' \
-            .; then
-
-            echo "::warning::Potential credential material detected. Review repository contents."
-          else
-            echo "No obvious credential patterns detected."
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' -- '^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[[:space:]]*$' .; then
+            found=1
           fi
-
-      - name: Check Firebase configuration
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "Checking Firebase-related files..."
-
-          find . \
-            -path './.git' -prune -o \
-            -iname '*firebase*' \
-            -print | head -100 || true
-
-      - name: Check Service Worker
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "Checking service worker files..."
-
-          find . \
-            -path './.git' -prune -o \
-            -type f \
-            \( -iname '*service-worker*' -o -iname '*firebase-messaging-sw*' -o -iname 'sw.js' \) \
-            -print | head -100 || true
-
-      - name: Check environment references
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "Checking environment variable references."
-
-          grep -RInE \
-            --exclude-dir=.git \
-            --exclude='package-lock.json' \
-            'import\.meta\.env|process\.env|NEXT_PUBLIC_|VITE_|SUPABASE_|FIREBASE_|VAPID' \
-            . | head -200 || true
-
-      - name: Validate package.json
-        if: steps.detect.outputs.node_project == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          node --check package.json >/dev/null 2>&1 || true
-          node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json: valid JSON')"
-
-      - name: Run lint
-        if: steps.detect.outputs.node_project == 'true'
-        shell: bash
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-
-          if npm run | grep -qE '^  lint'; then
-            npm run lint
-          else
-            echo "No lint script found."
+          if [ "$found" -ne 0 ]; then
+            echo 'Potential literal secret/private key detected.'
+            exit 1
           fi
+          echo 'Secret baseline passed.'
 
-      - name: Run type check
-        if: steps.detect.outputs.node_project == 'true'
-        shell: bash
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-
-          if npm run | grep -qE '^  typecheck'; then
-            npm run typecheck
-          elif npm run | grep -qE '^  type-check'; then
-            npm run type-check
-          else
-            echo "No type-check script found."
-          fi
-
-      - name: Run tests
-        if: steps.detect.outputs.node_project == 'true'
-        shell: bash
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-
-          if npm run | grep -qE '^  test'; then
-            npm test -- --if-present
-          else
-            echo "No test script found."
-          fi
-
-      - name: Build application
-        if: steps.detect.outputs.node_project == 'true'
-        shell: bash
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-
-          if npm run | grep -qE '^  build'; then
-            npm run build
-          else
-            echo "No build script found."
-          fi
-
-      - name: Validate workflow files
+      - name: Domain and route smoke checks
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "Checking GitHub Actions workflow files..."
-
-          find .github/workflows \
-            -type f \
-            \( -name '*.yml' -o -name '*.yaml' \) \
-            -print 2>/dev/null | while read -r file; do
-
-            echo "Checking: $file"
-
-            if grep -qE '^[[:space:]]*on:' "$file"; then
-              echo "  OK: trigger section found"
-            else
-              echo "  WARNING: trigger section not detected"
-            fi
-
-            if grep -qE 'permissions:' "$file"; then
-              echo "  OK: permissions declared"
-            else
-              echo "  WARNING: permissions not explicitly declared"
-            fi
+          for url in https://stagepulse.com.tr/ https://stagepulse.com.tr/admin https://stagepulse.com.tr/portal; do
+            code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 15 "$url")
+            echo "$url -> $code"
+            case "$code" in
+              2*|3*|401|403) ;;
+              *) echo "Unreachable or unexpected HTTP status: $code"; exit 1 ;;
+            esac
           done
 
-      - name: Production safety verification
+      - name: Firebase public endpoint reachability
         shell: bash
         run: |
           set -euo pipefail
+          curl -I -sS --max-time 15 https://firebaseinstallations.googleapis.com/ >/dev/null
+          curl -I -sS --max-time 15 https://fcm.googleapis.com/ >/dev/null
+          echo 'Firebase public endpoints reachable.'
 
-          echo "=== PRODUCTION SAFETY CHECK ==="
+      - name: Service worker discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -path './.git' -prune -o -type f \( -iname '*service-worker*' -o -iname '*firebase-messaging-sw*' -o -name 'sw.js' \) -print | head -100 || true
 
-          if [ "$GITHUB_REF_NAME" = "main" ]; then
-            echo "Guardian is running against main."
-            echo "Guardian has read-only repository permissions."
-            echo "Guardian cannot push commits."
-            echo "Guardian cannot merge pull requests."
-            echo "Guardian cannot modify production secrets."
+      - name: Node verification
+        if: steps.detect.outputs.node_project == 'true'
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json valid')"
+          scripts=$(npm run 2>/dev/null || true)
+          echo "$scripts"
+          if echo "$scripts" | grep -qE '^  lint'; then npm run lint; fi
+          if echo "$scripts" | grep -qE '^  typecheck'; then npm run typecheck; elif echo "$scripts" | grep -qE '^  type-check'; then npm run type-check; fi
+          if echo "$scripts" | grep -qE '^  test'; then npm test -- --if-present; fi
+          if echo "$scripts" | grep -qE '^  build'; then npm run build; fi
+
+      - name: Production mutation guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --include='*.yml' --include='*.yaml' '^[[:space:]]*(git[[:space:]]+push[[:space:]]+([^[:space:]]+[[:space:]]+)?main|git[[:space:]]+push[[:space:]]+origin[[:space:]]+main|git[[:space:]]+push[[:space:]]+.*--force)' .github/workflows; then
+            echo 'Unsafe direct main push command detected.'
+            exit 1
           fi
+          echo 'No direct main push command detected.'
 
-          echo "Production safety check completed."
-
-      - name: Generate Guardian report
+      - name: Production impact record
         shell: bash
         run: |
-          set -euo pipefail
+          echo 'Production impact: read-only diagnostics only.'
+          echo 'No production code, secrets, database policy, Cloudflare configuration, or deployment target is mutated.'
+          echo 'Fixes must follow branch -> minimal patch -> tests -> CI -> PR -> human approval where required -> merge -> deploy.'
 
-          mkdir -p guardian-report
-
-          cat > guardian-report/summary.md <<EOF
-          # Stagepulse Autonomous Guardian
-
-          ## Run
-
-          - Repository: $GITHUB_REPOSITORY
-          - Branch: $GITHUB_REF_NAME
-          - Commit: $GITHUB_SHA
-          - Workflow: $GITHUB_WORKFLOW
-          - Run ID: $GITHUB_RUN_ID
-
-          ## Production impact
-
-          This Guardian execution is read-only.
-
-          It does not:
-          - push to main
-          - merge pull requests
-          - modify production secrets
-          - modify Supabase production data
-          - modify Firebase configuration
-          - modify Cloudflare configuration
-
-          ## Checks
-
-          - Repository structure
-          - Secret-pattern scan
-          - Firebase files
-          - Service Worker files
-          - Environment references
-          - Package configuration
-          - Lint
-          - Type check
-          - Tests
-          - Build
-          - GitHub Actions workflow structure
-          - Production safety
-
-          ## Next phase
-
-          Debugger, Tester and Fixer must operate through:
-          
-          \`branch -> minimal patch -> tests -> CI -> PR -> review -> merge -> deploy\`
-
-          No autonomous production mutation is permitted.
-          EOF
-
-      - name: Upload Guardian report
-        uses: actions/upload-artifact@v4
-        with:
-          name: stagepulse-guardian-report
-          path: guardian-report/
-
-      - name: Guardian status
-        shell: bash
+      - name: Guardian summary
         run: |
-          echo "======================================"
-          echo " STAGEPULSE GUARDIAN COMPLETED"
-          echo "======================================"
-          echo "No production mutation performed."
-          echo "Report uploaded as workflow artifact."
+          echo 'STAGEPULSE AUTONOMOUS GUARDIAN - BASELINE COMPLETED'
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Ref: $GITHUB_REF"
+          echo "Commit: $GITHUB_SHA"
