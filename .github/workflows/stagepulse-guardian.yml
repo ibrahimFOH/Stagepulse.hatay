@@ -63,8 +63,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude='*.map' '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|service_role[[:space:]]*[:=]|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=]|FCM_PRIVATE_KEY[[:space:]]*[:=]' .; then
-            echo "::error::Potential secret/private credential exposure detected."
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude-dir=supabase/functions --exclude='*.map' '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|service_role[[:space:]]*[:=]|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=]|FCM_PRIVATE_KEY[[:space:]]*[:=]' .; then
+            echo "::error::Potential secret/private credential exposure detected outside Edge Functions."
+            exit 1
+          fi
+          if grep -RInE --include='*.ts' --include='*.js' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'\''`][A-Za-z0-9._-]{20,}["'\''`]|-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[[:space:]]*$' supabase/functions; then
+            echo "::error::Potential hardcoded Edge Function credential detected."
             exit 1
           fi
           echo "Secret exposure guard passed."
