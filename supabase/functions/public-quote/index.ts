@@ -28,7 +28,7 @@ async function fcmAccessToken(){
   return {project,accessToken:token.access_token};
 }
 
-async function pushQuote(admin:any, userIds:string[], quote:any){
+async function pushQuote(admin:any,userIds:string[],quote:any){
   if(!userIds.length)return;
   try{
     const {data:devices}=await admin.from('notification_devices').select('id,token').in('user_id',userIds).eq('active',true);
@@ -65,18 +65,14 @@ Deno.serve(async req=>{
     const {data,error}=await admin.from('teklifler').insert({name,phone,company:company||null,email:email||null,type,event_type:eventType,location,people,event_date:eventDate,message,status:'new'}).select('id,quote_number,status,event_date,created_at,name').single();
     if(error)throw error;
 
-    // The database trigger creates the in-app notification rows. This second
-    // dispatch delivers the same event to registered admin/staff devices even
-    // when the browser/PWA is closed.
-    const {data:recipients}=await admin.rpc('notification_recipients_for_offer', {p_offer_id:data.id}).catch(()=>({data:null} as any));
-    let userIds:string[]=Array.isArray(recipients)?recipients.map((r:any)=>r.user_id).filter((v:any)=>typeof v==='string'):[];
-    if(!userIds.length){
-      const [{data:admins},{data:staff}]=await Promise.all([
-        admin.from('admin_profiles').select('user_id').eq('active',true),
-        admin.from('staff_profiles').select('user_id').eq('active',true)
-      ]);
-      userIds=[...(admins||[]),...(staff||[])].map((r:any)=>r.user_id).filter(Boolean);
-    }
+    // The DB trigger creates in-app notification rows. Deliver the same event
+    // to registered admin devices and staff who are explicitly allowed to view offers.
+    const [{data:admins},{data:staff}]=await Promise.all([
+      admin.from('admin_profiles').select('user_id').eq('active',true),
+      admin.from('staff_profiles').select('user_id').eq('active',true)
+    ]);
+    const {data:offerStaff}=await admin.from('staff_permissions').select('user_id').in('user_id',(staff||[]).map((r:any)=>r.user_id)).eq('permission_key','offers.view').eq('enabled',true);
+    const userIds=[...(admins||[]).map((r:any)=>r.user_id),...(offerStaff||[]).map((r:any)=>r.user_id)].filter(Boolean);
     await pushQuote(admin,[...new Set(userIds)],data);
     return json({ok:true,quote:data},200,h);
   }catch(e){console.error(e);return json({error:'Teklif kaydedilemedi.'},500,h);}
