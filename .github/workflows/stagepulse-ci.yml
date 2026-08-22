@@ -42,20 +42,33 @@ jobs:
             exit 1
           fi
 
-      - name: Literal secret scan
+      - name: Detect committed credential material
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE \
-            --exclude-dir=.git \
-            --exclude-dir=node_modules \
-            --exclude='*.md' \
-            --exclude='*.yml' \
-            --exclude='*.yaml' \
-            'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'\''`]([A-Za-z0-9._-]{20,})|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' \
-            .; then
-            echo 'Literal credential or private key detected.'
-            exit 1
+
+          # Do not scan CI source itself or server-side code that references
+          # environment variable names. Those strings are not credentials.
+          files=$(git ls-files | grep -Ev '^\.github/workflows/|^supabase/functions/') || true
+
+          if [ -n "$files" ]; then
+            if printf '%s\n' "$files" | xargs -r grep -nE \
+              'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'\''`][^"'\''`[:space:]]{20,}["'\''`]|service_role[[:space:]]*[:=][[:space:]]*["'\''`][^"'\''`[:space:]]{20,}["'\''`]|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' ; then
+              echo 'Committed credential material detected.'
+              exit 1
+            fi
+          fi
+
+          # Edge Functions may legitimately reference the server-side
+          # SUPABASE_SERVICE_ROLE_KEY environment variable. They must not
+          # contain an actual JWT/private-key value.
+          function_files=$(git ls-files 'supabase/functions/*' | grep -E '\.(ts|js)$' || true)
+          if [ -n "$function_files" ]; then
+            if printf '%s\n' "$function_files" | xargs -r grep -nE \
+              'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'\''`][A-Za-z0-9._-]{20,}["'\''`]|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[[:space:]]*$' ; then
+              echo 'Literal server credential/private key detected in Edge Functions.'
+              exit 1
+            fi
           fi
 
   javascript:
