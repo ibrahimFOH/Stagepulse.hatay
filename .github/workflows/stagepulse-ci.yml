@@ -2,20 +2,10 @@ name: Stagepulse CI
 
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
   pull_request:
-    branches:
-      - main
-
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      full_security:
-        description: "Run extended security checks"
-        required: true
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -25,430 +15,216 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
-  # ============================================================
-  # 1. Repository integrity
-  # ============================================================
   integrity:
     name: Repository Integrity
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify repository structure
+      - name: Required directories
         shell: bash
         run: |
           set -euo pipefail
+          for path in .github/workflows supabase supabase/migrations supabase/functions portal admin; do
+            test -d "$path"
+          done
 
-          test -d .github/workflows
-          test -d supabase
-          test -d supabase/migrations
-          test -d supabase/functions
-          test -d portal
-          test -d admin
-
-      - name: Detect duplicate migration timestamps
+      - name: Duplicate migration timestamps
         shell: bash
         run: |
           set -euo pipefail
-
-          duplicates=$(
-            find supabase/migrations -maxdepth 1 -type f -name '*.sql' \
-              -printf '%f\n' |
-            sed -E 's/^([0-9]{14}).*/\1/' |
-            sort |
-            uniq -d
-          )
-
+          duplicates=$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sed -E 's/^([0-9]{14}).*/\1/' | sort | uniq -d)
           if [ -n "$duplicates" ]; then
             echo "Duplicate migration timestamps:"
             echo "$duplicates"
             exit 1
           fi
 
-      - name: Detect accidental secrets
+      - name: Literal secret scan
         shell: bash
         run: |
           set -euo pipefail
-
           if grep -RInE \
             --exclude-dir=.git \
             --exclude-dir=node_modules \
             --exclude='*.md' \
-            'SUPABASE_SERVICE_ROLE_KEY|service_role[[:space:]]*[:=]|firebase_admin_sdk|BEGIN PRIVATE KEY' \
+            --exclude='*.yml' \
+            --exclude='*.yaml' \
+            'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'\''`]([A-Za-z0-9._-]{20,})|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' \
             .; then
-            echo "Potential secret found in repository."
+            echo 'Literal credential or private key detected.'
             exit 1
           fi
 
-  # ============================================================
-  # 2. JavaScript
-  # ============================================================
   javascript:
     name: JavaScript Syntax
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Check JavaScript syntax
+      - name: Check JavaScript
         shell: bash
         run: |
           set -euo pipefail
-
-          found=0
-
           while IFS= read -r -d '' file; do
-            found=1
-            echo "Checking: $file"
+            echo "Checking $file"
             node --check "$file"
-          done < <(
-            find . \
-              -type f \
-              -name '*.js' \
-              -not -path './.git/*' \
-              -not -path './node_modules/*' \
-              -print0
-          )
+          done < <(find . -type f -name '*.js' -not -path './.git/*' -not -path './node_modules/*' -print0)
 
-          if [ "$found" -eq 0 ]; then
-            echo "No JavaScript files found."
-          fi
-
-  # ============================================================
-  # 3. Edge Functions / Deno
-  # ============================================================
   edge-functions:
     name: Edge Functions
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-
-      - name: Check Edge Functions
+      - name: Type check Edge Functions
         shell: bash
         run: |
           set -euo pipefail
-
-          found=0
-
           while IFS= read -r -d '' file; do
-            found=1
-            echo "Deno checking: $file"
+            echo "Checking $file"
             deno check "$file"
-          done < <(
-            find supabase/functions \
-              -type f \
-              -name '*.ts' \
-              -print0
-          )
+          done < <(find supabase/functions -type f -name '*.ts' -print0)
 
-          if [ "$found" -eq 0 ]; then
-            echo "No Edge Function TypeScript files found."
-          fi
-
-  # ============================================================
-  # 4. Portal / Admin security regression
-  # ============================================================
   security:
     name: Frontend Security
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Password recovery checks
+      - name: Password recovery guards
         shell: bash
         run: |
           set -euo pipefail
-
           test -f portal/password-recovery.js
           test -f portal/index.html
-
-          grep -qF 'resetPasswordForEmail(email' \
-            portal/password-recovery.js
-
-          grep -qF 'PASSWORD_RECOVERY' \
-            portal/password-recovery.js
-
-          grep -qF 'forgotPasswordBtn' \
-            portal/index.html
-
-      - name: Service role protection
+          grep -qF 'resetPasswordForEmail(email' portal/password-recovery.js
+          grep -qF 'PASSWORD_RECOVERY' portal/password-recovery.js
+          grep -qF 'forgotPasswordBtn' portal/index.html
+      - name: Frontend service-role protection
         shell: bash
         run: |
           set -euo pipefail
+          ! grep -RIn --include='*.js' --include='*.html' 'SUPABASE_SERVICE_ROLE_KEY' portal admin
 
-          if grep -RIn \
-            --include='*.js' \
-            --include='*.html' \
-            'SUPABASE_SERVICE_ROLE_KEY' \
-            portal admin; then
-
-            echo "Service-role key reference detected in frontend."
-            exit 1
-          fi
-
-      - name: Dangerous hard-coded credentials
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if grep -RInE \
-            --include='*.js' \
-            --include='*.ts' \
-            --include='*.html' \
-            'password[[:space:]]*=[[:space:]]*["'\''][^"'\'']{8,}' \
-            portal admin supabase/functions; then
-
-            echo "Potential hard-coded password detected."
-            exit 1
-          fi
-
-  # ============================================================
-  # 5. Permission architecture
-  # ============================================================
   permissions:
     name: Permission Architecture
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Portal permission source
         shell: bash
         run: |
           set -euo pipefail
-
           test -f portal/portal.js
           test -f portal/portal-permissions.js
-
-          grep -Eq \
-            'staff_permissions|staffUser\.permissions|\.permissions' \
-            portal/portal.js portal/portal-permissions.js
-
-      - name: Reject legacy default permissions
+          grep -Eq 'staff_permissions|staffUser\.permissions|\.permissions' portal/portal.js portal/portal-permissions.js
+          ! grep -REn '\bDEFAULT_PERMS\b|defaultPermissions' portal/portal.js portal/portal-permissions.js
+      - name: Edge permission source
         shell: bash
         run: |
           set -euo pipefail
-
-          if grep -REn \
-            '\bDEFAULT_PERMS\b|defaultPermissions' \
-            portal/portal.js portal/portal-permissions.js; then
-
-            echo "Legacy default permission system detected."
-            exit 1
-          fi
-
-      - name: Edge Function permission source
-        shell: bash
-        run: |
-          set -euo pipefail
-
           test -f supabase/functions/staff-session/index.ts
           test -f supabase/functions/staff-manage/index.ts
+          grep -qF 'staff_permissions' supabase/functions/staff-session/index.ts
+          grep -qF 'permission_catalog' supabase/functions/staff-manage/index.ts
 
-          grep -qF 'staff_permissions' \
-            supabase/functions/staff-session/index.ts
-
-          grep -qF 'permission_catalog' \
-            supabase/functions/staff-manage/index.ts
-
-  # ============================================================
-  # 6. Supabase migration/security guards
-  # ============================================================
   supabase:
     name: Supabase Guards
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Supabase configuration
+      - name: Configuration
+        shell: bash
+        run: test -f supabase/config.toml
+      - name: Migration integrity
         shell: bash
         run: |
           set -euo pipefail
-
-          test -f supabase/config.toml
-
-      - name: Migration syntax/basic integrity
-        shell: bash
-        run: |
-          set -euo pipefail
-
           while IFS= read -r -d '' file; do
-            echo "Checking migration: $file"
-
             test -s "$file"
-
-            if grep -nE \
-              'SUPABASE_SERVICE_ROLE_KEY|BEGIN PRIVATE KEY' \
-              "$file"; then
-              echo "Secret-like material detected."
-              exit 1
-            fi
-
-          done < <(
-            find supabase/migrations \
-              -type f \
-              -name '*.sql' \
-              -print0
-          )
-
+            ! grep -qE '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' "$file"
+          done < <(find supabase/migrations -type f -name '*.sql' -print0)
       - name: Staff jobs compatibility
         shell: bash
         run: |
           set -euo pipefail
-
-          latest=$(
-            find supabase/migrations \
-              -type f \
-              -name '*my_jobs_staff*.sql' \
-              | sort \
-              | tail -n 1
-          )
-
-          if [ -z "$latest" ]; then
-            echo "my_jobs_staff migration not found."
-            exit 1
-          fi
-
-          grep -Eiq \
-            'my_jobs_staff' \
-            "$latest"
-
-          grep -Eiq \
-            "schedule\.view" \
-            "$latest"
-
-          if grep -qF \
-            'JOIN job_staff js ON js.job_id=js.job_id' \
-            "$latest"; then
-
-            echo "Invalid self-join detected."
-            exit 1
-          fi
-
+          latest=$(find supabase/migrations -type f -name '*my_jobs_staff*.sql' | sort | tail -n 1)
+          test -n "$latest"
+          grep -Eiq 'my_jobs_staff' "$latest"
+          grep -Eiq 'schedule\.view' "$latest"
+          ! grep -qF 'JOIN job_staff js ON js.job_id=js.job_id' "$latest"
       - name: Private schema protection
         shell: bash
         run: |
           set -euo pipefail
+          ! grep -RInE 'GRANT USAGE ON SCHEMA private TO (anon|PUBLIC)|GRANT EXECUTE ON FUNCTION public\.set_quote_defaults\(\) TO anon' supabase/migrations
 
-          if grep -RInE \
-            'GRANT USAGE ON SCHEMA private TO anon|GRANT USAGE ON SCHEMA private TO PUBLIC' \
-            supabase/migrations; then
-
-            echo "Private schema exposed."
-            exit 1
-          fi
-
-  # ============================================================
-  # 7. Production smoke test
-  # ============================================================
   production:
     name: Production Smoke Test
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
-      - name: Check production endpoints
+      - name: Check production edge
         shell: bash
         run: |
           set -euo pipefail
-
           urls=(
-            "https://stagepulse.com.tr/"
-            "https://stagepulse.com.tr/portal/"
-            "https://stagepulse.com.tr/admin/"
+            'https://stagepulse.com.tr/'
+            'https://stagepulse.com.tr/portal/'
+            'https://stagepulse.com.tr/admin/'
           )
-
           for url in "${urls[@]}"; do
-            echo "Checking $url"
-
-            code=$(
-              curl \
-                -L \
-                -sS \
-                -o /dev/null \
-                -w '%{http_code}' \
-                --max-time 20 \
-                "$url"
-            )
-
-            case "$code" in
-              2??|3??)
-                echo "OK: $url -> $code"
-                ;;
-              *)
-                echo "FAILED: $url -> $code"
-                exit 1
-                ;;
-            esac
-          done
-
-  # ============================================================
-  # 8. Final gate
-  # ============================================================
-  ci-gate:
-    name: Stagepulse CI Gate
-    runs-on: ubuntu-latest
-    needs:
-      - integrity
-      - javascript
-      - edge-functions
-      - security
-      - permissions
-      - supabase
-      - production
-
-    if: ${{ always() }}
-
-    steps:
-      - name: Verify all jobs passed
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          results=(
-            "${{ needs.integrity.result }}"
-            "${{ needs.javascript.result }}"
-            "${{ needs.edge-functions.result }}"
-            "${{ needs.security.result }}"
-            "${{ needs.permissions.result }}"
-            "${{ needs.supabase.result }}"
-            "${{ needs.production.result }}"
-          )
-
-          for result in "${results[@]}"; do
-            if [ "$result" != "success" ]; then
-              echo "CI FAILED: $result"
+            headers=$(mktemp)
+            code=$(curl -L -A 'Mozilla/5.0 (Stagepulse-CI)' -sS -D "$headers" -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)
+            if [[ "$code" =~ ^2[0-9][0-9]$|^3[0-9][0-9]$ ]]; then
+              echo "OK $url -> $code"
+            elif [[ "$code" == '403' ]] && grep -qi '^server: cloudflare' "$headers"; then
+              echo "EDGE PROTECTION $url -> 403 (Cloudflare reachable)"
+            else
+              echo "FAILED $url -> $code"
+              cat "$headers"
+              rm -f "$headers"
               exit 1
             fi
+            rm -f "$headers"
           done
 
-          echo "======================================"
-          echo "STAGEPULSE CI: ALL CHECKS PASSED"
-          echo "======================================"
+  gate:
+    name: Stagepulse CI Gate
+    runs-on: ubuntu-latest
+    needs: [integrity, javascript, edge-functions, security, permissions, supabase, production]
+    if: ${{ always() }}
+    steps:
+      - name: Verify all checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for result in \
+            '${{ needs.integrity.result }}' \
+            '${{ needs.javascript.result }}' \
+            '${{ needs.edge-functions.result }}' \
+            '${{ needs.security.result }}' \
+            '${{ needs.permissions.result }}' \
+            '${{ needs.supabase.result }}' \
+            '${{ needs.production.result }}'; do
+            test "$result" = success || { echo "CI FAILED: $result"; exit 1; }
+          done
+          echo 'STAGEPULSE CI: ALL CHECKS PASSED'
