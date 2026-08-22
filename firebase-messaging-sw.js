@@ -1,4 +1,4 @@
-/* Stagepulse FCM service worker. Firebase SDK is vendored locally to avoid external CDN dependency. */
+/* Stagepulse FCM service worker v7. Firebase SDK is vendored locally. */
 importScripts('/portal/vendor/firebase/firebase-app-compat.js?v=10.14.1');
 importScripts('/portal/vendor/firebase/firebase-messaging-compat.js?v=10.14.1');
 
@@ -14,6 +14,8 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
+  // FCM notification payloads are displayed by the browser/Android automatically.
+  // Data-only payloads are displayed here so both message formats work consistently.
   if (payload?.notification) return;
   const data = payload?.data || {};
   self.registration.showNotification(data.title || 'Stagepulse', {
@@ -27,5 +29,25 @@ messaging.onBackgroundMessage((payload) => {
     vibrate: [200,100,200]
   });
 });
-function safeNotificationUrl(value) { try { const url=new URL(value||'/portal/',self.location.origin); if(url.origin!==self.location.origin)return'/portal/'; return `${url.pathname}${url.search}${url.hash}`; } catch { return '/portal/'; } }
-self.addEventListener('notificationclick',(event)=>{event.notification.close();const target=safeNotificationUrl(event.notification?.data?.url);event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then((windows)=>{for(const client of windows){if('focus'in client){client.navigate(target);return client.focus();}}return clients.openWindow(target);}));});
+
+function safeNotificationUrl(value) {
+  try {
+    const url = new URL(value || '/portal/', self.location.origin);
+    if (url.origin !== self.location.origin) return '/portal/';
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch { return '/portal/'; }
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = safeNotificationUrl(event.notification?.data?.url);
+  event.waitUntil(clients.matchAll({ type:'window', includeUncontrolled:true }).then((windows) => {
+    for (const client of windows) {
+      if ('focus' in client) {
+        client.navigate(target);
+        return client.focus();
+      }
+    }
+    return clients.openWindow(target);
+  }));
+});
