@@ -1,0 +1,96 @@
+name: Stagepulse CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stagepulse-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  critical:
+    name: Critical production checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find . -type f -name '*.js' -not -path './.git/*' -not -path './node_modules/*' -print0)
+
+      - name: Portal checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f portal/portal.js
+          test -f portal/portal-permissions.js
+          test -f portal/password-recovery.js
+          grep -qF 'resetPasswordForEmail(email' portal/password-recovery.js
+          grep -qF 'PASSWORD_RECOVERY' portal/password-recovery.js
+          ! grep -qF 'SUPABASE_SERVICE_ROLE_KEY' portal/*.js admin/*.js
+
+      - name: Edge Function checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/functions/staff-session/index.ts
+          test -f supabase/functions/staff-manage/index.ts
+          test -f supabase/functions/staff-login/index.ts
+          test -f supabase/functions/send-fcm-notification/index.ts
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Edge Function type checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in supabase/functions/staff-manage/index.ts supabase/functions/staff-session/index.ts supabase/functions/staff-login/index.ts supabase/functions/send-fcm-notification/index.ts; do
+            deno check "$file"
+          done
+
+      - name: Supabase migration guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/config.toml
+          test -f supabase/migrations/20260822125327_align_my_jobs_staff_with_schedule_permission.sql
+          grep -qF "staff_has_perm('schedule.view')" supabase/migrations/20260822125327_align_my_jobs_staff_with_schedule_permission.sql
+          grep -qF 'JOIN public.staff s ON s.id=js.staff_id' supabase/migrations/20260822125327_align_my_jobs_staff_with_schedule_permission.sql
+          ! grep -qF 'JOIN job_staff js ON js.job_id=js.job_id' supabase/migrations/20260822125327_align_my_jobs_staff_with_schedule_permission.sql
+
+      - name: Production smoke endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in https://stagepulse.com.tr/ https://stagepulse.com.tr/portal/ https://stagepulse.com.tr/admin/; do
+            code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url")
+            case "$code" in
+              2??|3??) ;;
+              *) echo "Production endpoint failed: $url ($code)"; exit 1 ;;
+            esac
+          done
+
+      - name: Final summary
+        run: echo 'Stagepulse CI: checks completed'
