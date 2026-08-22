@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -39,9 +39,10 @@ jobs:
           java-version: "17"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "22"
+          package-manager-cache: false
 
       - name: Install Bubblewrap CLI & Core
         run: |
@@ -85,7 +86,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p build/admin
           cp twa-configs/admin.twa-manifest.json build/admin/twa-manifest.json
 
@@ -97,27 +98,19 @@ jobs:
           d["appVersionCode"] = int(os.environ["VERSION_CODE"])
           d["appVersionName"] = str(os.environ["VERSION_NAME"])
           if os.path.exists("android.keystore"):
-              d["signingKey"] = {
-                  "path": os.path.abspath("android.keystore"),
-                  "alias": os.environ.get("KEY_ALIAS") or "android"
-              }
+              d["signingKey"] = {"path": os.path.abspath("android.keystore"), "alias": os.environ.get("KEY_ALIAS") or "android"}
           json.dump(d, open(p, "w"), indent=2)
           '
 
           cd build/admin
-
           node -e '
           const { TwaManifest, TwaGenerator } = require("@bubblewrap/core");
           const fs = require("fs");
-
-          // Web Manifest indirilirken Cloudflare 403 engeline takılmamak için indirici fonksiyonu monkey-patch ediyoruz
           TwaGenerator.prototype.writeWebManifest = async function() { return; };
-
           async function gen() {
             const json = JSON.parse(fs.readFileSync("twa-manifest.json"));
             const manifest = new TwaManifest(json);
             const generator = new TwaGenerator();
-
             await generator.createTwaProject("./", manifest);
             console.log("Admin Android projesi başarıyla oluşturuldu.");
           }
@@ -136,13 +129,12 @@ jobs:
           fi
 
           APK=$(find . -name "*.apk" -type f | head -1)
-          if [ -n "$APK" ]; then
-            cp "$APK" "../../artifacts/Stagepulse-Admin-v${VERSION_NAME}.apk"
-            echo "Admin APK başarıyla oluşturuldu."
-          else
-            echo "HATA: Admin APK bulunamadı!"
-            exit 1
-          fi
+          test -n "$APK"
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)
+          test -n "$AAPT2"
+          "$AAPT2" dump permissions "$APK" | grep -q 'android.permission.POST_NOTIFICATIONS'
+          cp "$APK" "../../artifacts/Stagepulse-Admin-v${VERSION_NAME}.apk"
+          echo "Admin APK ve Android bildirim izni doğrulandı."
 
       - name: Build Staff APK
         if: ${{ inputs.build_staff }}
@@ -153,7 +145,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p build/staff
           cp twa-configs/staff.twa-manifest.json build/staff/twa-manifest.json
 
@@ -165,27 +157,19 @@ jobs:
           d["appVersionCode"] = int(os.environ["VERSION_CODE"])
           d["appVersionName"] = str(os.environ["VERSION_NAME"])
           if os.path.exists("android.keystore"):
-              d["signingKey"] = {
-                  "path": os.path.abspath("android.keystore"),
-                  "alias": os.environ.get("KEY_ALIAS") or "android"
-              }
+              d["signingKey"] = {"path": os.path.abspath("android.keystore"), "alias": os.environ.get("KEY_ALIAS") or "android"}
           json.dump(d, open(p, "w"), indent=2)
           '
 
           cd build/staff
-
           node -e '
           const { TwaManifest, TwaGenerator } = require("@bubblewrap/core");
           const fs = require("fs");
-
-          // Web Manifest indirilirken Cloudflare 403 engeline takılmamak için indirici fonksiyonu monkey-patch ediyoruz
           TwaGenerator.prototype.writeWebManifest = async function() { return; };
-
           async function gen() {
             const json = JSON.parse(fs.readFileSync("twa-manifest.json"));
             const manifest = new TwaManifest(json);
             const generator = new TwaGenerator();
-
             await generator.createTwaProject("./", manifest);
             console.log("Personel Android projesi başarıyla oluşturuldu.");
           }
@@ -204,16 +188,16 @@ jobs:
           fi
 
           APK=$(find . -name "*.apk" -type f | head -1)
-          if [ -n "$APK" ]; then
-            cp "$APK" "../../artifacts/Stagepulse-Personel-v${VERSION_NAME}.apk"
-            echo "Personel APK başarıyla oluşturuldu."
-          else
-            echo "HATA: Personel APK bulunamadı!"
-            exit 1
-          fi
+          test -n "$APK"
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)
+          test -n "$AAPT2"
+          "$AAPT2" dump permissions "$APK" | grep -q 'android.permission.POST_NOTIFICATIONS'
+          cp "$APK" "../../artifacts/Stagepulse-Personel-v${VERSION_NAME}.apk"
+          echo "Personel APK ve Android bildirim izni doğrulandı."
 
       - name: Show results
         run: |
+          set -euo pipefail
           echo "=== Oluşturulan APK'lar ==="
           ls -lh artifacts/
 
