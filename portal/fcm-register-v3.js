@@ -1,10 +1,10 @@
-/* Stagepulse FCM registration: Firebase SDK is served from the Stagepulse origin. */
+/* Stagepulse FCM registration v4: Firebase SDK is served from the Stagepulse origin. */
 (() => {
   const cfg = window.STAGEPULSE_FCM_CONFIG;
   const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
   if (!cfg || !window.supabase || !window.firebase) return;
-  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'stagepulse-fcm-auth-v3', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'stagepulse-fcm-auth-v4', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
   let busy = false;
   const variant = () => cfg.appVariant === 'admin' || document.documentElement.dataset.appVariant === 'admin' || location.pathname.startsWith('/admin/') ? 'admin' : 'staff';
   const show = (text, action = 'Tekrar bağlan') => {
@@ -22,7 +22,7 @@
       if (Notification.permission !== 'granted') { const p=await Notification.requestPermission(); if(p!=='granted') throw new Error(`Bildirim izni verilmedi: ${p}`); }
       if (!firebase.apps.length) firebase.initializeApp(cfg);
       if (typeof firebase.messaging.isSupported === 'function' && !(await firebase.messaging.isSupported())) throw new Error('Firebase Web Push bu APK/Chrome ortamında desteklenmiyor.');
-      const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-06', { scope:'/', updateViaCache:'none' });
+      const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-10', { scope:'/', updateViaCache:'none' });
       await navigator.serviceWorker.ready;
       const token = await firebase.messaging().getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: sw });
       if (!token) throw new Error('FCM cihaz tokenı alınamadı.');
