@@ -28,9 +28,19 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(title, options);
 });
 
+function safeNotificationUrl(value) {
+  try {
+    const url = new URL(value || '/portal/', self.location.origin);
+    if (url.origin !== self.location.origin) return '/portal/';
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return '/portal/';
+  }
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = event.notification?.data?.url || '/portal/';
+  const target = safeNotificationUrl(event.notification?.data?.url);
   event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
     for (const client of windows) {
       if ('focus' in client) {
