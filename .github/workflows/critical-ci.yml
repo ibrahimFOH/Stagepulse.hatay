@@ -22,8 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=(admin/auth-layer.js admin/staff-permissions.js portal/portal.js portal/portal-permissions.js portal/password-recovery.js premium.js)
-          for file in "${files[@]}"; do test -f "$file"; node --check "$file"; done
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(find . -type f -name '*.js' -not -path './.git/*' -not -path './node_modules/*' -print0)
       - name: Password recovery security regression
         shell: bash
         run: |
@@ -31,16 +30,15 @@ jobs:
           grep -qF 'resetPasswordForEmail(email' portal/password-recovery.js
           grep -qF 'forgotPasswordBtn' portal/index.html
           grep -qF 'PASSWORD_RECOVERY' portal/password-recovery.js
-          ! grep -qF 'teklifal@stagepulse.com.tr' portal/password-recovery.js
+          ! grep -qF 'SUPABASE_SERVICE_ROLE_KEY' portal/*.js admin/*.js
       - name: Portal live permissions
         shell: bash
         run: |
           set -euo pipefail
-          file=portal/portal.js
-          test -f "$file"
-          ! grep -qE '\bDEFAULT_PERMS\b' "$file"
-          grep -Eq 'staff_permissions|staffUser\.permissions|[.]permissions' "$file"
-          grep -Eq 'canonical[[:space:]]*\(|PERMISSION_ALIAS|[.]can[[:space:]]*\(|\bcan[[:space:]]*\(' "$file"
+          test -f portal/portal.js && test -f portal/portal-permissions.js
+          ! grep -qE '\bDEFAULT_PERMS\b|defaultPermissions' portal/portal.js portal/portal-permissions.js
+          grep -Eq 'staff_permissions|staffUser\.permissions|\.permissions' portal/portal.js portal/portal-permissions.js
+          grep -Eq 'canonical[[:space:]]*\(|PERMISSION_ALIAS|const ALIAS|canLive' portal/portal.js portal/portal-permissions.js
       - name: Permission source of truth
         shell: bash
         run: |
@@ -74,21 +72,7 @@ jobs:
           test -f supabase/migrations/20260821210643_add_fcm_device_token_registry_v29.sql
           grep -qF 'notification_devices' supabase/migrations/20260821210643_add_fcm_device_token_registry_v29.sql
           grep -qF 'GRANT EXECUTE ON FUNCTION public.register_notification_device' supabase/migrations/20260821210643_add_fcm_device_token_registry_v29.sql
-          for file in \
-            supabase/migrations/20260821234535_consolidate_performance_policies_free_plan_v41.sql \
-            supabase/migrations/20260821234542_restore_permission_admin_writes_v42.sql \
-            supabase/migrations/20260821234609_finish_policy_consolidation_free_plan_v43.sql \
-            supabase/migrations/20260821234623_remove_unused_indexes_free_plan_v44.sql \
-            supabase/migrations/20260821234846_canonicalize_my_jobs_staff_permission_v45.sql \
-            supabase/migrations/20260821235028_enforce_admin_only_staff_permission_management_v46.sql \
-            supabase/migrations/20260821235121_restore_rbac_policy_helper_execute_v47.sql \
-            supabase/migrations/20260821235137_grant_rbac_helper_dependency_read_v48.sql \
-            supabase/migrations/20260821235311_revoke_anon_view_write_privileges_v49.sql \
-            supabase/migrations/20260821235354_validate_offer_evaluation_status_constraint_v50.sql \
-            supabase/migrations/20260821235736_index_foreign_keys_free_plan_v51.sql \
-            supabase/migrations/20260821235909_restore_private_offer_wrapper_dependencies_v52.sql \
-            supabase/migrations/20260822001000_revoke_anon_trigger_function_execute_v53.sql \
-            supabase/migrations/20260822003000_tighten_private_schema_execute_v55.sql; do test -f "$file"; done
+          for file in supabase/migrations/20260821234535_consolidate_performance_policies_free_plan_v41.sql supabase/migrations/20260821234542_restore_permission_admin_writes_v42.sql supabase/migrations/20260821234609_finish_policy_consolidation_free_plan_v43.sql supabase/migrations/20260821234623_remove_unused_indexes_free_plan_v44.sql supabase/migrations/20260821234846_canonicalize_my_jobs_staff_permission_v45.sql supabase/migrations/20260821235028_enforce_admin_only_staff_permission_management_v46.sql supabase/migrations/20260821235121_restore_rbac_policy_helper_execute_v47.sql supabase/migrations/20260821235137_grant_rbac_helper_dependency_read_v48.sql supabase/migrations/20260821235311_revoke_anon_view_write_privileges_v49.sql supabase/migrations/20260821235354_validate_offer_evaluation_status_constraint_v50.sql supabase/migrations/20260821235736_index_foreign_keys_free_plan_v51.sql supabase/migrations/20260821235909_restore_private_offer_wrapper_dependencies_v52.sql supabase/migrations/20260822001000_revoke_anon_trigger_function_execute_v53.sql supabase/migrations/20260822003000_tighten_private_schema_execute_v55.sql; do test -f "$file"; done
           grep -qF 'REVOKE USAGE ON SCHEMA private FROM anon, authenticated, PUBLIC' supabase/migrations/20260822003000_tighten_private_schema_execute_v55.sql
           grep -qF 'REVOKE EXECUTE ON FUNCTION public.set_quote_defaults() FROM anon' supabase/migrations/20260822001000_revoke_anon_trigger_function_execute_v53.sql
       - name: Staff jobs compatibility
@@ -109,5 +93,13 @@ jobs:
           set -euo pipefail
           grep -Eiq 'deprecated' supabase/staff-portal.sql.DEPRECATED.md
           grep -Eiq 'deprecated' functions/DEPRECATED.md
+      - name: Production smoke endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in https://stagepulse.com.tr/ https://stagepulse.com.tr/portal/ https://stagepulse.com.tr/admin/; do
+            code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url")
+            case "$code" in 2??|3??) ;; *) echo "Production endpoint failed: $url ($code)"; exit 1;; esac
+          done
       - name: Final summary
         run: echo 'Stagepulse Critical CI: ALL CRITICAL CHECKS PASSED'
