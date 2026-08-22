@@ -40,6 +40,15 @@ async function fcmAccessToken() {
   return { project, accessToken: token.access_token };
 }
 
+function safePath(value: unknown) {
+  const raw = typeof value === "string" ? value : "/portal/";
+  try {
+    const url = new URL(raw, "https://stagepulse.com.tr");
+    if (url.origin !== "https://stagepulse.com.tr" && url.origin !== "https://www.stagepulse.com.tr") return "/portal/";
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch { return "/portal/"; }
+}
+
 Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });
   if (req.method !== "POST") return out(req, { error: "Method Not Allowed" }, 405);
@@ -54,9 +63,33 @@ Deno.serve(async req => {
     if (error) throw error;
     if (!devices?.length) return out(req, { ok: true, sent: 0, stale: 0 });
     const { project, accessToken } = await fcmAccessToken();
+    const path = safePath(body.url);
+    const link = `https://stagepulse.com.tr${path}`;
+    const kind = typeof body.kind === "string" ? body.kind.slice(0, 80) : "system";
     let sent = 0, stale = 0;
     for (const device of devices) {
-      const r = await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(project)}/messages:send`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" }, body: JSON.stringify({ message: { token: device.token, notification: { title, body: text }, data: { url: typeof body.url === "string" ? body.url.slice(0, 500) : "/portal/", kind: typeof body.kind === "string" ? body.kind.slice(0, 80) : "system" } } }) });
+      const message = {
+        message: {
+          token: device.token,
+          notification: { title, body: text },
+          data: { url: path, kind },
+          webpush: {
+            headers: { Urgency: "high", TTL: "86400" },
+            notification: {
+              title,
+              body: text,
+              icon: "https://stagepulse.com.tr/favicon-32.png",
+              badge: "https://stagepulse.com.tr/favicon-32.png",
+              tag: `stagepulse-${kind}`,
+              renotify: true,
+              requireInteraction: true,
+              vibrate: [200, 100, 200]
+            },
+            fcm_options: { link }
+          }
+        }
+      };
+      const r = await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(project)}/messages:send`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" }, body: JSON.stringify(message) });
       if (r.ok) { sent++; continue; }
       const detail = await r.text();
       if (r.status === 404 || r.status === 410 || /UNREGISTERED|NOT_FOUND/i.test(detail)) { stale++; await admin.from("notification_devices").update({ active: false, updated_at: new Date().toISOString() }).eq("id", device.id); }
