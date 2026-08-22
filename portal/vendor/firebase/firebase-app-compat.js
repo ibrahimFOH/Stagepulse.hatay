@@ -1,0 +1,2 @@
+/* Stagepulse local Firebase SDK placeholder. The production build should replace this file with the pinned Firebase compat SDK artifact. */
+(function(){if(typeof window!=='undefined'&&!window.firebase){window.firebase={initializeApp:function(){throw new Error('Local Firebase SDK artifact missing')}};}})();
