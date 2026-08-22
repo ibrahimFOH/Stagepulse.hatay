@@ -3,11 +3,16 @@
   const cfg = window.STAGEPULSE_FCM_CONFIG;
   const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
-  if (!cfg || !cfg.apiKey || !cfg.projectId || !cfg.appId || !cfg.vapidKey || !window.supabase) return;
+  if (!cfg || !window.supabase) return;
 
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const load = (src) => new Promise((resolve, reject) => {
-    const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = () => reject(new Error(`Firebase SDK yüklenemedi: ${src}`)); document.head.appendChild(s);
+    if ([...document.scripts].some(s => s.src === src)) return resolve();
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error(`Firebase SDK yüklenemedi: ${src}`));
+    document.head.appendChild(s);
   });
   let registering = false;
   let actionButton = null;
@@ -16,13 +21,14 @@
   function appVariant() {
     return cfg.appVariant === 'admin' || document.documentElement.dataset.appVariant === 'admin' || location.pathname.startsWith('/admin/') ? 'admin' : 'staff';
   }
-  function platform() { return cfg.platform === 'android' || /Android/i.test(navigator.userAgent) ? 'android' : 'web'; }
+  function platform() { return 'android'; }
   function removeUi() { actionButton?.remove(); statusNode?.remove(); actionButton = null; statusNode = null; }
+
   function showStatus(text, actionText, handler) {
     if (!document.body) return;
     if (!statusNode) {
       statusNode = document.createElement('div');
-      Object.assign(statusNode.style, { position:'fixed', right:'16px', bottom:'16px', zIndex:'2147483647', maxWidth:'340px', padding:'12px 14px', borderRadius:'14px', background:'#171717', color:'#fff', boxShadow:'0 8px 30px rgba(0,0,0,.35)', font:'600 13px system-ui,sans-serif' });
+      Object.assign(statusNode.style, { position:'fixed', right:'16px', bottom:'16px', zIndex:'2147483647', maxWidth:'360px', padding:'12px 14px', borderRadius:'14px', background:'#171717', color:'#fff', boxShadow:'0 8px 30px rgba(0,0,0,.35)', font:'600 13px system-ui,sans-serif', whiteSpace:'pre-wrap' });
       document.body.appendChild(statusNode);
     }
     statusNode.textContent = text;
@@ -41,19 +47,23 @@
 
   function errorText(error, stage) {
     const code = error?.code ? ` [${error.code}]` : '';
-    const message = error?.message || error?.name || String(error || 'Bilinmeyen hata');
+    const message = error?.message || error?.name || (typeof error === 'string' ? error : 'Bilinmeyen hata');
     return `Bildirim bağlantısı kurulamadı (${stage})${code}: ${message}`;
   }
 
   async function askPermission() {
     if (!('Notification' in window)) {
-      showStatus('Bu APK ortamında web bildirimleri desteklenmiyor.', null, null);
+      showStatus('Bu APK ortamında Notification API yok. Android uygulamasının native FCM katmanı gerekiyor.', null, null);
       return false;
     }
     if (Notification.permission === 'granted') return true;
+    if (Notification.permission === 'denied') {
+      showStatus('Stagepulse bildirim izni Android tarafından engellenmiş. Chrome/site ayarlarından Bildirimler → İzin ver seçin.', 'Ayarları tekrar kontrol et', () => location.reload());
+      return false;
+    }
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      showStatus('Stagepulse bildirim izni verilmedi. Android Chrome/site ayarlarından Bildirimler → İzin ver seçin.', 'Tekrar dene', enable);
+      showStatus(`Bildirim izni verilmedi (durum: ${permission}).`, 'Tekrar dene', enable);
       return false;
     }
     return true;
@@ -62,16 +72,18 @@
   async function register() {
     if (registering) return false;
     registering = true;
-    let stage = 'oturum';
+    let stage = 'başlatma';
     try {
+      if (!cfg.apiKey || !cfg.projectId || !cfg.appId || !cfg.vapidKey) throw new Error('Firebase web yapılandırması eksik.');
+
+      stage = 'oturum';
       const { data: { session }, error: sessionError } = await client.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session?.user) return false;
 
       stage = 'tarayıcı desteği';
       if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-        showStatus('Bu uygulama ortamı web push bildirimlerini desteklemiyor.', null, null);
-        return false;
+        throw new Error('Notification API veya Service Worker desteklenmiyor.');
       }
       if (Notification.permission !== 'granted') {
         showStatus('Kapalı uygulama bildirimleri için Stagepulse bildirim izni gerekiyor.', '🔔 Bildirimleri aç', enable);
@@ -81,15 +93,16 @@
       stage = 'Firebase SDK';
       await load('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
       await load('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
+      if (!window.firebase) throw new Error('Firebase global nesnesi oluşmadı.');
       if (!firebase.apps.length) firebase.initializeApp(cfg);
 
       stage = 'Firebase Messaging desteği';
-      if (firebase.messaging.isSupported && !(await firebase.messaging.isSupported())) {
-        throw new Error('Bu APK/Chrome ortamı Firebase Web Push için desteklenmiyor.');
-      }
+      if (typeof firebase.messaging.isSupported !== 'function') throw new Error('Firebase Messaging isSupported API bulunamadı.');
+      const supported = await firebase.messaging.isSupported();
+      if (!supported) throw new Error('Bu APK/Chrome ortamı Firebase Web Push için desteklenmiyor.');
 
       stage = 'Service Worker';
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-02', { scope: '/' });
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-03', { scope: '/' });
       await navigator.serviceWorker.ready;
 
       stage = 'FCM token';
