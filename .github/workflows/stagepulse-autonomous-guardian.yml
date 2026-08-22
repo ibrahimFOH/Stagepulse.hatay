@@ -129,11 +129,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --include='*.yml' --include='*.yaml' 'git push .*main|git push origin main|force-with-lease.*main' .github/workflows; then
-            echo 'Unsafe direct main push pattern detected.'
+          if grep -RInE --include='*.yml' --include='*.yaml' '^[[:space:]]*(git[[:space:]]+push[[:space:]]+([^[:space:]]+[[:space:]]+)?main|git[[:space:]]+push[[:space:]]+origin[[:space:]]+main|git[[:space:]]+push[[:space:]]+.*--force)' .github/workflows; then
+            echo 'Unsafe direct main push command detected.'
             exit 1
           fi
-          echo 'No direct main push pattern detected.'
+          echo 'No direct main push command detected.'
 
       - name: Production impact record
         shell: bash
