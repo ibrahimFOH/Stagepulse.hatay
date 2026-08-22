@@ -1,0 +1,58 @@
+name: Stagepulse Autonomous Guardian
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  guardian:
+    name: Guardian diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Secret and private-key scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'"'`][A-Za-z0-9._-]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' .; then
+            echo 'Potential literal credential/private key detected.'
+            exit 1
+          fi
+
+      - name: Production-impact policy check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/ai-guardian.config.yml
+          test -f .github/agents/guardian.md
+          test -f .github/agents/debugger.md
+          test -f .github/agents/tester.md
+          test -f .github/agents/fixer.md
+          echo 'Guardian policy/config present.'
+
+      - name: Domain smoke check
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in https://stagepulse.com.tr/ https://stagepulse.com.tr/admin https://stagepulse.com.tr/portal; do
+            code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 15 "$url")
+            echo "$url -> $code"
+            case "$code" in 2*|3*) ;; *) exit 1 ;; esac
+          done
+
+      - name: Guardian summary
+        run: echo 'STAGEPULSE GUARDIAN: baseline checks passed; runtime/device FCM validation remains a separate smoke test.'
