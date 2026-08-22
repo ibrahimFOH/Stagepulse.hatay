@@ -3,14 +3,13 @@
   const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
   const STAFF_EDGE = `${SUPABASE_URL}/functions/v1/staff-session`;
 
-  // Canonical keys must match public.permission_catalog exactly.
-  // The previous portal used dot-style keys (e.g. dashboard.view), while
-  // production uses underscore keys (e.g. dashboard_view). That mismatch
-  // made every menu item appear unauthorized even when permissions existed.
+  // Production currently uses the active dot-style permission catalog keys.
+  // Keep the portal mapping aligned with public.permission_catalog and the
+  // existing staff_permissions rows so active staff do not lose menu access.
   const views = {
-    home: 'dashboard_view', jobs: 'calendar_view', equipment: 'equipment_view', offers: 'offers_view',
-    customers: 'customers_view', finance: 'finance_view', pricing: 'pricing_view', analytics: 'analytics_view',
-    activity: 'activity_view', notifications: 'notifications_view', settings: 'settings_manage'
+    home: 'dashboard.view', jobs: 'schedule.view', equipment: 'equipment.view', offers: 'offers.view',
+    customers: 'customers.view', finance: 'payments.view', pricing: 'pricing.view', analytics: 'analytics.view',
+    activity: 'activity.view', notifications: 'notifications.view', settings: 'settings.view'
   };
   const navItems = [['home','Özet'],['jobs','İşler'],['equipment','Ekipman'],['offers','Teklifler'],['customers','Müşteriler'],['finance','Ödemeler / Finans'],['pricing','Fiyatlandırma'],['analytics','Analitik'],['activity','Aktivite'],['notifications','Bildirimler'],['settings','Ayarlar']];
   let live = Object.create(null), recoveryShown = false, lastActivity = Date.now(), sessionTimer = null, sessionBusy = false;
@@ -97,7 +96,7 @@
   }
   function patch() { window.can = canLive; window.perms = () => ({ ...live }); window.loadView = loadLiveView; nav(); }
   function afterLoginV2() { showApp(); $('#staffName').textContent = window.staffUser?.display_name || 'Personel'; $('#staffRole').textContent = roleTr[window.staffUser?.role] || window.staffUser?.role || ''; patch(); markActivity(); scheduleSessionCheck(); const h = (location.hash || '').slice(1), f = firstAllowed(); loadLiveView(views[h] && canLive(views[h]) ? h : (f || null)); }
-  function external(v) { const labels = { analytics:'Analitik', activity:'Aktivite', notifications:'Bildirimler', settings:'Ayarlar' }; $('#content').innerHTML = `<div class="panel portal-placeholder"><h2>${esc(labels[v] || 'Bölüm')}</h2><p class="muted">Bu bölüm için yetkiniz aktif. Modül verisi hazır olduğunda burada görüntülenecek.</p></div>`; }
+  function external(v) { const labels = { analytics:'Analitik', activity:'Aktivite', notifications:'Bildirimler', settings:'Ayarlar' }; $('#content').innerHTML = `<div class="panel portal-placeholder"><h2>${esc(labels[v] || 'Bölüm')}</h2><p class="muted">Bu bölüm için yetkiniz aktif. Modül verisi hazır olduğunda burada görüntülenecek.</p>`; }
   async function loadLiveView(v) {
     markActivity(); const need = views[v];
     if (!need || !canLive(need)) { const f = firstAllowed(); if (f && f !== v) return loadLiveView(f); $('#content').innerHTML = '<div class="panel"><b>Erişim yetkiniz yok.</b><p class="muted">Bu sayfa için yöneticinizden yetki istemelisiniz.</p></div>'; return; }
