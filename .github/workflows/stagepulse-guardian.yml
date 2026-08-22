@@ -178,6 +178,8 @@ jobs:
           grep -q "vapidKey" portal/fcm-config.js
           grep -q "firebase-messaging-sw.js" portal/fcm-register-v3.js
           grep -q "register_notification_device" portal/fcm-register-v3.js
+          grep -q "firebaseEndpointDiagnostic" portal/fcm-register-v3.js
+          grep -q "NETWORK/CORS" portal/fcm-register-v3.js
           grep -q "showNotification" firebase-messaging-sw.js
           grep -q "notificationclick" firebase-messaging-sw.js
           echo "FCM static integrity passed."
@@ -280,4 +282,5 @@ jobs:
             echo "Automatic merge: **disabled**"
             echo ""
             echo "Critical checks: domain, Firebase endpoints, FCM static integrity, service worker, TWA notifications, TLS, security headers, secret exposure."
+            echo "FCM runtime diagnostics: browser-side non-mutating Firebase endpoint checks are enabled."
           } >> "$GITHUB_STEP_SUMMARY"
