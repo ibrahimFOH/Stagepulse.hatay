@@ -1,7 +1,7 @@
 -- Stagepulse notification registration hardening.
--- register_notification_device is SECURITY DEFINER and must not depend on the
--- private schema because authenticated callers intentionally have no private
--- schema USAGE/EXECUTE privileges.
+-- register_notification_device is SECURITY DEFINER and must not depend on an
+-- inaccessible admin authorizer because authenticated callers have no direct
+-- private schema access.
 CREATE OR REPLACE FUNCTION public.register_notification_device(
   p_token text,
   p_platform text,
@@ -31,10 +31,6 @@ BEGIN
     RAISE EXCEPTION 'Geçersiz uygulama';
   END IF;
 
-  -- IMPORTANT: use the public authorizer. private.is_admin() is deliberately
-  -- inaccessible to authenticated callers by the private-schema hardening
-  -- migration and caused the historical "permission denied for function
-  -- is_admin" failure during device registration.
   IF p_app_variant = 'admin' AND NOT public.is_admin() THEN
     RAISE EXCEPTION 'Yönetici uygulaması yetkisi gerekli';
   END IF;
