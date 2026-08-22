@@ -6,13 +6,24 @@
   if (!cfg || !window.supabase) return;
 
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  const load = (src) => new Promise((resolve, reject) => {
-    if ([...document.scripts].some(s => s.src === src)) return resolve();
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error(`Firebase SDK yüklenemedi: ${src}`));
-    document.head.appendChild(s);
+  const load = (sources) => new Promise((resolve, reject) => {
+    const list = Array.isArray(sources) ? sources : [sources];
+    let index = 0;
+    const tryNext = () => {
+      if (index >= list.length) {
+        reject(new Error(`Firebase SDK yüklenemedi: ${list.join(' | ')}`));
+        return;
+      }
+      const src = list[index++];
+      if ([...document.scripts].some(s => s.src === src)) return resolve();
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = () => { s.remove(); tryNext(); };
+      document.head.appendChild(s);
+    };
+    tryNext();
   });
   let registering = false;
   let actionButton = null;
@@ -91,8 +102,16 @@
       }
 
       stage = 'Firebase SDK';
-      await load('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
-      await load('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
+      await load([
+        'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',
+        'https://cdn.jsdelivr.net/npm/firebase@10.14.1/compat/firebase-app.js',
+        'https://unpkg.com/firebase@10.14.1/compat/firebase-app.js'
+      ]);
+      await load([
+        'https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js',
+        'https://cdn.jsdelivr.net/npm/firebase@10.14.1/compat/firebase-messaging.js',
+        'https://unpkg.com/firebase@10.14.1/compat/firebase-messaging.js'
+      ]);
       if (!window.firebase) throw new Error('Firebase global nesnesi oluşmadı.');
       if (!firebase.apps.length) firebase.initializeApp(cfg);
 
@@ -102,7 +121,7 @@
       if (!supported) throw new Error('Bu APK/Chrome ortamı Firebase Web Push için desteklenmiyor.');
 
       stage = 'Service Worker';
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-03', { scope: '/' });
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-04', { scope: '/' });
       await navigator.serviceWorker.ready;
 
       stage = 'FCM token';
