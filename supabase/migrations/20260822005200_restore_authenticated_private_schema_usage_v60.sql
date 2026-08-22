@@ -1,0 +1,3 @@
+REVOKE USAGE ON SCHEMA private FROM PUBLIC;
+GRANT USAGE ON SCHEMA private TO authenticated;
+REVOKE USAGE ON SCHEMA private FROM anon;
