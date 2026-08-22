@@ -30,8 +30,8 @@ Deno.serve(async req=>{
     if(!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return json({error:'Etkinlik tarihi geçersiz.'},400,h);
     const today=new Date(); const todayIso=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate())).toISOString().slice(0,10); if(eventDate<todayIso) return json({error:'Etkinlik tarihi geçmiş olamaz.'},400,h);
     const admin=createClient(SUPABASE_URL,SERVICE_KEY,{auth:{persistSession:false}});
-    const {data,row,error}=await admin.from('teklifler').insert({name,phone,company:company||null,email:email||null,type,event_type:eventType,location,people,event_date:eventDate,message,status:'new'}).select('id,quote_number,status,event_date,created_at').single();
+    const {data,error}=await admin.from('teklifler').insert({name,phone,company:company||null,email:email||null,type,event_type:eventType,location,people,event_date:eventDate,message,status:'new'}).select('id,quote_number,status,event_date,created_at').single();
     if(error) throw error;
-    return json({ok:true,quote:row},{headers:h});
+    return json({ok:true,quote:data},200,h);
   }catch(e){console.error(e);return json({error:'Teklif kaydedilemedi.'},500,h);}
 });
