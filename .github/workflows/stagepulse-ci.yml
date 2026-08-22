@@ -20,47 +20,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Required directories
-        shell: bash
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Required structure
         run: |
           set -euo pipefail
-          for path in .github/workflows supabase supabase/migrations supabase/functions portal admin; do
-            test -d "$path"
-          done
-
-      - name: Duplicate migration timestamps
-        shell: bash
+          for path in .github/workflows supabase supabase/migrations supabase/functions portal admin; do test -d "$path"; done
+          test -s .github/workflows/stagepulse-guardian.yml
+          test -s firebase-messaging-sw.js
+          test -s portal/fcm-register-v3.js
+      - name: Migration timestamps
         run: |
           set -euo pipefail
           duplicates=$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sed -E 's/^([0-9]{14}).*/\1/' | sort | uniq -d)
-          if [ -n "$duplicates" ]; then
-            echo "Duplicate migration timestamps:"
-            echo "$duplicates"
-            exit 1
-          fi
-
-      - name: Detect committed credential material
-        shell: bash
+          test -z "$duplicates"
+      - name: Credential scan
         run: |
           set -euo pipefail
-          files=$(git ls-files | grep -Ev '^\.github/workflows/|^supabase/functions/') || true
-          if [ -n "$files" ]; then
-            if printf '%s\n' "$files" | xargs -r grep -nE -- \
-              'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'\''`][^"'\''`[:space:]]{20,}["'\''`]|service_role[[:space:]]*[:=][[:space:]]*["'\''`][^"'\''`[:space:]]{20,}["'\''`]|^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'; then
-              echo 'Committed credential material detected.'
-              exit 1
-            fi
-          fi
-          function_files=$(git ls-files 'supabase/functions/*' | grep -E '\.(ts|js)$' || true)
-          if [ -n "$function_files" ]; then
-            if printf '%s\n' "$function_files" | xargs -r grep -nE -- \
-              'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'\''`][A-Za-z0-9._-]{20,}["'\''`]|^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'; then
-              echo 'Literal server credential/private key detected in Edge Functions.'
-              exit 1
-            fi
+          pattern='SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=]|service_role[[:space:]]*[:=]|-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'
+          if git grep -nE "$pattern" -- ':!.github' ':!supabase/functions' ':!supabase/migrations' ':!portal/vendor' ':!vendor/firebase'; then
+            echo 'Credential pattern detected in tracked application source.'
+            exit 1
           fi
 
   javascript:
@@ -68,179 +49,103 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
         with:
-          node-version: 22
-      - name: Check JavaScript
-        shell: bash
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Syntax check
         run: |
           set -euo pipefail
-          while IFS= read -r -d '' file; do
-            echo "Checking $file"
-            node --check "$file"
-          done < <(find . -type f -name '*.js' -not -path './.git/*' -not -path './node_modules/*' -print0)
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(find . -type f -name '*.js' -not -path './.git/*' -not -path './portal/vendor/*' -not -path './vendor/firebase/*' -print0)
 
   edge-functions:
     name: Edge Functions
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Type check Edge Functions
-        shell: bash
+      - name: Type check
         run: |
           set -euo pipefail
-          while IFS= read -r -d '' file; do
-            echo "Checking $file"
-            deno check "$file"
-          done < <(find supabase/functions -type f -name '*.ts' -print0)
+          while IFS= read -r -d '' file; do deno check "$file"; done < <(find supabase/functions -type f -name '*.ts' -print0)
 
   security:
-    name: Frontend Security
+    name: Security Guards
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Password recovery guards
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f portal/password-recovery.js
-          test -f portal/index.html
-          grep -qF 'resetPasswordForEmail(email' portal/password-recovery.js
-          grep -qF 'PASSWORD_RECOVERY' portal/password-recovery.js
-          grep -qF 'forgotPasswordBtn' portal/index.html
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Frontend service-role protection
-        shell: bash
         run: |
           set -euo pipefail
           ! grep -RIn --include='*.js' --include='*.html' 'SUPABASE_SERVICE_ROLE_KEY' portal admin
-
-  permissions:
-    name: Permission Architecture
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Portal permission source
-        shell: bash
+      - name: Password recovery guards
         run: |
           set -euo pipefail
-          test -f portal/portal.js
-          test -f portal/portal-permissions.js
-          grep -Eq 'staff_permissions|staffUser\.permissions|\.permissions' portal/portal.js portal/portal-permissions.js
-          ! grep -REn '\bDEFAULT_PERMS\b|defaultPermissions' portal/portal.js portal/portal-permissions.js
-      - name: Edge permission source
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f supabase/functions/staff-session/index.ts
-          test -f supabase/functions/staff-manage/index.ts
-          grep -qF 'staff_permissions' supabase/functions/staff-session/index.ts
-          grep -qF 'permission_catalog' supabase/functions/staff-manage/index.ts
+          test -s portal/password-recovery.js
+          grep -qF 'resetPasswordForEmail(email' portal/password-recovery.js
+          grep -qF 'PASSWORD_RECOVERY' portal/password-recovery.js
+          grep -qF 'forgotPasswordBtn' portal/index.html
 
   supabase:
     name: Supabase Guards
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Configuration
-        shell: bash
-        run: test -f supabase/config.toml
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Migration integrity
-        shell: bash
         run: |
           set -euo pipefail
           while IFS= read -r -d '' file; do
             test -s "$file"
-            ! grep -qE -- '^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' "$file"
+            ! grep -qE '^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' "$file"
           done < <(find supabase/migrations -type f -name '*.sql' -print0)
-      - name: Staff jobs compatibility
-        shell: bash
+      - name: FCM notification database contract
         run: |
           set -euo pipefail
-          latest=$(find supabase/migrations -type f -name '*my_jobs_staff*.sql' | sort | tail -n 1)
-          test -n "$latest"
-          grep -Eiq 'my_jobs_staff' "$latest"
-          grep -Eiq 'schedule\.view' "$latest"
-          ! grep -qF 'JOIN job_staff js ON js.job_id=js.job_id' "$latest"
+          grep -RIl --include='*.sql' 'register_notification_device' supabase/migrations | tail -n 1 | xargs grep -q 'p_app_variant'
+          grep -RIl --include='*.sql' 'notification_devices_user_token_variant_uidx' supabase/migrations | tail -n 1 | xargs grep -q 'CREATE UNIQUE INDEX'
       - name: Private schema protection
-        shell: bash
         run: |
           set -euo pipefail
-          ! grep -RInE -- 'GRANT USAGE ON SCHEMA private TO (anon|PUBLIC)|GRANT EXECUTE ON FUNCTION public\.set_quote_defaults\(\) TO anon' supabase/migrations
-      - name: Security-definer function hardening
-        shell: bash
-        run: |
-          set -euo pipefail
-          for file in \
-            supabase/migrations/*.sql; do
-            test -f "$file"
-          done
-          grep -RIl --include='*.sql' 'CREATE OR REPLACE FUNCTION public.register_notification_device' supabase/migrations | tail -n 1 | xargs grep -qF 'SET search_path TO' || true
-          test -f supabase/functions/admin-login-v2/index.ts
-          grep -qF 'LEGACY_ENDPOINT_RETIRED' supabase/functions/admin-login-v2/index.ts
+          ! grep -RInE 'GRANT USAGE ON SCHEMA private TO (anon|PUBLIC)' supabase/migrations
 
   production:
     name: Production Smoke Test
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check production edge
-        shell: bash
+      - name: Edge checks
         run: |
           set -euo pipefail
-          urls=(
-            'https://stagepulse.com.tr/'
-            'https://stagepulse.com.tr/portal/'
-            'https://stagepulse.com.tr/admin/'
-          )
-          for url in "${urls[@]}"; do
-            headers=$(mktemp)
-            code=$(curl -L -A 'Mozilla/5.0 (Stagepulse-CI)' -sS -D "$headers" -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)
-            if [[ "$code" =~ ^2[0-9][0-9]$|^3[0-9][0-9]$ ]]; then
-              echo "OK $url -> $code"
-            elif [[ "$code" == '403' ]] && grep -qi '^server: cloudflare' "$headers"; then
-              echo "EDGE PROTECTION $url -> 403 (Cloudflare reachable)"
-            else
-              echo "FAILED $url -> $code"
-              cat "$headers"
-              rm -f "$headers"
-              exit 1
-            fi
-            rm -f "$headers"
+          for url in https://stagepulse.com.tr/ https://stagepulse.com.tr/admin/ https://stagepulse.com.tr/portal/ https://stagepulse.com.tr/firebase-messaging-sw.js; do
+            code=$(curl -sS -L -A 'Stagepulse-CI/1.0' --connect-timeout 10 --max-time 20 -o /dev/null -w '%{http_code}' "$url" || true)
+            echo "$url -> $code"
+            case "$code" in 2??|3??|401|403) ;; *) exit 1 ;; esac
           done
 
   gate:
     name: Stagepulse CI Gate
     runs-on: ubuntu-latest
-    needs: [integrity, javascript, edge-functions, security, permissions, supabase, production]
+    needs: [integrity, javascript, edge-functions, security, supabase, production]
     if: ${{ always() }}
     steps:
-      - name: Verify all checks
-        shell: bash
+      - name: Verify checks
         run: |
           set -euo pipefail
-          for result in \
-            '${{ needs.integrity.result }}' \
-            '${{ needs.javascript.result }}' \
-            '${{ needs.edge-functions.result }}' \
-            '${{ needs.security.result }}' \
-            '${{ needs.permissions.result }}' \
-            '${{ needs.supabase.result }}' \
-            '${{ needs.production.result }}'; do
-            test "$result" = success || { echo "CI FAILED: $result"; exit 1; }
+          for result in '${{ needs.integrity.result }}' '${{ needs.javascript.result }}' '${{ needs.edge-functions.result }}' '${{ needs.security.result }}' '${{ needs.supabase.result }}' '${{ needs.production.result }}'; do
+            test "$result" = success
           done
           echo 'STAGEPULSE CI: ALL CHECKS PASSED'

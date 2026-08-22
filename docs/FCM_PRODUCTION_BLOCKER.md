@@ -1,21 +1,27 @@
 # FCM Production Readiness
 
-Status: IMPLEMENTED in repository; final device delivery verification remains a runtime test.
+Status: BACKEND/REPOSITORY STABILIZED; final Android delivery verification remains a real-device test.
 
-Implemented:
+Implemented and verified in repository:
 - Firebase Web Messaging configuration for the Stagepulse Firebase project.
-- Public VAPID key configuration in the client; no Admin private key is committed.
-- FCM service worker for background/terminated delivery.
-- Authenticated device-token registration into `notification_devices` for both admin and staff variants.
-- Server-side FCM HTTP v1 send path through `send-fcm-notification` using Supabase secrets for the Firebase service-account credentials.
-- Stale/unregistered FCM tokens are automatically deactivated after a failed send.
-- Admin notification composer sends an in-app notification and attempts push delivery to registered devices.
-- Staff notification inbox, read state, and notification preferences.
-- Android 13+ browser/TWA notification permission is requested by the registration flow.
+- Public VAPID configuration only; no Firebase Admin private key is committed.
+- Dedicated FCM service worker for background/terminated delivery.
+- Single canonical portal FCM registration entrypoint (`fcm-register-v3.js`).
+- Obsolete FCM registration implementations removed.
+- Network diagnostics no longer misreport normal unauthenticated Firebase endpoint responses as browser CORS failures.
+- Authenticated device-token registration into `notification_devices` for admin and staff variants.
+- Production Supabase notification migrations reconciled and applied; notification device RPC/policy state is synchronized with the repository intent.
+- Server-side FCM HTTP v1 send path uses runtime Supabase secrets for Firebase service-account credentials.
+- Stale/unregistered FCM tokens are automatically deactivated after failed sends.
+- Android/TWA manifests keep notification delegation enabled.
+- APK CI now uses current Node/action runtimes and verifies `POST_NOTIFICATIONS` is present in generated APKs.
+- Guardian now performs syntax, secret, FCM, TWA, domain, TLS and security-header gates without production mutation.
 
-Remaining runtime verification:
-- Log into `/admin/` and `/portal/` on real Android devices and grant notification permission.
-- Confirm a row appears in `notification_devices` for each device.
+Final runtime verification:
+- Install the newly built Admin and Staff APKs on real Android devices.
+- Grant Android notification permission.
+- Log into `/admin/` and `/portal/`.
+- Confirm a `notification_devices` row is created for each device/app variant.
 - Send a test notification from Admin → Bildirimler.
 - Verify foreground, background and terminated-app delivery and tap-to-open behavior.
 
