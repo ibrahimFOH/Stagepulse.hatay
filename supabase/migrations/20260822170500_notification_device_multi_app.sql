@@ -25,8 +25,8 @@ CREATE OR REPLACE FUNCTION public.register_notification_device(
 )
 RETURNS public.notification_devices
 LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path=''
+SECURITY INVOKER
+SET search_path='public'
 AS $$
 DECLARE r public.notification_devices;
 BEGIN
@@ -34,8 +34,8 @@ BEGIN
   IF length(trim(coalesce(p_token,''))) < 20 THEN RAISE EXCEPTION 'Geçersiz bildirim tokenı'; END IF;
   IF p_platform NOT IN ('android','web') THEN RAISE EXCEPTION 'Geçersiz platform'; END IF;
   IF p_app_variant NOT IN ('admin','staff') THEN RAISE EXCEPTION 'Geçersiz uygulama'; END IF;
-  IF p_app_variant='admin' AND NOT private.is_admin() THEN RAISE EXCEPTION 'Yönetici uygulaması yetkisi gerekli'; END IF;
-  IF p_app_variant='staff' AND NOT public.is_staff() THEN RAISE EXCEPTION 'Personel uygulaması yetkisi gerekli'; END IF;
+  IF p_app_variant='admin' AND NOT EXISTS (SELECT 1 FROM public.admin_profiles WHERE user_id=auth.uid() AND active=true) THEN RAISE EXCEPTION 'Yönetici uygulaması yetkisi gerekli'; END IF;
+  IF p_app_variant='staff' AND NOT EXISTS (SELECT 1 FROM public.staff_profiles WHERE user_id=auth.uid() AND active=true) THEN RAISE EXCEPTION 'Personel uygulaması yetkisi gerekli'; END IF;
 
   INSERT INTO public.notification_devices(user_id,token,platform,app_variant,active,last_seen_at,updated_at)
   VALUES(auth.uid(),trim(p_token),p_platform,p_app_variant,true,now(),now())
