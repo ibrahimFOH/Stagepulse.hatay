@@ -2,10 +2,17 @@
 (() => {
   const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
   const STAFF_EDGE = `${SUPABASE_URL}/functions/v1/staff-session`;
-
-  // Production currently uses the active dot-style permission catalog keys.
-  // Keep the portal mapping aligned with public.permission_catalog and the
-  // existing staff_permissions rows so active staff do not lose menu access.
+  const ALIAS = {
+    jobs:'schedule.view', equipment:'equipment.view', offers:'offers.view', customers:'customers.view', finance:'payments.view', pricing:'pricing.view',
+    view_assigned_jobs:'schedule.view', accept_job:'jobs.accept', reject_job:'jobs.reject', update_job_status:'jobs.status.update',
+    update_job_notes:'jobs.notes.update', manage_job_equipment:'jobs.equipment.manage', view_job_contacts:'schedule.view', view_job_documents:'jobs.documents.view',
+    equipment_checkout:'equipment.checkout', equipment_return:'equipment.return', report_issue:'issues.create', view_team:'team.view',
+    financials:'financials.view', dashboard_view:'dashboard.view', analytics:'analytics.view', activity_view:'activity.view',
+    notifications_view:'notifications.view', settings_manage:'settings.update', calendar_view:'schedule.view', calendar_edit:'schedule.manage',
+    settlements_view:'settlements.view', personnel_view:'staff.view', pricing_manage:'pricing.manage', file_upload:'files.upload',
+    offer_approve:'offers.approve', whatsapp_send:'notifications.send', personnel_manage:'staff.manage'
+  };
+  const canonical = (key) => ALIAS[key] || key;
   const views = {
     home: 'dashboard.view', jobs: 'schedule.view', equipment: 'equipment.view', offers: 'offers.view',
     customers: 'customers.view', finance: 'payments.view', pricing: 'pricing.view', analytics: 'analytics.view',
@@ -13,7 +20,7 @@
   };
   const navItems = [['home','Özet'],['jobs','İşler'],['equipment','Ekipman'],['offers','Teklifler'],['customers','Müşteriler'],['finance','Ödemeler / Finans'],['pricing','Fiyatlandırma'],['analytics','Analitik'],['activity','Aktivite'],['notifications','Bildirimler'],['settings','Ayarlar']];
   let live = Object.create(null), recoveryShown = false, lastActivity = Date.now(), sessionTimer = null, sessionBusy = false;
-  const canLive = (key) => live[key] === true;
+  const canLive = (key) => live[canonical(key)] === true || live[key] === true;
   const firstAllowed = () => navItems.map(([v]) => v).find(v => canLive(views[v])) || null;
   const permissionCount = () => Object.values(live).filter(v => v === true).length;
   const markActivity = () => { lastActivity = Date.now(); };
@@ -96,7 +103,7 @@
   }
   function patch() { window.can = canLive; window.perms = () => ({ ...live }); window.loadView = loadLiveView; nav(); }
   function afterLoginV2() { showApp(); $('#staffName').textContent = window.staffUser?.display_name || 'Personel'; $('#staffRole').textContent = roleTr[window.staffUser?.role] || window.staffUser?.role || ''; patch(); markActivity(); scheduleSessionCheck(); const h = (location.hash || '').slice(1), f = firstAllowed(); loadLiveView(views[h] && canLive(views[h]) ? h : (f || null)); }
-  function external(v) { const labels = { analytics:'Analitik', activity:'Aktivite', notifications:'Bildirimler', settings:'Ayarlar' }; $('#content').innerHTML = `<div class="panel portal-placeholder"><h2>${esc(labels[v] || 'Bölüm')}</h2><p class="muted">Bu bölüm için yetkiniz aktif. Modül verisi hazır olduğunda burada görüntülenecek.</p>`; }
+  function external(v) { const labels = { analytics:'Analitik', activity:'Aktivite', notifications:'Bildirimler', settings:'Ayarlar' }; $('#content').innerHTML = `<div class="panel portal-placeholder"><h2>${esc(labels[v] || 'Bölüm')}</h2><p class="muted">Bu bölüm için yetkiniz aktif. Modül verisi hazır olduğunda burada görüntülenecek.</p></div>`; }
   async function loadLiveView(v) {
     markActivity(); const need = views[v];
     if (!need || !canLive(need)) { const f = firstAllowed(); if (f && f !== v) return loadLiveView(f); $('#content').innerHTML = '<div class="panel"><b>Erişim yetkiniz yok.</b><p class="muted">Bu sayfa için yöneticinizden yetki istemelisiniz.</p></div>'; return; }
