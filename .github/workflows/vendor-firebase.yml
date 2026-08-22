@@ -1,0 +1,58 @@
+name: Vendor Firebase Web SDK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'portal/vendor/firebase/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vendor-firebase-main
+  cancel-in-progress: true
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download pinned Firebase SDK from npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .firebase-sdk portal/vendor/firebase
+          mkdir -p .firebase-sdk portal/vendor/firebase
+          cd .firebase-sdk
+          npm pack firebase@10.14.1 --silent
+          tar -xzf firebase-10.14.1.tgz
+          app=$(find package -type f -name 'firebase-app-compat.js' -print -quit)
+          messaging=$(find package -type f -name 'firebase-messaging-compat.js' -print -quit)
+          test -n "$app"
+          test -n "$messaging"
+          cp "$app" ../portal/vendor/firebase/firebase-app-compat.js
+          cp "$messaging" ../portal/vendor/firebase/firebase-messaging-compat.js
+          cd ..
+          test -s portal/vendor/firebase/firebase-app-compat.js
+          test -s portal/vendor/firebase/firebase-messaging-compat.js
+          rm -rf .firebase-sdk
+
+      - name: Commit vendored SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'stagepulse-ci'
+          git config user.email 'stagepulse-ci@users.noreply.github.com'
+          git add portal/vendor/firebase/firebase-app-compat.js portal/vendor/firebase/firebase-messaging-compat.js
+          if git diff --cached --quiet; then
+            echo 'Firebase SDK already current.'
+            exit 0
+          fi
+          git commit -m 'build: vendor Firebase Web SDK 10.14.1'
+          git push origin HEAD:main
