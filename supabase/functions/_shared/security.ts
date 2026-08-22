@@ -37,10 +37,12 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 10;
 
 export function getClientIp(req: Request): string {
+  // Cloudflare's cf-connecting-ip is the trusted client-IP signal at the edge.
+  // Do not prefer x-forwarded-for because clients can supply that header themselves.
   return (
+    req.headers.get("cf-connecting-ip")?.trim() ||
+    req.headers.get("x-real-ip")?.trim() ||
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("cf-connecting-ip") ||
-    req.headers.get("x-real-ip") ||
     "unknown"
   );
 }
