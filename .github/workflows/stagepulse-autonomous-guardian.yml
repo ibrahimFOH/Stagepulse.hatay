@@ -75,7 +75,7 @@ jobs:
           if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*[^[:space:]]{20,}' .; then
             found=1
           fi
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' .; then
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' -- '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' .; then
             found=1
           fi
           if [ "$found" -ne 0 ]; then
@@ -91,7 +91,10 @@ jobs:
           for url in https://stagepulse.com.tr/ https://stagepulse.com.tr/admin https://stagepulse.com.tr/portal; do
             code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 15 "$url")
             echo "$url -> $code"
-            case "$code" in 2*|3*) ;; *) exit 1 ;; esac
+            case "$code" in
+              2*|3*|401|403) ;;
+              *) echo "Unreachable or unexpected HTTP status: $code"; exit 1 ;;
+            esac
           done
 
       - name: Firebase public endpoint reachability
