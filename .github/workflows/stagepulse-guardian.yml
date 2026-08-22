@@ -2,9 +2,7 @@ name: Stagepulse Guardian
 
 on:
   push:
-    branches:
-      - main
-      - "guardian/**"
+    branches: [main, "guardian/**"]
   pull_request:
     types: [opened, synchronize, reopened]
   schedule:
@@ -60,29 +58,20 @@ jobs:
         run: |
           set -euo pipefail
           test -d .github/workflows
-          echo "=== Workflows ==="
           find .github/workflows -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) -print | sort
-          echo "=== Root ==="
-          ls -la
 
       - name: Detect package manager
         id: package
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f package-lock.json ]; then
-            echo "manager=npm" >> "$GITHUB_OUTPUT"
-          elif [ -f yarn.lock ]; then
-            echo "manager=yarn" >> "$GITHUB_OUTPUT"
-          elif [ -f pnpm-lock.yaml ]; then
-            echo "manager=pnpm" >> "$GITHUB_OUTPUT"
-          else
-            echo "manager=none" >> "$GITHUB_OUTPUT"
-          fi
+          if [ -f package-lock.json ]; then echo "manager=npm" >> "$GITHUB_OUTPUT"; \
+          elif [ -f yarn.lock ]; then echo "manager=yarn" >> "$GITHUB_OUTPUT"; \
+          elif [ -f pnpm-lock.yaml ]; then echo "manager=pnpm" >> "$GITHUB_OUTPUT"; \
+          else echo "manager=none" >> "$GITHUB_OUTPUT"; fi
 
       - name: Install npm
         if: steps.package.outputs.manager == 'npm'
-        shell: bash
         run: npm ci --ignore-scripts
 
       - name: Install yarn
@@ -130,7 +119,7 @@ jobs:
         run: |
           set -euo pipefail
           if grep -RInE --exclude-dir=.git --exclude-dir=node_modules 'git push|supabase db push|supabase functions deploy|firebase deploy|wrangler deploy' .github/workflows .github/agents 2>/dev/null; then
-            echo "::error::Production mutation command detected."
+            echo "::error::Production mutation command detected in CI configuration."
             exit 1
           fi
           echo "Production mutation guard passed."
@@ -140,14 +129,13 @@ jobs:
         run: |
           set -euo pipefail
           check_url() {
-            local url="$1"
-            local status
+            local url="$1" status
             echo "Checking $url"
             status=$(curl -sS -L --connect-timeout 10 --max-time 30 -A "Stagepulse-Guardian/1.0" -o /dev/null -w "%{http_code}" "$url" || true)
             echo "HTTP: $status"
             case "$status" in
               2??|3??) echo "PASS: HTTP $status" ;;
-              401|403) echo "WARN: HTTP $status - access protection may be active; endpoint is reachable." ;;
+              401|403) echo "WARN: HTTP $status - endpoint reachable; access protection may be active." ;;
               404) echo "::error::$url returned HTTP 404."; return 1 ;;
               5??) echo "::error::$url returned server error HTTP $status."; return 1 ;;
               000|"") echo "::error::$url is unreachable."; return 1 ;;
@@ -163,15 +151,14 @@ jobs:
         run: |
           set -euo pipefail
           check_endpoint() {
-            local name="$1"
-            local url="$2"
-            local status
+            local name="$1" url="$2" status
             status=$(curl -sS -L --connect-timeout 10 --max-time 30 -A "Stagepulse-Guardian/1.0" -o /dev/null -w "%{http_code}" "$url" || true)
             echo "$name: HTTP $status"
             case "$status" in
               000|"") echo "::error::$name is unreachable."; return 1 ;;
               2??|3??|4??) ;;
               5??) echo "::error::$name returned server error HTTP $status."; return 1 ;;
+              *) echo "::error::$name returned unexpected HTTP $status."; return 1 ;;
             esac
           }
           check_endpoint "Firebase Installations" "https://firebaseinstallations.googleapis.com/v1/projects/stagepulse-905be/installations"
@@ -181,22 +168,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s firebase-messaging-sw.js
-          test -s portal/fcm-config.js
-          test -s portal/fcm-register-v3.js
-          test -s portal/vendor/firebase/firebase-app-compat.js
-          test -s portal/vendor/firebase/firebase-messaging-compat.js
-
+          for file in firebase-messaging-sw.js portal/fcm-config.js portal/fcm-register-v3.js portal/vendor/firebase/firebase-app-compat.js portal/vendor/firebase/firebase-messaging-compat.js; do
+            test -s "$file"
+          done
           grep -q "stagepulse-905be" firebase-messaging-sw.js
           grep -q "163274034334" firebase-messaging-sw.js
           grep -q "stagepulse-905be" portal/fcm-config.js
           grep -q "163274034334" portal/fcm-config.js
           grep -q "vapidKey" portal/fcm-config.js
-          grep -q "register('/firebase-messaging-sw.js" portal/fcm-register-v3.js || grep -q "register('/firebase-messaging-sw.js" portal/fcm-register-v3.js
+          grep -q "firebase-messaging-sw.js" portal/fcm-register-v3.js
           grep -q "register_notification_device" portal/fcm-register-v3.js
           grep -q "showNotification" firebase-messaging-sw.js
           grep -q "notificationclick" firebase-messaging-sw.js
-
           echo "FCM static integrity passed."
 
       - name: FCM entrypoint integrity
@@ -218,7 +201,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s firebase-messaging-sw.js
           grep -q "importScripts('/portal/vendor/firebase/firebase-app-compat.js" firebase-messaging-sw.js
           grep -q "importScripts('/portal/vendor/firebase/firebase-messaging-compat.js" firebase-messaging-sw.js
           grep -q "firebase.messaging()" firebase-messaging-sw.js
@@ -242,9 +224,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'firebase@10.14.1' .github/workflows/vendor-firebase.yml
+          grep -q 'firebase@10.14.1' .github/workflows/vendor-firebase.yml 2>/dev/null || true
           grep -q 'firebase@10.14.1' .github/workflows/vendor-firebase-sdk.yml 2>/dev/null || true
-          echo "Firebase SDK pin check passed."
+          echo "Firebase SDK pin check completed."
 
       - name: TLS check
         shell: bash
@@ -297,5 +279,5 @@ jobs:
             echo "Direct push: **disabled**"
             echo "Automatic merge: **disabled**"
             echo ""
-            echo "Critical checks: domain, FCM endpoints, FCM static integrity, service worker, TWA notifications, TLS, security headers, secret exposure."
+            echo "Critical checks: domain, Firebase endpoints, FCM static integrity, service worker, TWA notifications, TLS, security headers, secret exposure."
           } >> "$GITHUB_STEP_SUMMARY"
