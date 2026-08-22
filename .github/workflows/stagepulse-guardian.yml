@@ -73,11 +73,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -nE '(^|[[:space:]])git push([[:space:]]|$)|supabase db push|supabase functions deploy|firebase deploy|wrangler deploy' .github/workflows/stagepulse-guardian.yml; then
+          GIT_PUSH='git'; GIT_PUSH+=' push'
+          SUPA_DB='supabase'; SUPA_DB+=' db push'
+          SUPA_FN='supabase'; SUPA_FN+=' functions deploy'
+          FIREBASE='firebase'; FIREBASE+=' deploy'
+          WRANGLER='wrangler'; WRANGLER+=' deploy'
+          if grep -nF "$GIT_PUSH" .github/workflows/stagepulse-guardian.yml || \
+             grep -nF "$SUPA_DB" .github/workflows/stagepulse-guardian.yml || \
+             grep -nF "$SUPA_FN" .github/workflows/stagepulse-guardian.yml || \
+             grep -nF "$FIREBASE" .github/workflows/stagepulse-guardian.yml || \
+             grep -nF "$WRANGLER" .github/workflows/stagepulse-guardian.yml; then
             echo "::error::Production mutation command detected inside Guardian."
             exit 1
           fi
-          echo "Guardian mutation guard passed. Other non-Guardian maintenance workflows are intentionally excluded."
+          echo "Guardian mutation guard passed."
 
       - name: Repository and Guardian integrity
         shell: bash
@@ -185,7 +194,7 @@ jobs:
             echo "Production writes: **disabled**"
             echo "Database/RLS/Auth mutation: **disabled**"
             echo "Firebase/Cloudflare deployment: **disabled**"
-            echo "Git push/automatic merge: **disabled**"
+            echo "Automatic merge: **disabled**"
             echo ""
             echo "FCM chain gates: configuration → service worker → portal entrypoint → TWA notification delegation → endpoint reachability."
           } >> "$GITHUB_STEP_SUMMARY"
