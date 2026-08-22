@@ -5,11 +5,19 @@
   const SUPABASE_KEY = 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
   if (!cfg || !window.supabase) return;
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  const load = (src) => new Promise((resolve, reject) => {
-    if ([...document.scripts].some(s => s.src === src)) return resolve();
-    const s = document.createElement('script'); s.src = src; s.async = true;
-    s.onload = resolve; s.onerror = () => { s.remove(); reject(new Error(`Firebase SDK yüklenemedi: ${src}`)); };
-    document.head.appendChild(s);
+  const load = (sources) => new Promise((resolve, reject) => {
+    const list = Array.isArray(sources) ? sources : [sources];
+    let index = 0;
+    const next = () => {
+      if (index >= list.length) return reject(new Error(`Firebase SDK yüklenemedi: ${list.join(' | ')}`));
+      const src = list[index++];
+      if ([...document.scripts].some(s => s.src.split('?')[0] === src.split('?')[0])) return resolve();
+      const s = document.createElement('script'); s.src = src; s.async = true;
+      s.onload = resolve;
+      s.onerror = () => { s.remove(); next(); };
+      document.head.appendChild(s);
+    };
+    next();
   });
   let registering = false, actionButton = null, statusNode = null;
   function appVariant() { return cfg.appVariant === 'admin' || document.documentElement.dataset.appVariant === 'admin' || location.pathname.startsWith('/admin/') ? 'admin' : 'staff'; }
@@ -33,18 +41,28 @@
   async function register() {
     if (registering) return false; registering=true; let stage='başlatma';
     try {
-      if (!cfg.apiKey||!cfg.projectId||!cfg.appId||!cfg.vapidKey) throw new Error('Firebase web yapılandırması eksik.');
+      if(!cfg.apiKey||!cfg.projectId||!cfg.appId||!cfg.vapidKey) throw new Error('Firebase web yapılandırması eksik.');
       stage='oturum'; const {data:{session},error:sessionError}=await client.auth.getSession(); if(sessionError) throw sessionError; if(!session?.user) return false;
       stage='tarayıcı desteği'; if(!('Notification'in window)||!('serviceWorker'in navigator)) throw new Error('Notification API veya Service Worker desteklenmiyor.');
       if(Notification.permission!=='granted'){showStatus('Kapalı uygulama bildirimleri için Stagepulse bildirim izni gerekiyor.','🔔 Bildirimleri aç',enable);return false;}
       stage='Firebase SDK';
-      await load('/vendor/firebase/firebase-app-compat.js?v=20260822-01');
-      await load('/vendor/firebase/firebase-messaging-compat.js?v=20260822-01');
+      await load([
+        'https://cdnjs.cloudflare.com/ajax/libs/firebase/10.14.1/firebase-app-compat.min.js',
+        'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',
+        'https://cdn.jsdelivr.net/npm/firebase@10.14.1/compat/firebase-app.js',
+        'https://unpkg.com/firebase@10.14.1/compat/firebase-app.js'
+      ]);
+      await load([
+        'https://cdnjs.cloudflare.com/ajax/libs/firebase/10.14.1/firebase-messaging-compat.min.js',
+        'https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js',
+        'https://cdn.jsdelivr.net/npm/firebase@10.14.1/compat/firebase-messaging.js',
+        'https://unpkg.com/firebase@10.14.1/compat/firebase-messaging.js'
+      ]);
       if(!window.firebase) throw new Error('Firebase global nesnesi oluşmadı.');
       if(!firebase.apps.length) firebase.initializeApp(cfg);
       stage='Firebase Messaging desteği'; if(typeof firebase.messaging.isSupported!=='function') throw new Error('Firebase Messaging isSupported API bulunamadı.');
       if(!(await firebase.messaging.isSupported())) throw new Error('Bu APK/Chrome ortamı Firebase Web Push için desteklenmiyor.');
-      stage='Service Worker'; const registration=await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-05',{scope:'/'}); await navigator.serviceWorker.ready;
+      stage='Service Worker'; const registration=await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-06',{scope:'/'}); await navigator.serviceWorker.ready;
       stage='FCM token'; const messaging=firebase.messaging(); const token=await messaging.getToken({vapidKey:cfg.vapidKey,serviceWorkerRegistration:registration}); if(!token) throw new Error('FCM cihaz tokenı alınamadı.');
       stage='Supabase cihaz kaydı'; const {error}=await client.rpc('register_notification_device',{p_token:token,p_platform:platform(),p_app_variant:appVariant()}); if(error) throw error;
       removeUi(); window.dispatchEvent(new CustomEvent('stagepulse:fcm-ready',{detail:{appVariant:appVariant(),platform:platform()}})); return true;
