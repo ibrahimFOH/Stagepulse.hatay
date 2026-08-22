@@ -15,7 +15,8 @@
       await load('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
       await load('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
       if (!firebase.apps.length) firebase.initializeApp(cfg);
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+      await navigator.serviceWorker.ready;
       const token = await firebase.messaging().getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: registration });
       if (!token) return;
       const variant = cfg.appVariant === 'admin' || document.documentElement.dataset.appVariant === 'admin' || location.pathname.startsWith('/admin/') ? 'admin' : 'staff';
