@@ -30,7 +30,7 @@ jobs:
           set -euo pipefail
           for f in \
             supabase/migrations/20260821235909_restore_private_offer_wrapper_dependencies_v52.sql \
-            supabase/migrations/20260822001000_revoke_anon_trigger_function_execute_v53.sql \
+            supabase/migrations/20260822001559_revoke_anon_trigger_function_execute_v53.sql \
             supabase/migrations/20260822002003_canonicalize_admin_authorizer_private_v53.sql \
             supabase/migrations/20260822002057_protect_staff_profile_security_fields_v54.sql; do test -f "$f"; done
           grep -qF 'private.is_admin()' supabase/migrations/20260822002003_canonicalize_admin_authorizer_private_v53.sql
