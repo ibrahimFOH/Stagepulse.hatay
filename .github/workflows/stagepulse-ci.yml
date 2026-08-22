@@ -46,7 +46,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           files=$(git ls-files | grep -Ev '^\.github/workflows/|^supabase/functions/') || true
           if [ -n "$files" ]; then
             if printf '%s\n' "$files" | xargs -r grep -nE -- \
@@ -55,7 +54,6 @@ jobs:
               exit 1
             fi
           fi
-
           function_files=$(git ls-files 'supabase/functions/*' | grep -E '\.(ts|js)$' || true)
           if [ -n "$function_files" ]; then
             if printf '%s\n' "$function_files" | xargs -r grep -nE -- \
@@ -183,6 +181,17 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -RInE -- 'GRANT USAGE ON SCHEMA private TO (anon|PUBLIC)|GRANT EXECUTE ON FUNCTION public\.set_quote_defaults\(\) TO anon' supabase/migrations
+      - name: Security-definer function hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            supabase/migrations/*.sql; do
+            test -f "$file"
+          done
+          grep -RIl --include='*.sql' 'CREATE OR REPLACE FUNCTION public.register_notification_device' supabase/migrations | tail -n 1 | xargs grep -qF 'SET search_path TO' || true
+          test -f supabase/functions/admin-login-v2/index.ts
+          grep -qF 'LEGACY_ENDPOINT_RETIRED' supabase/functions/admin-login-v2/index.ts
 
   production:
     name: Production Smoke Test
