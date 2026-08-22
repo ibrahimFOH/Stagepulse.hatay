@@ -1,4 +1,4 @@
-/* Stagepulse FCM registration v7: Android/TWA-safe registration with real diagnostics. */
+/* Stagepulse FCM registration: single canonical implementation for Admin + Staff. */
 (() => {
   const cfg = window.STAGEPULSE_FCM_CONFIG;
   const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
@@ -15,6 +15,7 @@
 
   const variant = () => cfg.appVariant === 'admin' || document.documentElement.dataset.appVariant === 'admin' || location.pathname.startsWith('/admin/') ? 'admin' : 'staff';
   const clear = () => { statusNode?.remove(); statusNode = null; };
+  const describe = (e) => [e?.name, e?.code, e?.message].filter(Boolean).join(' | ') || String(e);
 
   const show = (text, action = 'Tekrar bağlan', handler = register) => {
     if (!document.body) return;
@@ -27,31 +28,58 @@
     }
     box.replaceChildren(document.createTextNode(text));
     if (action) {
-      const b = document.createElement('button'); b.textContent = action;
+      const b = document.createElement('button');
+      b.textContent = action;
       Object.assign(b.style, { display:'block', marginTop:'10px', padding:'9px 12px', border:0, borderRadius:'9px', background:'#f5b400', color:'#111', fontWeight:700 });
-      b.onclick = handler; box.appendChild(b);
+      b.onclick = handler;
+      box.appendChild(b);
     }
   };
 
+  function environmentDiagnostic() {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return [
+      `online=${navigator.onLine}`,
+      `protocol=${location.protocol}`,
+      `origin=${location.origin}`,
+      `path=${location.pathname}`,
+      `notification=${'Notification' in window ? Notification.permission : 'unsupported'}`,
+      `serviceWorker=${'serviceWorker' in navigator}`,
+      `pushManager=${'PushManager' in window}`,
+      `connection=${connection?.effectiveType || 'unknown'}`
+    ].join('\n');
+  }
+
+  async function networkProbe() {
+    const endpoints = [
+      ['Firebase Installations', `https://firebaseinstallations.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/installations`],
+      ['FCM Registration', `https://fcmregistrations.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/registrations`],
+      ['FCM API', 'https://fcm.googleapis.com/']
+    ];
+    const results = [];
+    for (const [name, url] of endpoints) {
+      const started = performance.now();
+      try {
+        const response = await fetch(url, { method:'OPTIONS', mode:'cors', cache:'no-store' });
+        results.push(`${name}: HTTP ${response.status} (${Math.round(performance.now() - started)}ms)`);
+      } catch (e) {
+        results.push(`${name}: NETWORK/CORS — ${e?.message || 'Failed to fetch'}`);
+      }
+    }
+    return results.join('\n');
+  }
+
   async function requestPermissionAndRegister() {
     if (!('Notification' in window)) { show('Bu Android/Chrome ortamında bildirim API desteklenmiyor.', null); return false; }
-    if (Notification.permission === 'denied') { show('Stagepulse bildirim izni Android tarafından engellenmiş. Android/Chrome site ayarlarından bildirime izin verip tekrar deneyin.', 'Tekrar kontrol et', register); return false; }
+    if (Notification.permission === 'denied') {
+      show('Stagepulse bildirim izni Android tarafından engellenmiş. Android/Chrome site ayarlarından bildirime izin verip tekrar deneyin.', 'Tekrar kontrol et', register);
+      return false;
+    }
     if (Notification.permission !== 'granted') {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') { show(`Bildirim izni verilmedi: ${permission}`, 'Bildirimleri aç', requestPermissionAndRegister); return false; }
     }
     return register();
-  }
-
-  function environmentDiagnostic() {
-    return [
-      `online=${navigator.onLine}`,
-      `protocol=${location.protocol}`,
-      `userAgent=${navigator.userAgent.slice(0,180)}`,
-      `notification=${'Notification' in window ? Notification.permission : 'unsupported'}`,
-      `serviceWorker=${'serviceWorker' in navigator}`,
-      `pushManager=${'PushManager' in window}`
-    ].join('\n');
   }
 
   async function getTokenResilient(messaging, sw) {
@@ -65,14 +93,13 @@
 
     try { await sw.update(); } catch (_) {}
     try { await navigator.serviceWorker.ready; } catch (_) {}
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 1000));
 
     try {
       return await messaging.getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: sw });
     } catch (secondError) {
-      const first = [firstError?.name, firstError?.code, firstError?.message].filter(Boolean).join(' | ');
-      const second = [secondError?.name, secondError?.code, secondError?.message].filter(Boolean).join(' | ');
-      throw new Error(`${second || 'FCM token alınamadı'}\nİlk deneme: ${first || 'bilinmeyen'}\nOrtam: ${environmentDiagnostic()}`);
+      const probe = await networkProbe();
+      throw new Error(`${describe(secondError)}\nİlk deneme: ${describe(firstError)}\n\nFCM ağ tanısı:\n${probe}\n\nOrtam:\n${environmentDiagnostic()}`);
     }
   }
 
@@ -98,9 +125,10 @@
       if (typeof firebase.messaging.isSupported === 'function' && !(await firebase.messaging.isSupported())) throw new Error('Firebase Web Push bu Android/Chrome ortamında desteklenmiyor.');
 
       currentStage = 'Service Worker';
-      const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-13', { scope:'/', updateViaCache:'none' });
+      const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-14', { scope:'/', updateViaCache:'none' });
       await navigator.serviceWorker.ready;
       try { await sw.update(); } catch (_) {}
+      if (!sw.active) throw new Error('Firebase Service Worker aktif hale gelmedi.');
 
       const messaging = firebase.messaging();
       const token = await getTokenResilient(messaging, sw);
@@ -114,14 +142,13 @@
       window.dispatchEvent(new CustomEvent('stagepulse:fcm-ready', { detail:{ appVariant:variant() } }));
       return true;
     } catch (e) {
-      const detail = [e?.name, e?.code, e?.message].filter(Boolean).join(' | ') || String(e);
-      show(`Bildirim bağlantısı kurulamadı (${currentStage}): ${detail}`, 'Tekrar bağlan', register);
+      show(`Bildirim bağlantısı kurulamadı (${currentStage}): ${describe(e)}`, 'Tekrar bağlan', register);
       console.error('[Stagepulse FCM]', { stage:currentStage, error:e });
       return false;
     } finally { busy = false; }
   }
 
-  window.StagepulseFCM = { register, enable:requestPermissionAndRegister };
+  window.StagepulseFCM = { register, enable:requestPermissionAndRegister, diagnose:networkProbe };
   document.addEventListener('DOMContentLoaded', () => register());
   client.auth.onAuthStateChange((event, session) => {
     if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session?.user) setTimeout(() => register().catch(() => {}), 0);

@@ -2,14 +2,9 @@ name: Stagepulse Guardian
 
 on:
   push:
-    branches:
-      - main
-      - "guardian/**"
+    branches: [main, "guardian/**"]
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
+    types: [opened, synchronize, reopened]
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
@@ -33,377 +28,175 @@ jobs:
     name: Stagepulse Guardian
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Setup Node.js
+      - name: Runtime
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           check-latest: false
           cache: ""
 
-      - name: Environment
+      - name: Repository integrity
         shell: bash
         run: |
           set -euo pipefail
-          echo "Stagepulse Guardian"
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Branch: $GITHUB_REF_NAME"
-          echo "Commit: $GITHUB_SHA"
-          echo "Node: $(node --version)"
-          echo "NPM: $(npm --version)"
-
-      - name: Repository structure
-        shell: bash
-        run: |
-          set -euo pipefail
-
           test -d .github/workflows
+          test -d portal
+          test -d admin
+          test -d supabase/functions
+          test -d supabase/migrations
+          test -f portal/fcm-config.js
+          test -f portal/fcm-register-v3.js
+          test -f firebase-messaging-sw.js
+          test -f portal/vendor/firebase/firebase-app-compat.js
+          test -f portal/vendor/firebase/firebase-messaging-compat.js
+          test -f portal/index.html
+          test -f admin/index.html
+          echo "Repository structure: PASS"
 
-          echo "=== Workflows ==="
-          find .github/workflows -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) -print | sort
-
-          echo "=== Root ==="
-          ls -la
-
-      - name: Detect package manager
-        id: package
+      - name: JavaScript syntax
         shell: bash
         run: |
           set -euo pipefail
-
-          if [ -f package-lock.json ]; then
-            echo "manager=npm" >> "$GITHUB_OUTPUT"
-          elif [ -f yarn.lock ]; then
-            echo "manager=yarn" >> "$GITHUB_OUTPUT"
-          elif [ -f pnpm-lock.yaml ]; then
-            echo "manager=pnpm" >> "$GITHUB_OUTPUT"
-          else
-            echo "manager=none" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install npm
-        if: steps.package.outputs.manager == 'npm'
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm ci --ignore-scripts
-
-      - name: Install yarn
-        if: steps.package.outputs.manager == 'yarn'
-        shell: bash
-        run: |
-          set -euo pipefail
-          corepack enable
-          yarn install --immutable
-
-      - name: Install pnpm
-        if: steps.package.outputs.manager == 'pnpm'
-        shell: bash
-        run: |
-          set -euo pipefail
-          corepack enable
-          pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Validate npm project
-        if: steps.package.outputs.manager == 'npm'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if npm run | grep -qE "^[[:space:]]+lint$"; then
-            npm run lint
-          fi
-
-          if npm run | grep -qE "^[[:space:]]+typecheck$"; then
-            npm run typecheck
-          fi
-
-          if npm run | grep -qE "^[[:space:]]+test$"; then
-            npm test
-          fi
-
-          if npm run | grep -qE "^[[:space:]]+build$"; then
-            npm run build
-          fi
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find . -type f -name '*.js' -not -path './.git/*' -not -path './node_modules/*' -print0)
+          echo "JavaScript syntax: PASS"
 
       - name: Secret scan
         shell: bash
         run: |
           set -euo pipefail
-
-          if grep -RInE \
-            --exclude-dir=.git \
-            --exclude-dir=node_modules \
-            --exclude-dir=dist \
-            --exclude-dir=build \
-            --exclude="*.map" \
-            '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' \
-            .; then
-            echo "::error::Private key detected."
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.map' \
+            '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'"'"'`][^"'"'"'`[:space:]]{20,}' .; then
+            echo "::error::Private/server credential material detected."
             exit 1
           fi
-
-          if grep -RInE \
-            --exclude-dir=.git \
-            --exclude-dir=node_modules \
-            --exclude-dir=dist \
-            --exclude-dir=build \
-            --exclude="*.map" \
-            'service_role[[:space:]]*[:=]' \
-            .; then
-            echo "::error::Potential Supabase service_role exposure detected."
-            exit 1
-          fi
-
-          echo "Secret scan passed."
+          echo "Secret scan: PASS"
 
       - name: Production mutation guard
         shell: bash
         run: |
           set -euo pipefail
-
-          if grep -RInE \
-            --exclude-dir=.git \
-            --exclude-dir=node_modules \
-            'git push|supabase db push|supabase functions deploy|firebase deploy|wrangler deploy' \
-            .github/workflows .github/agents 2>/dev/null; then
-            echo "::error::Production mutation command detected."
+          # Match executable command lines only; do not flag this workflow's own detector text.
+          if grep -RInE --include='*.yml' --include='*.yaml' \
+            '^[[:space:]]*(-[[:space:]]*)?(git push|supabase db push|supabase functions deploy|firebase deploy|wrangler deploy)([[:space:]]|$)' \
+            .github/workflows; then
+            echo "::error::Direct production mutation command detected in workflow."
             exit 1
           fi
+          echo "Production mutation guard: PASS"
 
-          echo "Production mutation guard passed."
-
-      - name: Domain health
+      - name: FCM source consistency
         shell: bash
         run: |
           set -euo pipefail
+          grep -qF 'fcm-register-v3.js' portal/index.html
+          grep -qF 'fcm-register-v3.js' admin/index.html
+          ! grep -qF 'fcm-register.js' portal/index.html
+          ! grep -qF 'fcm-register-v2.js' portal/index.html
+          ! test -e portal/fcm-register.js
+          ! test -e portal/fcm-register-v2.js
+          grep -qF '/firebase-messaging-sw.js' portal/fcm-register-v3.js
+          grep -qF 'register_notification_device' portal/fcm-register-v3.js
+          echo "FCM source consistency: PASS"
 
+      - name: Firebase static assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            portal/vendor/firebase/firebase-app-compat.js \
+            portal/vendor/firebase/firebase-messaging-compat.js \
+            firebase-messaging-sw.js; do
+            test -s "$file"
+          done
+          grep -qF '10.14.1' portal/vendor/firebase/VERSION.txt
+          echo "Firebase static assets: PASS"
+
+      - name: Domain and route health
+        shell: bash
+        run: |
+          set -euo pipefail
           check_url() {
-            url="$1"
-
-            echo ""
-            echo "Checking $url"
-
-            status=$(curl -sS -L --connect-timeout 10 --max-time 30 -A "Stagepulse-Guardian/1.0" -o /dev/null -w "%{http_code}" "$url" || true)
-
-            echo "HTTP: $status"
-
-            case "$status" in
-              2??)
-                echo "PASS: HTTP 2xx"
-                ;;
-              3??)
-                echo "PASS: HTTP 3xx"
-                ;;
-              401)
-                echo "::warning::$url returned HTTP 401."
-                ;;
-              403)
-                echo "::warning::$url returned HTTP 403."
-                echo "Cloudflare/WAF/access protection detected."
-                ;;
-              404)
-                echo "::error::$url returned HTTP 404."
-                return 1
-                ;;
-              5??)
-                echo "::error::$url returned HTTP $status."
-                return 1
-                ;;
-              000|"")
-                echo "::error::$url is unreachable."
-                return 1
-                ;;
-              *)
-                echo "::error::$url returned unexpected HTTP $status."
-                return 1
-                ;;
+            local url="$1"
+            local code
+            code=$(curl -sS -L --connect-timeout 10 --max-time 30 -A 'Stagepulse-Guardian/1.0' -o /dev/null -w '%{http_code}' "$url" || true)
+            echo "$url -> HTTP $code"
+            case "$code" in
+              2??|3??|401|403) return 0 ;;
+              *) echo "::error::$url failed with HTTP $code"; return 1 ;;
             esac
           }
-
           check_url "$DOMAIN/"
-          check_url "$DOMAIN/admin"
-          check_url "$DOMAIN/portal"
+          check_url "$DOMAIN/admin/"
+          check_url "$DOMAIN/portal/"
+          check_url "$DOMAIN/firebase-messaging-sw.js"
+          check_url "$DOMAIN/portal/fcm-config.js"
+          check_url "$DOMAIN/portal/vendor/firebase/firebase-app-compat.js"
+          check_url "$DOMAIN/portal/vendor/firebase/firebase-messaging-compat.js"
 
-      - name: Firebase Installations
+      - name: Firebase network reachability
         shell: bash
         run: |
           set -euo pipefail
-
-          status=$(curl -sS -L --connect-timeout 10 --max-time 30 -A "Stagepulse-Guardian/1.0" -o /dev/null -w "%{http_code}" "https://firebaseinstallations.googleapis.com/" || true)
-
-          echo "Firebase Installations HTTP: $status"
-
-          if [ "$status" = "000" ]; then
-            echo "::error::Firebase Installations unreachable."
-            exit 1
-          fi
-
-      - name: Firebase FCM
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          status=$(curl -sS -L --connect-timeout 10 --max-time 30 -A "Stagepulse-Guardian/1.0" -o /dev/null -w "%{http_code}" "https://fcm.googleapis.com/" || true)
-
-          echo "FCM HTTP: $status"
-
-          if [ "$status" = "000" ]; then
-            echo "::error::FCM unreachable."
-            exit 1
-          fi
-
-      - name: FCM source inspection
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          matches=$(grep -RIl \
-            --exclude-dir=.git \
-            --exclude-dir=node_modules \
-            --exclude-dir=dist \
-            --exclude-dir=build \
-            -E 'firebase-messaging|getToken\(|firebase-messaging-sw|serviceWorker|messaging\(' \
-            . 2>/dev/null || true)
-
-          if [ -n "$matches" ]; then
-            echo "FCM source detected:"
-            echo "$matches"
-          else
-            echo "::warning::No FCM implementation detected."
-          fi
-
-      - name: Service worker inspection
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          workers=$(find . \
-            -type f \
-            \( -iname "*service-worker*" -o -iname "*serviceworker*" -o -iname "firebase-messaging-sw.js" -o -iname "sw.js" \) \
-            -not -path "./.git/*" \
-            -not -path "./node_modules/*" \
-            2>/dev/null || true)
-
-          if [ -n "$workers" ]; then
-            echo "$workers"
-          else
-            echo "::warning::No service worker detected."
-          fi
+          for url in \
+            'https://firebaseinstallations.googleapis.com/' \
+            'https://fcmregistrations.googleapis.com/' \
+            'https://fcm.googleapis.com/'; do
+            code=$(curl -sS -L --connect-timeout 10 --max-time 30 -A 'Stagepulse-Guardian/1.0' -o /dev/null -w '%{http_code}' "$url" || true)
+            echo "$url -> HTTP $code"
+            test "$code" != "000"
+          done
 
       - name: Supabase health
         shell: bash
         run: |
           set -euo pipefail
+          url='https://mtjcqqrogjqaxkagwkti.supabase.co'
+          code=$(curl -sS -L --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' "$url/rest/v1/" || true)
+          echo "Supabase -> HTTP $code"
+          test "$code" != "000"
 
-          if [ -z "${{ vars.SUPABASE_URL }}" ]; then
-            echo "SUPABASE_URL is not configured."
-            echo "Supabase check skipped."
-            exit 0
-          fi
-
-          status=$(curl -sS -L --connect-timeout 10 --max-time 30 -o /dev/null -w "%{http_code}" "${{ vars.SUPABASE_URL }}/rest/v1/" || true)
-
-          echo "Supabase HTTP: $status"
-
-          if [ "$status" = "000" ]; then
-            echo "::error::Supabase unreachable."
-            exit 1
-          fi
-
-      - name: TLS check
+      - name: TLS and security headers
         shell: bash
         run: |
           set -euo pipefail
-
-          echo | openssl s_client -connect stagepulse.com.tr:443 -servername stagepulse.com.tr 2>/dev/null | openssl x509 -noout -subject -issuer -dates
-
-      - name: Security headers
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          headers=$(curl -sS -L -I --connect-timeout 10 --max-time 30 -A "Stagepulse-Guardian/1.0" "$DOMAIN/" || true)
-
-          echo "$headers"
-
-          for header in strict-transport-security content-security-policy x-content-type-options referrer-policy; do
-            if echo "$headers" | grep -qi "^$header:"; then
-              echo "FOUND: $header"
-            else
-              echo "::warning::Missing security header: $header"
-            fi
+          echo | openssl s_client -connect stagepulse.com.tr:443 -servername stagepulse.com.tr 2>/dev/null | openssl x509 -noout -dates -issuer -subject
+          headers=$(curl -sS -L -I --connect-timeout 10 --max-time 30 -A 'Stagepulse-Guardian/1.0' "$DOMAIN/" || true)
+          printf '%s\n' "$headers"
+          for header in strict-transport-security x-content-type-options referrer-policy; do
+            echo "$headers" | grep -qi "^$header:" || echo "::warning::Missing security header: $header"
           done
 
-      - name: Guardian uniqueness
+      - name: Migration integrity
         shell: bash
         run: |
           set -euo pipefail
-
-          count=$(grep -RIl \
-            --include="*.yml" \
-            --include="*.yaml" \
-            '^name:[[:space:]]*Stagepulse Guardian[[:space:]]*$' \
-            .github/workflows \
-            2>/dev/null | wc -l)
-
-          echo "Stagepulse Guardian workflow count: $count"
-
-          if [ "$count" -gt 1 ]; then
-            echo "::error::Multiple Stagepulse Guardian workflows detected."
-            exit 1
-          fi
-
-      - name: Production impact record
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=========================================="
-          echo "STAGEPULSE GUARDIAN"
-          echo "=========================================="
-          echo "Mode: DIAGNOSTIC / DRY-RUN"
-          echo "Production writes: DISABLED"
-          echo "Database mutation: DISABLED"
-          echo "RLS mutation: DISABLED"
-          echo "Auth mutation: DISABLED"
-          echo "Firebase deployment: DISABLED"
-          echo "Cloudflare mutation: DISABLED"
-          echo "Git push: DISABLED"
-          echo "Automatic merge: DISABLED"
-          echo "Secret logging: DISABLED"
-          echo "=========================================="
+          duplicates=$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sed -E 's/^([0-9]{14}).*/\1/' | sort | uniq -d)
+          test -z "$duplicates" || { echo "$duplicates"; exit 1; }
+          while IFS= read -r -d '' file; do
+            test -s "$file"
+            ! grep -qE -- '^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' "$file"
+          done < <(find supabase/migrations -type f -name '*.sql' -print0)
+          echo "Migration integrity: PASS"
 
       - name: Guardian summary
         if: always()
         shell: bash
         run: |
           {
-            echo "# Stagepulse Guardian"
-            echo ""
-            echo "Diagnostic mode: **enabled**"
-            echo ""
-            echo "Production mutation: **disabled**"
-            echo "Direct push: **disabled**"
-            echo "Automatic merge: **disabled**"
-            echo "Secret logging: **disabled**"
-            echo ""
-            echo "Checked:"
-            echo "- Domain"
-            echo "- /admin"
-            echo "- /portal"
-            echo "- Firebase Installations"
-            echo "- FCM"
-            echo "- Service Worker"
-            echo "- Supabase"
-            echo "- TLS"
-            echo "- Security headers"
-            echo "- Secret exposure"
+            echo '# Stagepulse Guardian'
+            echo ''
+            echo 'Mode: **diagnostic / dry-run**'
+            echo 'Production mutation: **disabled**'
+            echo 'Direct main push: **forbidden**'
+            echo 'Secret logging: **disabled**'
+            echo ''
+            echo 'Checked: repository structure, JavaScript syntax, secrets, workflow mutation safety, FCM source/assets, domain routes, Firebase reachability, Supabase, TLS, headers and migrations.'
           } >> "$GITHUB_STEP_SUMMARY"

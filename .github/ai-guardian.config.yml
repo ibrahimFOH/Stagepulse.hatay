@@ -1,0 +1,55 @@
+version: 1
+name: Stagepulse Autonomous Guardian
+mode: dry-run
+
+production:
+  direct_push: false
+  automatic_merge: false
+  destructive_actions: false
+  rollback_on_failed_verification: true
+  human_approval_required_for:
+    - rls
+    - auth
+    - cloudflare
+    - secrets
+    - database_schema
+
+circuit_breaker:
+  consecutive_failures: 3
+  action: pause-and-report
+
+checks:
+  domain:
+    - https://stagepulse.com.tr/
+    - https://stagepulse.com.tr/admin/
+    - https://stagepulse.com.tr/portal/
+  fcm:
+    - firebase_installations
+    - fcm_registrations
+    - service_worker
+    - vapid_public_key
+    - device_registration
+  backend:
+    - supabase_auth
+    - supabase_rls
+    - supabase_rpc
+    - supabase_edge_functions
+  security:
+    - secret_scan
+    - javascript_syntax
+    - migration_integrity
+    - security_headers
+
+secrets:
+  never_log:
+    - SUPABASE_SERVICE_ROLE_KEY
+    - SUPABASE_ACCESS_TOKEN
+    - FCM_PRIVATE_KEY
+    - FCM_CLIENT_EMAIL
+    - CLOUDFLARE_API_TOKEN
+    - VAPID_PRIVATE_KEY
+
+free_plan:
+  aggressive_actions: false
+  deploys_per_run: 0
+  max_repair_attempts: 3
