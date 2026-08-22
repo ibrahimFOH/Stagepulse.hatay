@@ -1,7 +1,6 @@
 name: Supabase Auth Hardening
 
 # Production auth configuration changes are intentionally manual-only.
-# This workflow must never mutate Supabase on every repository push.
 on:
   workflow_dispatch:
 
@@ -47,6 +46,8 @@ jobs:
             echo "INFO: Supabase plan does not permit leaked password protection."
           else
             echo "ERROR: Supabase Auth configuration request failed with HTTP $HTTP_CODE"
-            cat auth-config.json
+            echo "Response body intentionally suppressed to avoid credential/config leakage."
             exit 1
           fi
+
+          rm -f auth-config.json
