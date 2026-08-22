@@ -1,6 +1,6 @@
-/* Stagepulse FCM service worker. Firebase SDK is served from the Stagepulse origin. */
-importScripts('/vendor/firebase/firebase-app-compat.js?v=20260822-01');
-importScripts('/vendor/firebase/firebase-messaging-compat.js?v=20260822-01');
+/* Stagepulse FCM service worker. */
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/firebase/10.14.1/firebase-app-compat.min.js');
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/firebase/10.14.1/firebase-messaging-compat.min.js');
 
 firebase.initializeApp({
   apiKey: 'AIzaSyBZbLD2HpnrCDy4KJh9FUbwgBbI0m-jdeo',
@@ -17,9 +17,14 @@ messaging.onBackgroundMessage((payload) => {
   if (payload?.notification) return;
   const data = payload?.data || {};
   self.registration.showNotification(data.title || 'Stagepulse', {
-    body: data.body || '', icon: data.icon || '/favicon-32.png', badge: data.badge || '/favicon-32.png',
-    data: { url: safeNotificationUrl(data.url || '/portal/') }, tag: data.tag || `stagepulse-${data.kind || 'system'}`,
-    renotify: true, requireInteraction: true, vibrate: [200,100,200]
+    body: data.body || '',
+    icon: data.icon || '/favicon-32.png',
+    badge: data.badge || '/favicon-32.png',
+    data: { url: safeNotificationUrl(data.url || '/portal/') },
+    tag: data.tag || `stagepulse-${data.kind || 'system'}`,
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [200,100,200]
   });
 });
 function safeNotificationUrl(value) { try { const url=new URL(value||'/portal/',self.location.origin); if(url.origin!==self.location.origin)return'/portal/'; return `${url.pathname}${url.search}${url.hash}`; } catch { return '/portal/'; } }
