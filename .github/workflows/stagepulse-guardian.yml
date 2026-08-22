@@ -67,7 +67,7 @@ jobs:
             echo "::error::Potential secret/private credential exposure detected outside Edge Functions."
             exit 1
           fi
-          if grep -RInE --include='*.ts' --include='*.js' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'\''`][A-Za-z0-9._-]{20,}["'\''`]' supabase/functions; then
+          if grep -RInE --include='*.ts' --include='*.js' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' supabase/functions; then
             echo "::error::Potential hardcoded Edge Function service credential detected."
             exit 1
           fi
