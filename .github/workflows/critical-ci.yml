@@ -87,8 +87,10 @@ jobs:
             supabase/migrations/20260821235311_revoke_anon_view_write_privileges_v49.sql \
             supabase/migrations/20260821235354_validate_offer_evaluation_status_constraint_v50.sql \
             supabase/migrations/20260821235736_index_foreign_keys_free_plan_v51.sql \
-            supabase/migrations/20260821235909_restore_private_offer_wrapper_dependencies_v52.sql; do test -f "$file"; done
+            supabase/migrations/20260821235909_restore_private_offer_wrapper_dependencies_v52.sql \
+            supabase/migrations/20260822001000_revoke_anon_trigger_function_execute_v53.sql; do test -f "$file"; done
           grep -qF 'GRANT USAGE ON SCHEMA private TO authenticated' supabase/migrations/20260821235909_restore_private_offer_wrapper_dependencies_v52.sql
+          grep -qF 'REVOKE EXECUTE ON FUNCTION public.set_quote_defaults() FROM anon' supabase/migrations/20260822001000_revoke_anon_trigger_function_execute_v53.sql
       - name: Staff jobs compatibility
         shell: bash
         run: |
