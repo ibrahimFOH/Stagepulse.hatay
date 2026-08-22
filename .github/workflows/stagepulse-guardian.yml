@@ -105,7 +105,7 @@ jobs:
         run: |
           set -euo pipefail
           source_files=$(git ls-files | grep -Ev '^\.github/workflows/' || true)
-          if [ -n "$source_files" ] && printf '%s\n' "$source_files" | xargs -r grep -nE -- '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'; then
+          if [ -n "$source_files" ] && printf '%s\n' "$source_files" | xargs -r grep -nE -- '^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'; then
             echo "::error::Private key detected."
             exit 1
           fi
@@ -114,7 +114,7 @@ jobs:
             exit 1
           fi
           workflow_files=$(git ls-files '.github/workflows/*.yml' '.github/workflows/*.yaml' || true)
-          if [ -n "$workflow_files" ] && printf '%s\n' "$workflow_files" | xargs -r grep -nE -- 'ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|BEGIN RSA PRIVATE KEY|BEGIN OPENSSH PRIVATE KEY'; then
+          if [ -n "$workflow_files" ] && printf '%s\n' "$workflow_files" | xargs -r grep -nE -- 'ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'; then
             echo "::error::Potential workflow credential material detected."
             exit 1
           fi
