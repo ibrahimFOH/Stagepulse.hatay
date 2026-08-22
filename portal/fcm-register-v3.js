@@ -1,4 +1,4 @@
-/* Stagepulse FCM registration v8: Android/TWA-safe registration with real diagnostics. */
+/* Stagepulse FCM registration v9: Android/TWA-safe registration with network-safe diagnostics. */
 (() => {
   const cfg = window.STAGEPULSE_FCM_CONFIG;
   const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
@@ -55,26 +55,22 @@
     ].join('\n');
   }
 
-  async function firebaseEndpointDiagnostic() {
-    currentStage = 'Firebase ağ tanısı';
+  async function firebaseNetworkProbe() {
+    currentStage = 'Firebase ağ erişimi';
     const endpoints = [
-      ['Firebase Installations', `https://firebaseinstallations.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/installations`],
-      ['FCM Registration', `https://fcmregistrations.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/registrations`]
+      ['Firebase Installations', 'https://firebaseinstallations.googleapis.com/'],
+      ['FCM Registration', 'https://fcmregistrations.googleapis.com/']
     ];
     const results = [];
     for (const [name, url] of endpoints) {
       const started = performance.now();
       try {
-        const response = await fetch(url, {
-          method: 'GET',
-          mode: 'cors',
-          cache: 'no-store',
-          credentials: 'omit',
-          redirect: 'follow'
-        });
-        results.push(`${name}: HTTP ${response.status} (${Math.round(performance.now() - started)}ms)`);
+        // These endpoints are not public GET APIs. no-cors intentionally tests network reachability
+        // without turning a normal opaque browser response into a false CORS failure.
+        const response = await fetch(url, { method:'GET', mode:'no-cors', cache:'no-store', credentials:'omit' });
+        results.push(`${name}: network reachable (${Math.round(performance.now() - started)}ms, response=${response.type})`);
       } catch (error) {
-        results.push(`${name}: NETWORK/CORS — ${error?.name || 'Error'} | ${error?.message || String(error)}`);
+        results.push(`${name}: NETWORK UNREACHABLE — ${error?.name || 'Error'} | ${error?.message || String(error)}`);
       }
     }
     return results.join('\n');
@@ -91,14 +87,14 @@
 
     try { await sw.update(); } catch (_) {}
     try { await navigator.serviceWorker.ready; } catch (_) {}
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 1200));
 
     try {
       return await messaging.getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: sw });
     } catch (secondError) {
       const first = [firstError?.name, firstError?.code, firstError?.message].filter(Boolean).join(' | ');
       const second = [secondError?.name, secondError?.code, secondError?.message].filter(Boolean).join(' | ');
-      const network = await firebaseEndpointDiagnostic();
+      const network = await firebaseNetworkProbe();
       throw new Error(`${second || 'FCM token alınamadı'}\nİlk deneme: ${first || 'bilinmeyen'}\nFirebase ağ tanısı:\n${network}\nOrtam:\n${environmentDiagnostic()}`);
     }
   }
@@ -125,7 +121,7 @@
       if (typeof firebase.messaging.isSupported === 'function' && !(await firebase.messaging.isSupported())) throw new Error('Firebase Web Push bu Android/Chrome ortamında desteklenmiyor.');
 
       currentStage = 'Service Worker';
-      const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-14', { scope:'/', updateViaCache:'none' });
+      const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-15', { scope:'/', updateViaCache:'none' });
       await navigator.serviceWorker.ready;
       try { await sw.update(); } catch (_) {}
 
