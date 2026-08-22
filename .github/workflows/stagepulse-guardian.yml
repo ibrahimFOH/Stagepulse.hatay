@@ -106,17 +106,16 @@ jobs:
         run: |
           set -euo pipefail
           found=0
-          tracked=$(git ls-files -z)
 
-          # Detect assignments of long credential values, not harmless env lookups.
-          if printf '%s' "$tracked" | xargs -0 -r grep -IlE --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' \
-            '((SUPABASE_SERVICE_ROLE_KEY|FCM_PRIVATE_KEY|FIREBASE_ADMIN_KEY|CLOUDFLARE_API_TOKEN|FORMSPREE_API_KEY)[[:space:]]*(=|:)[[:space:]]*["'"']?)[A-Za-z0-9_./+=:-]{20,}'; then
+          # Detect long literal credential assignments. Env lookups such as Deno.env.get("KEY") are allowed.
+          if git ls-files -z | xargs -0 -r grep -IlE --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' \
+            '(SUPABASE_SERVICE_ROLE_KEY|FCM_PRIVATE_KEY|FIREBASE_ADMIN_KEY|CLOUDFLARE_API_TOKEN|FORMSPREE_API_KEY)[[:space:]]*(=|:)[[:space:]]*[\"]?[A-Za-z0-9_./+=:-]{20,}'; then
             echo "Potential literal credential assignment detected."
             found=1
           fi
 
           # Detect an actual PEM header on its own line; source-code regex strings do not match this.
-          if printf '%s' "$tracked" | xargs -0 -r grep -IlE --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' \
+          if git ls-files -z | xargs -0 -r grep -IlE --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' \
             '^-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[[:space:]]*$'; then
             echo "Potential private key material detected."
             found=1
