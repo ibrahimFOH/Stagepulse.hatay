@@ -71,7 +71,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'"'`][A-Za-z0-9._-]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' .; then
+          found=0
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*[^[:space:]]{20,}' .; then
+            found=1
+          fi
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' .; then
+            found=1
+          fi
+          if [ "$found" -ne 0 ]; then
             echo 'Potential literal secret/private key detected.'
             exit 1
           fi
