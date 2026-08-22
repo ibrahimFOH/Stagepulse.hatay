@@ -1,6 +1,6 @@
-/* Stagepulse FCM service worker. */
-importScripts('https://cdnjs.cloudflare.com/ajax/libs/firebase/10.14.1/firebase-app-compat.min.js');
-importScripts('https://cdnjs.cloudflare.com/ajax/libs/firebase/10.14.1/firebase-messaging-compat.min.js');
+/* Stagepulse FCM service worker. Firebase SDK is vendored locally to avoid external CDN dependency. */
+importScripts('/portal/vendor/firebase/firebase-app-compat.js?v=10.14.1');
+importScripts('/portal/vendor/firebase/firebase-messaging-compat.js?v=10.14.1');
 
 firebase.initializeApp({
   apiKey: 'AIzaSyBZbLD2HpnrCDy4KJh9FUbwgBbI0m-jdeo',
