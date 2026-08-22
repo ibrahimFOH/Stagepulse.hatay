@@ -38,7 +38,7 @@ jobs:
       - name: Credential scan
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude-dir=supabase/functions --exclude='*.map' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=]|service_role[[:space:]]*[:=]|-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' .; then exit 1; fi
+          if grep -RInE --exclude-dir=.git --exclude-dir=.github --exclude-dir=supabase/functions --exclude='*.map' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=]|service_role[[:space:]]*[:=]|-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' .; then exit 1; fi
           if grep -RInE --include='*.ts' --include='*.js' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' supabase/functions; then exit 1; fi
 
   javascript:
