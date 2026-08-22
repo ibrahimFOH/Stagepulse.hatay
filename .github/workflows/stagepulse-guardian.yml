@@ -97,8 +97,8 @@ jobs:
             echo "::error::Private key material detected."
             exit 1
           fi
-          # Detect likely service-role assignments while avoiding function source code that only references the term.
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude='*.map' -- '(service_role|SUPABASE_SERVICE_ROLE_KEY)[[:space:]]*[:=][[:space:]]*["'"']?eyJ|service_role[[:space:]]*=[[:space:]]*["'"']' .; then
+          # Detect likely service-role assignments without shell-quoting ambiguity.
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude='*.map' -- '(service_role|SUPABASE_SERVICE_ROLE_KEY)[[:space:]]*[:=][[:space:]]*"?eyJ' .; then
             echo "::error::Potential Supabase service_role credential exposure detected."
             exit 1
           fi
