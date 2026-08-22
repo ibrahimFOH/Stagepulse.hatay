@@ -143,8 +143,8 @@ jobs:
             esac
           }
           check_url "$DOMAIN/"
-          check_url "$DOMAIN/admin"
-          check_url "$DOMAIN/portal"
+          check_url "$DOMAIN/admin/"
+          check_url "$DOMAIN/portal/"
 
       - name: Firebase endpoint reachability
         shell: bash
@@ -171,6 +171,8 @@ jobs:
           for file in firebase-messaging-sw.js portal/fcm-config.js portal/fcm-register-v3.js portal/vendor/firebase/firebase-app-compat.js portal/vendor/firebase/firebase-messaging-compat.js; do
             test -s "$file"
           done
+          test ! -e portal/fcm-register.js
+          test ! -e portal/fcm-register-v2.js
           grep -q "stagepulse-905be" firebase-messaging-sw.js
           grep -q "163274034334" firebase-messaging-sw.js
           grep -q "stagepulse-905be" portal/fcm-config.js
@@ -189,15 +191,32 @@ jobs:
         run: |
           set -euo pipefail
           test -s portal/index.html
+          test -s admin/index.html
           grep -q 'fcm-config.js' portal/index.html
           grep -q 'firebase-app-compat.js' portal/index.html
           grep -q 'firebase-messaging-compat.js' portal/index.html
           grep -q 'fcm-register-v3.js' portal/index.html
-          if grep -q 'fcm-register.js' portal/index.html || grep -q 'fcm-register-v2.js' portal/index.html; then
-            echo "::error::Legacy FCM registration script is still loaded by portal/index.html."
+          grep -q 'fcm-register-v3.js' admin/index.html
+          if grep -qE 'fcm-register(-v2)?\.js' portal/index.html admin/index.html; then
+            echo "::error::Legacy FCM registration script is still loaded."
             exit 1
           fi
-          echo "Portal FCM entrypoint is unique."
+          echo "FCM entrypoints are unique."
+
+      - name: Notification RPC integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration=$(find supabase/migrations -maxdepth 1 -type f -name '*notification_device*.sql' | sort | tail -n 1)
+          test -n "$migration"
+          grep -q 'CREATE OR REPLACE FUNCTION public.register_notification_device' "$migration"
+          grep -q 'public.is_admin()' "$migration"
+          if grep -q 'private.is_admin()' "$migration"; then
+            echo "::error::Notification registration still depends on private.is_admin()."
+            exit 1
+          fi
+          grep -q 'GRANT EXECUTE ON FUNCTION public.register_notification_device' "$migration"
+          echo "Notification RPC authorization integrity passed."
 
       - name: Service worker integrity
         shell: bash
@@ -222,14 +241,6 @@ jobs:
           done
           echo "TWA notification flags passed."
 
-      - name: Firebase SDK pin integrity
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -q 'firebase@10.14.1' .github/workflows/vendor-firebase.yml 2>/dev/null || true
-          grep -q 'firebase@10.14.1' .github/workflows/vendor-firebase-sdk.yml 2>/dev/null || true
-          echo "Firebase SDK pin check completed."
-
       - name: TLS check
         shell: bash
         run: |
@@ -252,7 +263,7 @@ jobs:
           set -euo pipefail
           count=$(grep -RIl --include="*.yml" --include="*.yaml" '^name:[[:space:]]*Stagepulse Guardian[[:space:]]*$' .github/workflows 2>/dev/null | wc -l)
           echo "Stagepulse Guardian workflow count: $count"
-          if [ "$count" -gt 1 ]; then echo "::error::Multiple Stagepulse Guardian workflows detected."; exit 1; fi
+          test "$count" -eq 1
 
       - name: Production impact record
         shell: bash
@@ -281,6 +292,6 @@ jobs:
             echo "Direct push: **disabled**"
             echo "Automatic merge: **disabled**"
             echo ""
-            echo "Critical checks: domain, Firebase endpoints, FCM static integrity, service worker, TWA notifications, TLS, security headers, secret exposure."
+            echo "Critical checks: domain, Firebase endpoints, FCM static integrity, service worker, TWA notifications, notification RPC authorization, TLS, security headers, secret exposure."
             echo "FCM runtime diagnostics: browser-side non-mutating Firebase endpoint checks are enabled."
           } >> "$GITHUB_STEP_SUMMARY"
