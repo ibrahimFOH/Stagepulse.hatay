@@ -1,4 +1,4 @@
-/* Stagepulse FCM registration v7: Android/TWA-safe registration with real diagnostics. */
+/* Stagepulse FCM registration v8: Android/TWA-safe registration with real diagnostics. */
 (() => {
   const cfg = window.STAGEPULSE_FCM_CONFIG;
   const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
@@ -47,11 +47,37 @@
     return [
       `online=${navigator.onLine}`,
       `protocol=${location.protocol}`,
+      `origin=${location.origin}`,
       `userAgent=${navigator.userAgent.slice(0,180)}`,
       `notification=${'Notification' in window ? Notification.permission : 'unsupported'}`,
       `serviceWorker=${'serviceWorker' in navigator}`,
       `pushManager=${'PushManager' in window}`
     ].join('\n');
+  }
+
+  async function firebaseEndpointDiagnostic() {
+    currentStage = 'Firebase ağ tanısı';
+    const endpoints = [
+      ['Firebase Installations', `https://firebaseinstallations.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/installations`],
+      ['FCM Registration', `https://fcmregistrations.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/registrations`]
+    ];
+    const results = [];
+    for (const [name, url] of endpoints) {
+      const started = performance.now();
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'no-store',
+          credentials: 'omit',
+          redirect: 'follow'
+        });
+        results.push(`${name}: HTTP ${response.status} (${Math.round(performance.now() - started)}ms)`);
+      } catch (error) {
+        results.push(`${name}: NETWORK/CORS — ${error?.name || 'Error'} | ${error?.message || String(error)}`);
+      }
+    }
+    return results.join('\n');
   }
 
   async function getTokenResilient(messaging, sw) {
@@ -72,7 +98,8 @@
     } catch (secondError) {
       const first = [firstError?.name, firstError?.code, firstError?.message].filter(Boolean).join(' | ');
       const second = [secondError?.name, secondError?.code, secondError?.message].filter(Boolean).join(' | ');
-      throw new Error(`${second || 'FCM token alınamadı'}\nİlk deneme: ${first || 'bilinmeyen'}\nOrtam: ${environmentDiagnostic()}`);
+      const network = await firebaseEndpointDiagnostic();
+      throw new Error(`${second || 'FCM token alınamadı'}\nİlk deneme: ${first || 'bilinmeyen'}\nFirebase ağ tanısı:\n${network}\nOrtam:\n${environmentDiagnostic()}`);
     }
   }
 
@@ -98,7 +125,7 @@
       if (typeof firebase.messaging.isSupported === 'function' && !(await firebase.messaging.isSupported())) throw new Error('Firebase Web Push bu Android/Chrome ortamında desteklenmiyor.');
 
       currentStage = 'Service Worker';
-      const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-13', { scope:'/', updateViaCache:'none' });
+      const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260822-14', { scope:'/', updateViaCache:'none' });
       await navigator.serviceWorker.ready;
       try { await sw.update(); } catch (_) {}
 
