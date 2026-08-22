@@ -3,9 +3,8 @@ name: Vendor Firebase SDK
 on:
   push:
     branches: [main]
-    paths:
-      - 'portal/fcm-register.js'
-      - 'firebase-messaging-sw.js'
+    paths-ignore:
+      - 'portal/vendor/firebase/**'
       - '.github/workflows/vendor-firebase-sdk.yml'
   workflow_dispatch:
 
@@ -15,25 +14,34 @@ permissions:
 jobs:
   vendor:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Download pinned Firebase SDK
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download pinned Firebase SDK from npm
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p vendor/firebase
-          curl --fail --location --retry 3 --retry-delay 2 \
-            https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js \
-            -o vendor/firebase/firebase-app-compat.js
-          curl --fail --location --retry 3 --retry-delay 2 \
-            https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js \
-            -o vendor/firebase/firebase-messaging-compat.js
-          test -s vendor/firebase/firebase-app-compat.js
-          test -s vendor/firebase/firebase-messaging-compat.js
-          grep -q 'firebase' vendor/firebase/firebase-app-compat.js
-          grep -q 'messaging' vendor/firebase/firebase-messaging-compat.js
+          rm -rf .firebase-sdk-work portal/vendor/firebase
+          mkdir -p .firebase-sdk-work portal/vendor/firebase
+          cd .firebase-sdk-work
+          npm pack firebase@10.14.1 --silent
+          tar -xzf firebase-10.14.1.tgz
+          test -s package/firebase-app-compat.js
+          test -s package/firebase-messaging-compat.js
+          cp package/firebase-app-compat.js ../portal/vendor/firebase/firebase-app-compat.js
+          cp package/firebase-messaging-compat.js ../portal/vendor/firebase/firebase-messaging-compat.js
+          cd ..
+          rm -rf .firebase-sdk-work
+          printf 'Firebase SDK 10.14.1\n' > portal/vendor/firebase/VERSION.txt
 
       - name: Commit vendor files
         shell: bash
@@ -41,10 +49,10 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add vendor/firebase/firebase-app-compat.js vendor/firebase/firebase-messaging-compat.js
+          git add portal/vendor/firebase
           if git diff --cached --quiet; then
-            echo 'Firebase SDK vendor files are already current.'
+            echo 'Firebase vendor files are already current.'
             exit 0
           fi
-          git commit -m 'chore: vendor Firebase web SDK'
+          git commit -m 'chore: vendor Firebase 10.14.1 SDK'
           git push origin HEAD:main
