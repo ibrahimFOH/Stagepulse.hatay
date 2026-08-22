@@ -15,15 +15,21 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const notification = payload?.notification || {};
+  // FCM automatically renders messages containing a notification payload while
+  // the page is backgrounded. Rendering those again here would create doubles.
+  if (payload?.notification) return;
+
   const data = payload?.data || {};
-  const title = notification.title || data.title || 'Stagepulse';
+  const title = data.title || 'Stagepulse';
   const options = {
-    body: notification.body || data.body || '',
-    icon: notification.icon || '/favicon-32.png',
-    badge: notification.badge || '/favicon-32.png',
-    data: { url: data.url || notification.click_action || '/portal/' },
-    tag: data.tag || 'stagepulse-notification'
+    body: data.body || '',
+    icon: data.icon || '/favicon-32.png',
+    badge: data.badge || '/favicon-32.png',
+    data: { url: safeNotificationUrl(data.url || '/portal/') },
+    tag: data.tag || `stagepulse-${data.kind || 'system'}`,
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [200, 100, 200]
   };
   self.registration.showNotification(title, options);
 });
