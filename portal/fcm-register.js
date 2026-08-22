@@ -17,16 +17,24 @@
       if (!firebase.apps.length) firebase.initializeApp(cfg);
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
       await navigator.serviceWorker.ready;
-      const token = await firebase.messaging().getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: registration });
+      const messaging = firebase.messaging();
+      const token = await messaging.getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: registration });
       if (!token) return;
       const variant = cfg.appVariant === 'admin' || document.documentElement.dataset.appVariant === 'admin' || location.pathname.startsWith('/admin/') ? 'admin' : 'staff';
-      const platform = cfg.platform === 'android' ? 'android' : 'web';
+      const platform = cfg.platform === 'android' || /Android/i.test(navigator.userAgent) ? 'android' : 'web';
       const { error } = await sb.rpc('register_notification_device', { p_token: token, p_platform: platform, p_app_variant: variant });
       if (error) console.warn('[Stagepulse] notification device registration failed', error.message);
+    } catch (e) {
+      console.warn('[Stagepulse] FCM registration failed', e?.message || e);
     } finally { registering = false; }
   }
   window.StagepulseFCM = { register };
   document.addEventListener('DOMContentLoaded', () => {
-    if (window.sb?.auth) sb.auth.onAuthStateChange((event) => { if (event === 'SIGNED_IN') register().catch(() => {}); });
+    // Register immediately if the session already exists; SIGNED_IN alone is insufficient
+    // when the page is opened after authentication (as happens in a TWA/APK).
+    register().catch(() => {});
+    if (window.sb?.auth) sb.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') register().catch(() => {});
+    });
   });
 })();
