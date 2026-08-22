@@ -1,0 +1,191 @@
+name: Stagepulse Guardian
+
+on:
+  push:
+    branches:
+      - main
+      - "guardian/**"
+  pull_request:
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+# Diagnostic-only. No production mutation, merge, deploy, or secret rotation.
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  pull-requests: read
+  security-events: read
+  vulnerability-alerts: read
+
+concurrency:
+  group: stagepulse-guardian-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  GUARDIAN_DRY_RUN: "true"
+
+jobs:
+  guardian:
+    name: Guardian diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Setup Node.js without dependency cache
+        if: ${{ hashFiles('package.json') != '' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Repository structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d .github/workflows
+          test -f .github/workflows/stagepulse-guardian.yml
+          if [ -d .github/agents ]; then
+            echo "Guardian agent prompts present:"
+            find .github/agents -maxdepth 1 -type f -print | sort
+          fi
+          if [ -f .github/ai-guardian.config.yml ]; then
+            echo "Guardian config present."
+          else
+            echo "Guardian config absent; safe defaults remain active."
+          fi
+
+      - name: Detect project package manager
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f package.json ]; then echo "node=true" >> "$GITHUB_OUTPUT"; else echo "node=false" >> "$GITHUB_OUTPUT"; fi
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then echo "npm_lock=true" >> "$GITHUB_OUTPUT"; else echo "npm_lock=false" >> "$GITHUB_OUTPUT"; fi
+          if [ -f yarn.lock ]; then echo "yarn=true" >> "$GITHUB_OUTPUT"; else echo "yarn=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Install dependencies safely
+        if: steps.detect.outputs.node == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.detect.outputs.npm_lock }}" = "true" ]; then
+            npm ci --ignore-scripts --no-audit --no-fund
+          elif [ "${{ steps.detect.outputs.yarn }}" = "true" ]; then
+            corepack enable
+            yarn install --immutable
+          else
+            npm install --package-lock=false --ignore-scripts --no-audit --no-fund
+          fi
+
+      - name: Validate Node project
+        if: steps.detect.outputs.node == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json valid')"
+          node --version
+          npm --version
+          npm run lint --if-present
+          npm run typecheck --if-present
+          npm run type-check --if-present
+          npm test --if-present
+          npm run build --if-present
+
+      - name: Secret exposure baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          if git ls-files -z | xargs -0 -r grep -IlE --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' \
+            '(SUPABASE_SERVICE_ROLE_KEY|FCM_PRIVATE_KEY|FIREBASE_ADMIN_KEY|CLOUDFLARE_API_TOKEN|FORMSPREE_API_KEY)[[:space:]]*(=|:)[[:space:]]*[\"]?[A-Za-z0-9_./+=:-]{20,}'; then
+            echo "Potential literal credential assignment detected."
+            found=1
+          fi
+          if git ls-files -z | xargs -0 -r grep -IlE --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' \
+            '^-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[[:space:]]*$'; then
+            echo "Potential private key material detected."
+            found=1
+          fi
+          while IFS= read -r -d '' file; do
+            case "$file" in
+              .env.example|.env.sample|.env.template) ;;
+              *) echo "ERROR: tracked environment file: $file"; found=1 ;;
+            esac
+          done < <(git ls-files -z -- '.env' '.env.*')
+          if [ "$found" -ne 0 ]; then exit 1; fi
+          echo "Secret exposure baseline passed."
+
+      - name: Production mutation guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --include='*.yml' --include='*.yaml' \
+            'git[[:space:]]+push[[:space:]]+([^[:space:]]+[[:space:]]+)?main|git[[:space:]]+push[[:space:]]+origin[[:space:]]+main|git[[:space:]]+push[[:space:]]+.*--force' \
+            .github/workflows 2>/dev/null; then
+            echo "Unsafe direct production push command detected."
+            exit 1
+          fi
+          echo "Direct main push command not present."
+
+      - name: Domain and route smoke checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in https://stagepulse.com.tr/ https://stagepulse.com.tr/admin https://stagepulse.com.tr/portal; do
+            code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url")
+            echo "$url -> $code"
+            case "$code" in 2*|3*|401|403) ;; *) exit 1 ;; esac
+          done
+
+      - name: Firebase endpoint reachability
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in https://firebaseinstallations.googleapis.com/ https://fcm.googleapis.com/; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url")
+            echo "$url -> $code"
+            case "$code" in 2*|3*|4*) ;; *) exit 1 ;; esac
+          done
+          echo "Firebase public endpoints reachable."
+
+      - name: FCM and service-worker source inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -RInE --exclude-dir=.git --exclude-dir=node_modules \
+            'firebase(messaging|/messaging|installations)|getToken\(|Notification\.requestPermission|onMessage|serviceWorker' . 2>/dev/null | head -100 || true
+          find . -path './.git' -prune -o -path './node_modules' -prune -o -type f \( -iname '*service-worker*' -o -iname '*firebase-messaging-sw*' -o -name 'sw.js' \) -print | head -100 || true
+
+      - name: Supabase public URL health check
+        if: ${{ vars.SUPABASE_URL != '' }}
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "${SUPABASE_URL%/}/rest/v1/")
+          echo "Supabase REST endpoint -> $code"
+          case "$code" in 2*|3*|401|403|404) ;; *) exit 1 ;; esac
+
+      - name: Production impact record
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Stagepulse Guardian"
+            echo "- Mode: **diagnostic / dry-run**"
+            echo "- Production mutation: **blocked**"
+            echo "- Secret logging: **blocked**"
+            echo "- Direct main push: **blocked**"
+            echo "- Required fix path: branch -> minimal patch -> tests -> CI -> human approval when required -> merge -> deploy"
+          } >> "$GITHUB_STEP_SUMMARY"
