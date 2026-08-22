@@ -1,0 +1,93 @@
+name: Stagepulse Autonomous Guardian
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: stagepulse-guardian-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guardian:
+    name: Guardian diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Validate Guardian structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/ai-guardian.config.yml
+          for f in guardian debugger tester fixer; do
+            test -f ".github/agents/${f}.md"
+          done
+          echo "Guardian structure OK"
+
+      - name: Secret baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' --exclude='*.yml' --exclude='*.yaml' 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*[:=][[:space:]]*["'"'`][A-Za-z0-9._-]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' .; then
+            echo 'Potential literal credential/private key detected.'
+            exit 1
+          fi
+          echo 'Secret baseline passed.'
+
+      - name: Domain and route smoke checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in https://stagepulse.com.tr/ https://stagepulse.com.tr/admin https://stagepulse.com.tr/portal; do
+            code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 15 "$url")
+            echo "$url -> $code"
+            case "$code" in 2*|3*) ;; *) exit 1 ;; esac
+          done
+
+      - name: Firebase public endpoint reachability
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -I -sS --max-time 15 https://firebaseinstallations.googleapis.com/ >/dev/null
+          curl -I -sS --max-time 15 https://fcm.googleapis.com/ >/dev/null
+          echo 'Firebase endpoints reachable from runner.'
+
+      - name: Production mutation guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --include='*.yml' --include='*.yaml' 'git push .*main|git push origin main|force-with-lease.*main' .github/workflows; then
+            echo 'Unsafe direct main push pattern detected.'
+            exit 1
+          fi
+          echo 'No direct main push pattern detected.'
+
+      - name: Production impact record
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'Production impact: read-only diagnostics only.'
+          echo 'No production code, secrets, database policy, Cloudflare configuration, or deployment target is mutated.'
+          echo 'Any future fixer must use branch -> tests -> CI -> PR -> approval -> merge.'
+
+      - name: Guardian summary
+        run: |
+          echo 'STAGEPULSE AUTONOMOUS GUARDIAN - BASELINE PASSED'
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Ref: $GITHUB_REF"
+          echo "Commit: $GITHUB_SHA"
+          echo 'Node/npm setup intentionally omitted from this diagnostics workflow.'
