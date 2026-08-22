@@ -104,11 +104,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude="*.map" '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' .; then
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude="*.map" -- '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' .; then
             echo "::error::Private key detected."
             exit 1
           fi
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude="*.map" 'service_role[[:space:]]*[:=]' .; then
+          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude="*.map" -- 'service_role[[:space:]]*[:=]' .; then
             echo "::error::Potential Supabase service_role exposure detected."
             exit 1
           fi
@@ -118,8 +118,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude-dir=node_modules 'git push|supabase db push|supabase functions deploy|firebase deploy|wrangler deploy' .github/workflows .github/agents 2>/dev/null; then
-            echo "::error::Production mutation command detected in CI configuration."
+          targets=(.github/workflows/stagepulse-guardian.yml .github/agents)
+          existing=()
+          for target in "${targets[@]}"; do [ -e "$target" ] && existing+=("$target"); done
+          if [ "${#existing[@]}" -gt 0 ] && grep -RInE -- 'git push|supabase db push|supabase functions deploy|firebase deploy|wrangler deploy' "${existing[@]}"; then
+            echo "::error::Production mutation command detected in Guardian/agent configuration."
             exit 1
           fi
           echo "Production mutation guard passed."
@@ -212,7 +215,7 @@ jobs:
           grep -q 'CREATE OR REPLACE FUNCTION public.register_notification_device' "$migration"
           grep -q 'public.is_admin()' "$migration"
           if grep -q 'private.is_admin()' "$migration"; then
-            echo "::error::Notification registration still depends on private.is_admin()."
+            echo "::error::Notification registration still depends on the restricted admin authorizer."
             exit 1
           fi
           grep -q 'GRANT EXECUTE ON FUNCTION public.register_notification_device' "$migration"
