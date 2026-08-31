@@ -1,0 +1,62 @@
+/* Stagepulse — hamburger SADECE telefon (<900px) */
+@media (min-width: 900px) {
+  .nav-links {
+    display: flex !important;
+    position: static !important;
+    width: auto !important;
+    background: transparent !important;
+    flex-direction: row !important;
+    padding: 0 !important;
+    gap: 2px !important;
+    border: none !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a {
+    padding: 7px 8px !important;
+    font-size: 12px !important;
+    flex-shrink: 0;
+  }
+  .hamburger, #hamburger {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+  .nav-right { margin-left: auto; flex-shrink: 0; }
+}
+
+@media (max-width: 899px) {
+  .hamburger, #hamburger {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    width: 40px !important;
+    height: 40px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    z-index: 10002 !important;
+    opacity: 1 !important;
+  }
+  .nav-links { display: none; }
+  .nav-links.active { display: flex !important; }
+  .nav-inner {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+  .logo { flex-shrink: 0; }
+  .nav-right {
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+  }
+  .nav-links { z-index: 10001; }
+}

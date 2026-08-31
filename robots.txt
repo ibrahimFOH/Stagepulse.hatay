@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /supabase/
+Disallow: /private/
+Disallow: /api/
+Disallow: /admin/
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+Sitemap: https://stagepulse.com.tr/sitemap.xml

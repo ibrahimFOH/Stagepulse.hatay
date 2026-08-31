@@ -1,0 +1,5 @@
+Contact: mailto:teklifal@stagepulse.com.tr
+Expires: 2027-08-06T00:00:00.000Z
+Preferred-Languages: tr, en
+Canonical: https://stagepulse.com.tr/.well-known/security.txt
+# Force update 2026-08-07

@@ -1,0 +1,70 @@
+/* STAGEPULSE — GLOBAL COLOR SYSTEM v2
+   Public site: color-only override. No layout, spacing, content or behavior changes. */
+:root{
+  --sp-color-text:#f2e7d5;
+  --sp-color-muted:#c2b29b;
+  --sp-gold:#ffb000;
+  --sp-amber:#ffd166;
+  --sp-orange:#ff7a00;
+  --sp-purple:#b56cff;
+  --sp-magenta:#ff4fa3;
+  --sp-teal:#35d0b3;
+  --sp-green:#72df8d;
+  --sp-red:#ff6678;
+  --sp-surface:#15100c;
+  --sp-surface-2:#1b1510;
+}
+body{color:var(--sp-color-text)!important;background:#080706!important}
+body:before{background:radial-gradient(circle at 10% 0%,rgba(255,176,0,.09),transparent 26%),radial-gradient(circle at 90% 18%,rgba(181,108,255,.07),transparent 25%),radial-gradient(circle at 50% 100%,rgba(53,208,179,.045),transparent 28%)!important}
+nav{background:rgba(8,7,6,.9)!important;border-bottom-color:rgba(255,176,0,.2)!important}
+.logo{color:var(--sp-gold)!important}
+.nav-links a{color:var(--sp-color-muted)!important}
+.nav-links a:nth-child(2n){color:#d4b7ff!important}
+.nav-links a:nth-child(3n){color:#ffc978!important}
+.nav-links a:hover,.nav-links a.active{color:#fff0c7!important;background:rgba(255,176,0,.12)!important}
+.hamburger,.lang-btn{color:var(--sp-color-text)!important;border-color:rgba(255,176,0,.3)!important;background:rgba(255,176,0,.035)!important}
+.hamburger:hover,.hamburger.open,.lang-btn:hover,.lang-btn.active{color:var(--sp-gold)!important;border-color:var(--sp-gold)!important;background:rgba(255,176,0,.1)!important}
+h1,h2,h3,h4,h5,h6,.section-title,.page-title,.page-hero h1,.hero h1{color:var(--sp-gold)!important}
+section:nth-of-type(3n+1) .section-title{color:var(--sp-gold)!important}
+section:nth-of-type(3n+2) .section-title{color:var(--sp-purple)!important}
+section:nth-of-type(3n) .section-title{color:var(--sp-teal)!important}
+p,.section-desc,.hero-desc,.hero-sub,.muted,.form-label,.form-hint,.card p,.doc-card p,.project-card p{color:var(--sp-color-muted)!important}
+main a:not(.btn):not(.logo):not(.nav-links a):not(.footer-links a){color:var(--sp-amber)!important}
+main a:not(.btn):not(.logo):not(.nav-links a):not(.footer-links a):hover{color:#fff0b0!important}
+.btn-primary{background:linear-gradient(135deg,var(--sp-gold),var(--sp-orange))!important;color:#201208!important;border-color:var(--sp-gold)!important}
+.btn-outline{color:#ffd166!important;border-color:rgba(255,209,102,.42)!important;background:rgba(255,176,0,.055)!important}
+.btn-outline:hover{color:#fff0b0!important;border-color:var(--sp-purple)!important;background:rgba(181,108,255,.12)!important}
+.btn-whatsapp{background:linear-gradient(135deg,#25d366,#159957)!important;color:#07140d!important}
+.card,.doc-card,.project-card,.review-card{background:linear-gradient(145deg,#1a140e,#100d09)!important;border-color:rgba(255,176,0,.2)!important}
+.card:nth-child(4n+1),.doc-card:nth-child(4n+1),.project-card:nth-child(4n+1){border-top:3px solid var(--sp-gold)!important}
+.card:nth-child(4n+2),.doc-card:nth-child(4n+2),.project-card:nth-child(4n+2){border-top:3px solid var(--sp-purple)!important}
+.card:nth-child(4n+3),.doc-card:nth-child(4n+3),.project-card:nth-child(4n+3){border-top:3px solid var(--sp-teal)!important}
+.card:nth-child(4n),.doc-card:nth-child(4n),.project-card:nth-child(4n){border-top:3px solid var(--sp-magenta)!important}
+.card:hover,.doc-card:hover,.project-card:hover{border-color:rgba(255,176,0,.55)!important;box-shadow:0 18px 48px rgba(0,0,0,.42),0 0 0 1px rgba(255,176,0,.08)!important}
+.card:nth-child(4n+2) h3,.doc-card:nth-child(4n+2) h3,.project-card:nth-child(4n+2) h3{color:var(--sp-purple)!important}
+.card:nth-child(4n+3) h3,.doc-card:nth-child(4n+3) h3,.project-card:nth-child(4n+3) h3{color:var(--sp-teal)!important}
+.card:nth-child(4n) h3,.doc-card:nth-child(4n) h3,.project-card:nth-child(4n) h3{color:var(--sp-magenta)!important}
+.card i,.doc-card i,.stat-item h3,.process-step strong{color:var(--sp-gold)!important}
+.process-num{background:rgba(181,108,255,.14)!important;color:#d7bcff!important;border-color:rgba(181,108,255,.28)!important}
+.inventory-table th{color:var(--sp-gold)!important;background:rgba(255,176,0,.09)!important}
+.inventory-table td{color:var(--sp-color-text)!important}
+.package-badge,.package-list li::before{color:var(--sp-gold)!important}
+.package-badge.popular{background:var(--sp-gold)!important;color:#201208!important}
+.proof-bar{background:#120e0a!important;border-color:rgba(255,176,0,.18)!important;color:var(--sp-color-muted)!important}
+.proof-bar a,footer h3 span,.hero-brand,.kvkk-link{color:var(--sp-gold)!important}
+.footer-contact a,.footer-links a{color:var(--sp-color-muted)!important}
+.footer-contact a:hover,.footer-links a:hover{color:var(--sp-amber)!important}
+#offerForm input:not([type="checkbox"]),#offerForm textarea,#offerForm select{color:var(--sp-color-text)!important;background:#100d09!important;border-color:rgba(255,176,0,.22)!important}
+#offerForm input:not([type="checkbox"]):focus,#offerForm textarea:focus,#offerForm select:focus{border-color:var(--sp-gold)!important;box-shadow:0 0 0 3px rgba(255,176,0,.09)!important}
+.highlight-box{background:linear-gradient(135deg,rgba(255,176,0,.12),rgba(181,108,255,.08),rgba(53,208,179,.05))!important;border-color:rgba(255,176,0,.35)!important}
+#cookie-banner{background:rgba(12,9,6,.98)!important;border-top-color:rgba(255,176,0,.4)!important}
+body.page-region .seo-city-nav a{color:var(--sp-gold)!important;background:rgba(255,176,0,.08)!important;border-color:rgba(255,176,0,.3)!important}
+body.page-region .seo-city-nav a:nth-child(2n){color:var(--sp-purple)!important;border-color:rgba(181,108,255,.3)!important;background:rgba(181,108,255,.08)!important}
+body.page-region .seo-city-nav a:hover{background:rgba(255,79,163,.1)!important;border-color:var(--sp-magenta)!important;color:#ffb7d8!important}
+.sp-ai-toggle,.sp-ai-form button{background:linear-gradient(135deg,var(--sp-gold),var(--sp-orange))!important}
+.sp-ai-head strong,.sp-ai-bubble a{color:var(--sp-gold)!important}
+.sp-ai-panel{background:#100d09!important;border-color:rgba(255,176,0,.35)!important}
+
+/* Keep text readable without returning to plain white/blue UI. */
+input,select,textarea{color:var(--sp-color-text)}
+::selection{background:rgba(255,176,0,.28);color:#fff4df}

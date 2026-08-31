@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+<title>Örnek Dokümanlar | Stage Plot & Rider | Stagepulse</title>
+<meta name="description" content="Stagepulse teknik doküman ve içerik arşivi.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b0b0b">
+<link rel="canonical" href="https://stagepulse.com.tr/dokumanlar.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="tr_TR">
+<meta property="og:url" content="https://stagepulse.com.tr/dokumanlar.html">
+<meta property="og:title" content="Örnek Dokümanlar | Stagepulse">
+<meta property="og:description" content="Stagepulse teknik doküman ve içerik arşivi.">
+<meta property="og:image" content="https://stagepulse.com.tr/images/gallery/0EAAE007-14C6-468D-80CB-6C5275CB6827.webp">
+<meta property="og:site_name" content="Stagepulse">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Örnek Dokümanlar | Stagepulse">
+<meta name="twitter:description" content="Stagepulse teknik doküman ve içerik arşivi.">
+<meta name="twitter:image" content="https://stagepulse.com.tr/images/gallery/0EAAE007-14C6-468D-80CB-6C5275CB6827.webp">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  .docs-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;margin-top:28px}
+  .doc-item{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px;padding:28px 22px;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:#111;text-decoration:none;color:#fff;transition:transform .2s ease,border-color .2s ease,background .2s ease}
+  .doc-item:hover{transform:translateY(-3px);border-color:rgba(255,180,0,.45);background:#151515}
+  .doc-item i{font-size:42px;color:#ffb000;margin-bottom:18px}
+  .doc-item span{font-weight:700;text-align:center;line-height:1.35}
+  .doc-item small{margin-top:10px;color:#888}
+  .docs-empty{grid-column:1/-1;text-align:center;padding:48px 20px;border:1px dashed rgba(255,255,255,.12);border-radius:18px;color:#888}
+  .docs-empty strong{display:block;color:#fff;font-size:18px;margin-bottom:8px}
+  @media(max-width:1100px){.docs-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:600px){.docs-list{grid-template-columns:1fr}.doc-item{min-height:180px}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="container nav-inner">
+    <a href="index.html" class="logo">STAGEPULSE</a>
+    <div class="nav-links" id="navLinks">
+      <a href="./" data-i18n="nav_home">Ana Sayfa</a>
+      <a href="hizmetler.html" data-i18n="nav_services">Hizmetler</a>
+      <a href="muhendislik.html" data-i18n="nav_engineering">Mühendislik</a>
+      <a href="galeri.html" data-i18n="nav_gallery">Galeri</a>
+      <a href="dokumanlar.html" class="active" data-i18n="nav_docs">Dokümanlar</a>
+      <a href="bolgeler.html" data-i18n="nav_regions">Bölgeler</a>
+      <a href="referanslar.html" data-i18n="nav_refs">Referanslar</a>
+      <a href="teklif.html" data-i18n="nav_offer">Teklif Al</a>
+    </div>
+    <div class="nav-right">
+      <div class="lang-switch">
+        <button class="lang-btn active" onclick="setLanguage('tr')" id="btn-tr" type="button">TR</button>
+        <button class="lang-btn" onclick="setLanguage('en')" id="btn-en" type="button">EN</button>
+      </div>
+      <button class="hamburger" id="hamburger" aria-label="Menü" aria-expanded="false"><i class="fa-solid fa-bars" id="hamburger-icon"></i></button>
+    </div>
+  </div>
+</nav>
+<section class="page-hero">
+  <div class="container">
+    <h1 class="section-title" data-i18n="d_title">Örnek Dokümanlar</h1>
+    <p class="section-desc" data-i18n="d_desc">Stagepulse teknik doküman ve içerik arşivi.</p>
+    <div class="docs-list" id="docs-list" aria-live="polite"></div>
+  </div>
+</section>
+<footer>
+  <div class="container">
+    <h3>İbrahim <span>Kavasoğlu</span></h3>
+    <p style="color:#888;margin-bottom:8px" data-i18n="footer_role">FOH Engineer • Stagepulse</p>
+    <div class="footer-contact">
+      <a href="tel:+905320683012"><i class="fa-solid fa-phone"></i> +90 532 068 3012</a>
+      <a href="mailto:teklifal@stagepulse.com.tr"><i class="fa-solid fa-envelope"></i> teklifal@stagepulse.com.tr</a>
+      <a href="https://wa.me/905320683012?text=Merhaba%2C%20Stagepulse%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum." target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+      <a href="https://www.instagram.com/stagepulse.hatay" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i> @stagepulse.hatay</a>
+    </div>
+    <div class="footer-links">
+      <a href="index.html" data-i18n="nav_home">Ana Sayfa</a>
+      <a href="hizmetler.html" data-i18n="nav_services">Hizmetler</a>
+      <a href="muhendislik.html" data-i18n="nav_engineering">Mühendislik</a>
+      <a href="galeri.html" data-i18n="nav_gallery">Galeri</a>
+      <a href="dokumanlar.html" data-i18n="nav_docs">Dokümanlar</a>
+      <a href="bolgeler.html" data-i18n="nav_regions">Bölgeler</a>
+      <a href="nasil-calisiyoruz.html" data-i18n="nav_process">Nasıl Çalışıyoruz</a>
+      <a href="referanslar.html" data-i18n="nav_refs">Referanslar</a>
+      <a href="sss.html" data-i18n="nav_sss">SSS</a>
+      <a href="hakkimizda.html" data-i18n="nav_about">Hakkımızda</a>
+      <a href="teklif.html" data-i18n="nav_offer">Teklif Al</a>
+    </div>
+    <div class="footer-kvkk" style="text-align:center;margin-top:12px"><a href="Kvkk.html" target="_blank" rel="noopener" style="color:#888;font-size:13px;text-decoration:none">KVKK</a></div>
+    <p class="copyright" data-i18n="copyright">© 2026 Stagepulse – İbrahim Kavasoğlu</p>
+  </div>
+</footer>
+<script src="i18n.js"></script>
+<script src="script.js"></script>
+<script src="media-loader-snippet.js?v=20260830-docs1"></script>
+<script>
+(function(){
+  function emptyState(){
+    var el=document.getElementById('docs-list');
+    if(el && !el.children.length){
+      el.innerHTML='<div class="docs-empty"><strong>Henüz doküman yayınlanmadı</strong><span>Yayınlanan teknik dokümanlar burada görünür.</span></div>';
+    }
+  }
+  setTimeout(emptyState,1200);
+})();
+</script>
+<a href="https://wa.me/905320683012?text=Merhaba%2C%20Stagepulse%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum." class="wa-float" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "version": "2.0.0",
+  "minimum_version": "2.0.0",
+  "build": "20260827.1",
+  "update_required": false,
+  "channel": "stable",
+  "updated_at": "2026-08-27T19:35:00Z",
+  "notes": "Stagepulse 2.0.0: personel RBAC, admin medya merkezi ve yönetim altyapısı"
+}
