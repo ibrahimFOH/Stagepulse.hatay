@@ -1,0 +1,26 @@
+# Stagepulse Supabase config
+# Admin and portal authorization is centralized in organization RBAC.
+
+[functions.admin-login]
+verify_jwt = false
+
+[functions.admin-password-reset]
+verify_jwt = false
+
+[functions.portal-login]
+verify_jwt = false
+
+[functions.public-quote]
+verify_jwt = false
+
+[functions.offer-pdf-v3]
+verify_jwt = false
+
+[functions.site-ai]
+verify_jwt = false
+
+[functions.admin-github-media]
+verify_jwt = true
+
+[functions.send-fcm-notification]
+verify_jwt = true
