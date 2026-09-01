@@ -5,8 +5,6 @@ import pathlib
 import re
 import subprocess
 import sys
-import urllib.error
-import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "supabase" / "migrations"
@@ -50,21 +48,37 @@ API_URL = f"https://api.supabase.com/v1/projects/{PROJECT_REF}/database/query"
 
 
 def query(sql: str, *, read_only: bool):
-    request = urllib.request.Request(
-        API_URL,
-        data=json.dumps({"query": sql, "read_only": read_only}).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {TOKEN}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+    payload = json.dumps({"query": sql, "read_only": read_only})
+    result = subprocess.run(
+        [
+            "curl",
+            "--fail-with-body",
+            "--silent",
+            "--show-error",
+            "--max-time",
+            "180",
+            "--request",
+            "POST",
+            API_URL,
+            "--header",
+            f"Authorization: Bearer {TOKEN}",
+            "--header",
+            "Content-Type: application/json",
+            "--data-binary",
+            "@-",
+        ],
+        input=payload,
+        text=True,
+        capture_output=True,
+        check=False,
     )
     try:
-        with urllib.request.urlopen(request, timeout=180) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as error:
-        body = error.read().decode("utf-8", "replace")
-        abort(f"Supabase database query failed with HTTP {error.code}: {body[:500]}")
+        if result.returncode != 0:
+            detail = (result.stdout or result.stderr or "unknown curl failure").strip()
+            abort(f"Supabase database query failed: {detail[:500]}")
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        abort(f"Supabase database query returned invalid JSON: {result.stdout[:500]}")
 
 
 def rows(payload):
