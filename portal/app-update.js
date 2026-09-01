@@ -24,8 +24,11 @@
     try {
       const response=await fetch(`${VERSION_URL}?t=${Date.now()}`,{cache:'no-store',credentials:'same-origin',headers:{'Cache-Control':'no-cache'}});
       if(!response.ok)return false;
-      const info=await response.json(); if(!info||!info.version)return false;
-      const build=String(info.build || info.version);
+      const info=await response.json();
+      if(!info||!['verified','no_verified_release'].includes(info.status)||!info.staff)return false;
+      const version=String(info.staff.web_version||'').trim();
+      if(!version)return false;
+      const build=String(info.release||`${version}:${info.updated_at||''}`);
       const local=currentBuild();
       if(!local){setBuild(build);return true;}
       if(local===build)return true;
@@ -35,7 +38,7 @@
 
   async function dailyCheck(){const today=todayKey();if(localStorage.getItem(LAST_DAILY_CHECK_KEY)===today)return true;const successful=await checkForUpdate();if(successful)localStorage.setItem(LAST_DAILY_CHECK_KEY,today);scheduleNextMidnight();return successful;}
   function scheduleNextMidnight(){if(midnightTimer)clearTimeout(midnightTimer);const now=new Date();const next=new Date(now);next.setHours(24,0,0,0);midnightTimer=setTimeout(()=>dailyCheck(),Math.max(1000,next.getTime()-now.getTime()));}
-  window.StagepulseWebUpdate={check:checkForUpdate,dailyCheck,version:()=> '2.0.0'};
+  window.StagepulseWebUpdate={check:checkForUpdate,dailyCheck,version:()=> '2.3.0'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{checkForUpdate();dailyCheck();},{once:true});else{checkForUpdate();dailyCheck();}
   scheduleNextMidnight(); window.addEventListener('online',dailyCheck);
 })();
