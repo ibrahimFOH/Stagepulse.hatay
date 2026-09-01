@@ -1,9 +1,23 @@
 {
-  "version": "2.0.0",
-  "minimum_version": "2.0.0",
-  "build": "20260827.1",
-  "update_required": false,
-  "channel": "stable",
-  "updated_at": "2026-08-27T19:35:00Z",
-  "notes": "Stagepulse 2.0.0: personel RBAC, admin medya merkezi ve yönetim altyapısı"
+  "release": null,
+  "updated_at": "2026-09-01T00:00:00Z",
+  "status": "no_verified_release",
+  "staff": {
+    "platform": "staff",
+    "apk_version": 0,
+    "web_version": "2.3.0",
+    "minimum_version": 0,
+    "apk_url": "",
+    "apk_sha256": "",
+    "notes": "Doğrulanmış APK yayını henüz mevcut değil."
+  },
+  "admin": {
+    "platform": "admin",
+    "apk_version": 0,
+    "web_version": "2.3.0",
+    "minimum_version": 0,
+    "apk_url": "",
+    "apk_sha256": "",
+    "notes": "Doğrulanmış APK yayını henüz mevcut değil."
+  }
 }
