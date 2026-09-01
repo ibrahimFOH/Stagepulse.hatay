@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import hashlib
 import os
 import pathlib
 import re
@@ -8,6 +9,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "supabase" / "migrations"
+BASELINE_PATH = ROOT / "supabase" / "migration-baseline.json"
 TOKEN = os.environ.get("SUPABASE_ACCESS_TOKEN", "").strip()
 PROJECT_REF = os.environ.get("SUPABASE_PROJECT_REF", "").strip()
 APPLY_MISSING_INPUT = os.environ.get("APPLY_MISSING", "false").strip().lower()
@@ -126,129 +128,65 @@ def remote_migrations():
     return migrations
 
 
-def remote_versions():
-    return [migration["version"] for migration in remote_migrations()]
-
-
-def emit_remote_inventory(remote):
-    entries = [
-        f"{migration['version']}|{migration['name'] or '-'}|"
-        f"{migration['statement_hash'] or '-'}"
-        for migration in remote
-    ]
-    chunk_size = 150
-    chunk_count = (len(entries) + chunk_size - 1) // chunk_size
-    for index in range(0, len(entries), chunk_size):
-        chunk = entries[index : index + chunk_size]
-        github_annotation(
-            "warning",
-            f"Production migration inventory {index // chunk_size + 1}/{chunk_count}",
-            ",".join(chunk),
-        )
-
-
-def extract_touched_objects(local_only):
-    patterns = {
-        "relation": (
-            r"\b(?:create\s+(?:or\s+replace\s+)?view|create\s+table"
-            r"(?:\s+if\s+not\s+exists)?|alter\s+table|drop\s+(?:table|view)"
-            r"(?:\s+if\s+exists)?)\s+(?:only\s+)?(?:public\.|private\.)?"
-            r'"?([a-z_][a-z0-9_]*)'
-        ),
-        "routine": (
-            r"\b(?:create\s+(?:or\s+replace\s+)?function|alter\s+function|"
-            r"drop\s+function(?:\s+if\s+exists)?)\s+"
-            r"(?:public\.|private\.)?\"?([a-z_][a-z0-9_]*)"
-        ),
-        "policy": r'\b(?:create|alter|drop)\s+policy\s+(?:if\s+exists\s+)?["\']?([a-z_][a-z0-9_]*)',
-        "trigger": r'\b(?:create|drop)\s+trigger\s+(?:if\s+exists\s+)?["\']?([a-z_][a-z0-9_]*)',
-        "index": (
-            r'\b(?:create\s+(?:unique\s+)?index(?:\s+if\s+not\s+exists)?|'
-            r'drop\s+index(?:\s+if\s+exists)?)\s+["\']?([a-z_][a-z0-9_]*)'
-        ),
+def load_baseline():
+    try:
+        baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        abort(f"Migration baseline manifest is unreadable: {exc}")
+    required = {
+        "format_version",
+        "migration_count",
+        "first_version",
+        "last_version",
+        "cutoff_version",
+        "ledger_sha256",
     }
-    touched = {kind: set() for kind in patterns}
-    for _, _, path in local_only:
-        sql = path.read_text(encoding="utf-8").lower()
-        for kind, pattern in patterns.items():
-            touched[kind].update(re.findall(pattern, sql))
-    return touched
+    if not isinstance(baseline, dict) or not required.issubset(baseline):
+        abort("Migration baseline manifest is invalid")
+    if baseline["format_version"] != 1:
+        abort("Migration baseline format is unsupported")
+    if not re.fullmatch(r"\d{14}", str(baseline["cutoff_version"])):
+        abort("Migration baseline cutoff is invalid")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(baseline["ledger_sha256"])):
+        abort("Migration baseline ledger hash is invalid")
+    return baseline
 
 
-def sql_text_list(values):
-    return ",".join("'" + value.replace("'", "''") + "'" for value in sorted(values))
+def migration_fingerprint(migrations):
+    digest = hashlib.sha256()
+    for migration in migrations:
+        digest.update(
+            (
+                f"{migration['version']}|{migration['name']}|"
+                f"{migration['statement_hash']}\n"
+            ).encode("utf-8")
+        )
+    return digest.hexdigest()
 
 
-def emit_production_state_inventory(local_only):
-    touched = extract_touched_objects(local_only)
-    selects = []
-    if touched["relation"]:
-        values = sql_text_list(touched["relation"])
-        selects.append(
-            "select 'relation' as kind, n.nspname||'.'||c.relname as identity, "
-            "md5(coalesce(pg_get_viewdef(c.oid, true), '')||'|'||c.relkind::text) as definition_hash "
-            "from pg_class c join pg_namespace n on n.oid=c.relnamespace "
-            f"where n.nspname in ('public','private') and c.relname in ({values})"
-        )
-    if touched["routine"]:
-        values = sql_text_list(touched["routine"])
-        selects.append(
-            "select 'routine' as kind, n.nspname||'.'||p.proname||'('||"
-            "pg_get_function_identity_arguments(p.oid)||')' as identity, "
-            "md5(pg_get_functiondef(p.oid)) as definition_hash "
-            "from pg_proc p join pg_namespace n on n.oid=p.pronamespace "
-            f"where n.nspname in ('public','private') and p.proname in ({values})"
-        )
-    if touched["policy"]:
-        values = sql_text_list(touched["policy"])
-        selects.append(
-            "select 'policy' as kind, schemaname||'.'||tablename||'.'||policyname as identity, "
-            "md5(coalesce(cmd,'')||'|'||coalesce(qual,'')||'|'||coalesce(with_check,'')||"
-            "'|'||coalesce(array_to_string(roles,','),'')) as definition_hash "
-            f"from pg_policies where policyname in ({values})"
-        )
-    if touched["trigger"]:
-        values = sql_text_list(touched["trigger"])
-        selects.append(
-            "select 'trigger' as kind, n.nspname||'.'||c.relname||'.'||t.tgname as identity, "
-            "md5(pg_get_triggerdef(t.oid, true)) as definition_hash "
-            "from pg_trigger t join pg_class c on c.oid=t.tgrelid "
-            "join pg_namespace n on n.oid=c.relnamespace "
-            f"where not t.tgisinternal and t.tgname in ({values})"
-        )
-    if touched["index"]:
-        values = sql_text_list(touched["index"])
-        selects.append(
-            "select 'index' as kind, n.nspname||'.'||c.relname as identity, "
-            "md5(pg_get_indexdef(c.oid)) as definition_hash "
-            "from pg_class c join pg_namespace n on n.oid=c.relnamespace "
-            f"where c.relkind='i' and c.relname in ({values})"
-        )
-    if not selects:
-        return
-    payload = query(
-        "select kind, identity, definition_hash from ("
-        + " union all ".join(selects)
-        + ") inventory order by kind, identity",
-        read_only=True,
-    )
-    entries = [
-        f"{row['kind']}|{row['identity']}|{row['definition_hash']}"
-        for row in rows(payload)
+def require_sealed_baseline(remote, baseline):
+    historical = [
+        migration
+        for migration in remote
+        if migration["version"] <= baseline["cutoff_version"]
     ]
-    chunk_size = 150
-    chunk_count = (len(entries) + chunk_size - 1) // chunk_size
-    for index in range(0, len(entries), chunk_size):
-        github_annotation(
-            "warning",
-            f"Production schema state {index // chunk_size + 1}/{chunk_count}",
-            ",".join(entries[index : index + chunk_size]),
-        )
+    detail = (
+        f"expected_count={baseline['migration_count']} actual_count={len(historical)}; "
+        f"expected_hash={baseline['ledger_sha256']} "
+        f"actual_hash={migration_fingerprint(historical)}"
+    )
+    if (
+        len(historical) != baseline["migration_count"]
+        or historical[0]["version"] != baseline["first_version"]
+        or historical[-1]["version"] != baseline["last_version"]
+        or migration_fingerprint(historical) != baseline["ledger_sha256"]
+    ):
+        github_annotation("error", "Sealed migration baseline drift", detail)
+        abort("Production migration baseline no longer matches the sealed repository snapshot")
+    github_annotation("notice", "Sealed migration baseline verified", detail)
 
 
-def require_exact_prefix(remote, local):
-    local_versions = [version for version, _, _ in local]
-    remote_versions = [migration["version"] for migration in remote]
+def require_exact_prefix(remote_versions, local_versions):
     if (
         len(remote_versions) > len(local_versions)
         or remote_versions != local_versions[: len(remote_versions)]
@@ -261,11 +199,6 @@ def require_exact_prefix(remote, local):
             f"remote_only={','.join(remote_only) or '-'}"
         )
         print(detail)
-        local_only_migrations = [
-            migration for migration in local if migration[0] not in set(remote_versions)
-        ]
-        emit_production_state_inventory(local_only_migrations)
-        emit_remote_inventory(remote)
         github_summary(f"## Migration audit blocked\n\n{detail}")
         github_annotation("error", "Migration history drift", detail)
         abort(
@@ -289,15 +222,25 @@ for path in sorted(MIGRATIONS.glob("*.sql")):
         abort(f"Invalid local migration: {path.name}")
     local.append((match.group(1), match.group(2), path))
 
-local_versions = [version for version, _, _ in local]
+baseline = load_baseline()
+active = [
+    migration for migration in local if migration[0] > baseline["cutoff_version"]
+]
+active_versions = [version for version, _, _ in active]
 remote_inventory = remote_migrations()
-remote = [migration["version"] for migration in remote_inventory]
-require_exact_prefix(remote_inventory, local)
+require_sealed_baseline(remote_inventory, baseline)
+remote_active = [
+    migration["version"]
+    for migration in remote_inventory
+    if migration["version"] > baseline["cutoff_version"]
+]
+require_exact_prefix(remote_active, active_versions)
 
-missing = local[len(remote) :]
+missing = active[len(remote_active) :]
 missing_versions = [version for version, _, _ in missing]
 audit_detail = (
-    f"local={len(local_versions)} remote={len(remote)} missing={len(missing)}; "
+    f"baseline={baseline['migration_count']} active_local={len(active_versions)} "
+    f"active_remote={len(remote_active)} missing={len(missing)}; "
     f"versions={','.join(missing_versions) or '-'}"
 )
 print(audit_detail)
@@ -315,8 +258,14 @@ if missing and not APPLY_MISSING:
 for version, name, path in missing:
     # Re-read before every write. This blocks a stale run if another operator
     # changes production after the initial audit.
-    current = remote_versions()
-    expected = local_versions[: local_versions.index(version)]
+    current_inventory = remote_migrations()
+    require_sealed_baseline(current_inventory, baseline)
+    current = [
+        migration["version"]
+        for migration in current_inventory
+        if migration["version"] > baseline["cutoff_version"]
+    ]
+    expected = active_versions[: active_versions.index(version)]
     if current != expected:
         abort(
             "Production migration history changed during synchronization; automatic apply is blocked"
@@ -332,20 +281,35 @@ for version, name, path in missing:
         f"where version='{version_sql}')",
         read_only=False,
     )
-    recorded = remote_versions()
+    recorded_inventory = remote_migrations()
+    require_sealed_baseline(recorded_inventory, baseline)
+    recorded = [
+        migration["version"]
+        for migration in recorded_inventory
+        if migration["version"] > baseline["cutoff_version"]
+    ]
     if recorded != expected + [version]:
         abort(
             f"Production ledger readback failed after applying {version}; further apply is blocked"
         )
 
-verified = remote_versions()
-if verified != local_versions:
+verified_inventory = remote_migrations()
+require_sealed_baseline(verified_inventory, baseline)
+verified = [
+    migration["version"]
+    for migration in verified_inventory
+    if migration["version"] > baseline["cutoff_version"]
+]
+if verified != active_versions:
     abort(
-        f"Migration verification failed after apply: local={len(local_versions)} remote={len(verified)}"
+        f"Migration verification failed after apply: "
+        f"active_local={len(active_versions)} active_remote={len(verified)}"
     )
-print(f"Production migration ledger synchronized: {len(verified)} migrations")
+total_verified = baseline["migration_count"] + len(verified)
+print(f"Production migration ledger synchronized: {total_verified} migrations")
 github_annotation(
     "notice",
     "Migration ledger synchronized",
-    f"Production and repository both contain {len(verified)} migrations",
+    f"Production and repository share the sealed {baseline['migration_count']}-migration "
+    f"baseline plus {len(verified)} active migrations",
 )

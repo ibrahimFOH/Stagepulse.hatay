@@ -1,32 +1,24 @@
-# Migration history → clean baseline
+# Production migration baseline
 
-Production schema is live; do **not** delete applied migrations without repairing remote history.
+Production migration history is sealed in
+`supabase/migration-baseline.json`. The seal contains the ordered production
+ledger count, first/last versions, and a SHA-256 fingerprint over
+`version|name|statement_hash`.
 
-## Safe procedure
+## Rules
 
-1. Snapshot / backup the Supabase project.
-2. Dump schema-only:
-   ```bash
-   supabase link --project-ref <ref>
-   supabase db dump --schema-only -f supabase/schema_baseline_dump.sql
-   ```
-3. Create a single baseline migration (timestamp after the last applied remote version):
-   ```bash
-   # archive old files
-   mkdir -p supabase/migrations_archive
-   mv supabase/migrations/*.sql supabase/migrations_archive/
-   ```
-4. Add `supabase/migrations/YYYYMMDDHHMMSS_baseline.sql` with the current schema
-   (or a no-op marker if schema is already applied).
-5. Align remote history:
-   ```bash
-   supabase migration repair --status applied <baseline_version>
-   # mark archived versions as reverted/ignored as needed per supabase CLI docs
-   ```
-6. Verify:
-   ```bash
-   supabase db push --dry-run
-   supabase migration list
-   ```
+1. Files at or below `cutoff_version` are preserved historical source. They are
+   checksum-protected but are not candidates for automatic production apply.
+2. Every new migration must use a version strictly greater than
+   `cutoff_version`.
+3. Before any apply, the workflow re-reads production and requires the sealed
+   historical count and fingerprint to match exactly.
+4. Production migrations after the cutoff must be an exact prefix of active
+   repository migrations.
+5. The existing limit of at most 10 automatically applied migrations remains
+   enforced.
+6. Never edit the baseline fingerprint to silence drift. Re-run the
+   effect/state reconciliation and document a new baseline.
 
-Empty `reconcile_remote_history.sql` files are historical markers only; they can be archived once the baseline is accepted on all environments.
+The earlier no-op `reconcile_remote_history` files remain immutable historical
+source. They no longer pretend to be the complete production ledger.

@@ -1,0 +1,11 @@
+{
+  "format_version": 1,
+  "established_at": "2026-09-01",
+  "source_environment": "production",
+  "migration_count": 349,
+  "first_version": "20260820012103",
+  "last_version": "20260831195655",
+  "cutoff_version": "20260901003000",
+  "ledger_sha256": "db04f83e8c3d6d414d8b5e11a2f634f957b9777297a77411545406ac37d17744",
+  "archived_repository_migration_count": 211
+}
