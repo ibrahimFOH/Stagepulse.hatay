@@ -1,0 +1,33 @@
+name: Stagepulse Autonomous Guardian
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  guardian:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate repository contract
+        shell: bash
+        run: |
+          set -e
+          test -f .github/ai-guardian.config.yml
+          test -d admin
+          test -d portal
+          test -d shared
+          test -d supabase
+          test -d supabase/functions
+          test -d supabase/migrations
+          test -f teklif.html
+          test -f teklif-view.html
+          test -f media.json
+          if grep -RInE "admin_get_offer_inventory" --exclude-dir=.git .; then
+            echo "Legacy inventory RPC reference detected"
+            exit 1
+          fi
+          node --check inventory-status.js
+          node --check script.js
+          python3 -m py_compile generate_media_json.py optimize_images.py
