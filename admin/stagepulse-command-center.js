@@ -7,7 +7,7 @@
     if(client)return client;
     if(window.__stagepulseAdminClient)return window.__stagepulseAdminClient;
     if(window.supabaseClient)return window.supabaseClient;
-    if(window.supabase&&typeof window.supabase.createClient==='function'){try{client=window.supabase.createClient(URL,KEY);return client}catch(e){}}
+    if(window.StagepulseAdminSupabase&&typeof window.StagepulseAdminSupabase.getClient==='function'){try{client=window.StagepulseAdminSupabase.getClient();return client}catch(e){}}
     return null;
   }
   function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]})}
