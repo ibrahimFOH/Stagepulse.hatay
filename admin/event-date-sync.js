@@ -3,8 +3,9 @@
   const __cfg = (typeof globalThis !== 'undefined' ? globalThis : window).STAGEPULSE_RUNTIME || {};
   const URL = __cfg.supabaseUrl || '';
   const KEY = __cfg.supabasePublishableKey || '';
-  if (!URL || !KEY || !window.supabase) return;
-  const client = window.supabase.createClient(URL, KEY);
+  if (!URL || !KEY) return;
+  const client = window.StagepulseAdminSupabase?.getClient?.() || window.__stagepulseAdminClient;
+  if (!client) return;
 
   let lastOfferId = null;
   let originalSaveOffer = null;

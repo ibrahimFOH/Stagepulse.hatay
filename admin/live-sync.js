@@ -1,7 +1,7 @@
 /* Stagepulse admin — realtime sync + visual dashboard enhancements. */
 (() => {
-  if (!window.supabase) return;
-  const client = window.supabase.createClient('https://mtjcqqrogjqaxkagwkti.supabase.co','sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6');
+  const client = window.StagepulseAdminSupabase?.getClient?.() || window.__stagepulseAdminClient;
+  if (!client) return;
   let channel=null,timer=null,observer=null;
   const currentView=()=> (location.hash||'#dashboard').slice(1)||'dashboard';
   const editing=()=>{const el=document.activeElement;return !!el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);};

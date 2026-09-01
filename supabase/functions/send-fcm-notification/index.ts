@@ -16,7 +16,7 @@ function serviceAccount(){
   const raw=Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON')?.trim();
   if(raw){
     try{
-      const json=raw.startsWith('{')?raw:JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(raw.replace(/\s/g,'')),c=>c.charCodeAt(0))));
+      const json=JSON.parse(raw.startsWith('{')?raw:new TextDecoder().decode(Uint8Array.from(atob(raw.replace(/\s/g,'')),c=>c.charCodeAt(0))));
       if(json?.project_id&&json?.client_email&&json?.private_key)return{project:String(json.project_id),email:String(json.client_email),privateKey:String(json.private_key)};
     }catch(e){throw new Error(`FIREBASE_SERVICE_ACCOUNT_JSON_INVALID: ${e instanceof Error?e.message:String(e)}`);}
   }
