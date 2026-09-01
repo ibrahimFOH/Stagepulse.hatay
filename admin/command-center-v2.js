@@ -1,7 +1,7 @@
 /* Stagepulse Command Center v2 — compact controls, missing contexts, detail drawer */
 (function(){'use strict';
   var booted=false;
-  function client(){return window.__stagepulseAdminClient||window.supabaseClient||(window.supabase&&window.supabase.createClient?window.supabase.createClient('https://mtjcqqrogjqaxkagwkti.supabase.co','sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6'):null)}
+  function client(){return window.StagepulseAdminSupabase?.getClient?.()||window.__stagepulseAdminClient||window.supabaseClient||null}
   function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]})}
   async function get(table,select,filter){var c=client();if(!c)return {data:[],error:new Error('Supabase client unavailable')};var q=c.from(table).select(select);if(filter&&filter[0])q=q.eq(filter[0],filter[1]);return await q.limit(1)}
   function nav(view){var b=document.querySelector('#sideNav [data-view="'+view+'"]');if(b)b.click()}
