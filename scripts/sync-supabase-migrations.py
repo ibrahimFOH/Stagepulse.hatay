@@ -96,31 +96,72 @@ def rows(payload):
     abort("Supabase database query returned an unexpected response")
 
 
-def remote_versions():
+def remote_migrations():
     payload = query(
-        "select version from supabase_migrations.schema_migrations order by version",
+        "select version, coalesce(name, '') as name, "
+        "coalesce(md5(array_to_string(statements, E'\\n')), '') as statement_hash "
+        "from supabase_migrations.schema_migrations order by version",
         read_only=True,
     )
-    versions = []
+    migrations = []
     for row in rows(payload):
         if not isinstance(row, dict) or not re.fullmatch(r"\d{14}", str(row.get("version", ""))):
             abort("Production migration history contains an invalid version")
-        versions.append(str(row["version"]))
+        name = str(row.get("name", ""))
+        statement_hash = str(row.get("statement_hash", ""))
+        if not re.fullmatch(r"[A-Za-z0-9_]*", name):
+            abort("Production migration history contains an invalid name")
+        if statement_hash and not re.fullmatch(r"[0-9a-f]{32}", statement_hash):
+            abort("Production migration history contains an invalid statement hash")
+        migrations.append(
+            {
+                "version": str(row["version"]),
+                "name": name,
+                "statement_hash": statement_hash,
+            }
+        )
+    versions = [migration["version"] for migration in migrations]
     if versions != sorted(versions) or len(versions) != len(set(versions)):
         abort("Production migration versions must be unique and strictly ordered")
-    return versions
+    return migrations
+
+
+def remote_versions():
+    return [migration["version"] for migration in remote_migrations()]
+
+
+def emit_remote_inventory(remote):
+    entries = [
+        f"{migration['version']}|{migration['name'] or '-'}|"
+        f"{migration['statement_hash'] or '-'}"
+        for migration in remote
+    ]
+    chunk_size = 40
+    chunk_count = (len(entries) + chunk_size - 1) // chunk_size
+    for index in range(0, len(entries), chunk_size):
+        chunk = entries[index : index + chunk_size]
+        github_annotation(
+            "warning",
+            f"Production migration inventory {index // chunk_size + 1}/{chunk_count}",
+            ",".join(chunk),
+        )
 
 
 def require_exact_prefix(remote, local_versions):
-    if len(remote) > len(local_versions) or remote != local_versions[: len(remote)]:
-        local_only = sorted(set(local_versions) - set(remote))
-        remote_only = sorted(set(remote) - set(local_versions))
+    remote_versions = [migration["version"] for migration in remote]
+    if (
+        len(remote_versions) > len(local_versions)
+        or remote_versions != local_versions[: len(remote_versions)]
+    ):
+        local_only = sorted(set(local_versions) - set(remote_versions))
+        remote_only = sorted(set(remote_versions) - set(local_versions))
         detail = (
-            f"local={len(local_versions)} remote={len(remote)}; "
+            f"local={len(local_versions)} remote={len(remote_versions)}; "
             f"local_only={','.join(local_only) or '-'}; "
             f"remote_only={','.join(remote_only) or '-'}"
         )
         print(detail)
+        emit_remote_inventory(remote)
         github_summary(f"## Migration audit blocked\n\n{detail}")
         github_annotation("error", "Migration history drift", detail)
         abort(
@@ -145,8 +186,9 @@ for path in sorted(MIGRATIONS.glob("*.sql")):
     local.append((match.group(1), match.group(2), path))
 
 local_versions = [version for version, _, _ in local]
-remote = remote_versions()
-require_exact_prefix(remote, local_versions)
+remote_inventory = remote_migrations()
+remote = [migration["version"] for migration in remote_inventory]
+require_exact_prefix(remote_inventory, local_versions)
 
 missing = local[len(remote) :]
 missing_versions = [version for version, _, _ in missing]
