@@ -19,6 +19,7 @@ import androidx.work.WorkerParameters
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class AppUpdateWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
@@ -27,6 +28,7 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
         private const val CHANNEL_ID = "stagepulse_updates"
         private const val NOTIFIED_VERSION = "apk_notified_version"
         private const val MANIFEST = "https://raw.githubusercontent.com/ibrahimFOH/Stagepulse.hatay/main/latest.json"
+        private val SHA256 = Regex("^[0-9a-f]{64}$")
 
         fun schedule(context: Context) {
             val constraints = Constraints.Builder()
@@ -46,9 +48,13 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
     override suspend fun doWork(): Result {
         return try {
             val root = fetchManifest() ?: return Result.retry()
+            if (root.optString("status") != "verified") return Result.success()
             val key = if (BuildConfig.APP_VARIANT.equals("admin", true)) "admin" else "staff"
             val item = root.optJSONObject(key) ?: return Result.retry()
             val remoteVersion = item.optLong("apk_version", 0L).toInt()
+            val apkUrl = item.optString("apk_url").trim()
+            val apkSha256 = item.optString("apk_sha256").trim().lowercase(Locale.US)
+            if (!isTrustedReleaseUrl(apkUrl) || !SHA256.matches(apkSha256)) return Result.success()
             val currentVersion = currentVersionCode()
             if (remoteVersion <= currentVersion) return Result.success()
 
@@ -66,6 +72,19 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
             Result.success()
         } catch (_: Exception) {
             Result.retry()
+        }
+    }
+
+    private fun isTrustedReleaseUrl(value: String): Boolean {
+        return try {
+            val url = URL(value)
+            url.protocol.equals("https", true) &&
+                url.host.equals("github.com", true) &&
+                url.port == -1 &&
+                url.path.startsWith("/ibrahimFOH/Stagepulse.hatay/releases/download/") &&
+                !url.path.contains("..")
+        } catch (_: Exception) {
+            false
         }
     }
 
