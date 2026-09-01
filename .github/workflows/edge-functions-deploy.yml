@@ -35,11 +35,16 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           REQUESTED_FUNCTION: ${{ inputs.function }}
         run: |
           set -euo pipefail
           test -n "$SUPABASE_ACCESS_TOKEN"
           test -n "$SUPABASE_PROJECT_REF"
+          test -n "$TURNSTILE_SECRET_KEY"
+          npx --yes supabase@2.45.5 secrets set \
+            TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY" \
+            --project-ref "$SUPABASE_PROJECT_REF"
           mapfile -t functions < <(python3 - "$REQUESTED_FUNCTION" <<'PY'
           import json
           import sys
