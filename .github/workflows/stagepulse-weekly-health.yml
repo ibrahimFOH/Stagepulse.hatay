@@ -1,0 +1,23 @@
+name: Stagepulse Weekly Health
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Weekly health checks
+        shell: bash
+        run: |
+          set -e
+          for p in admin portal shared supabase scripts; do test -d "$p"; done
+          for f in index.html teklif.html teklif-view.html media.json sitemap.xml robots.txt; do test -f "$f"; done
+          node --check script.js
+          node --check inventory-status.js
+          node --check conversion.js
+          node --check site-ai.js
+          python3 -m py_compile generate_media_json.py optimize_images.py
