@@ -56,7 +56,13 @@ android {
 }
 
 tasks.configureEach {
-    if (name.startsWith("assemble") && name.contains("Release")) doFirst { check(hasReleaseSigning) { "Release signing is mandatory. Configure the repository signing secrets." } }
+    if ((name.startsWith("assemble") || name.startsWith("bundle")) && name.contains("Release")) {
+        doFirst {
+            check(hasReleaseSigning) {
+                "Release signing is mandatory. Configure the repository signing secrets."
+            }
+        }
+    }
 }
 
 dependencies {
