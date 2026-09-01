@@ -4,7 +4,19 @@ plugins {
     id("com.google.gms.google-services") apply false
 }
 
-if (file("google-services.json").isFile) {
+val googleServicesFile = file("google-services.json")
+if (googleServicesFile.isFile) {
+    val requiredFirebasePackages = setOf("tr.com.stagepulse.app", "tr.com.stagepulse.admin")
+    val configuredFirebasePackages = Regex(""""package_name"\s*:\s*"([^"]+)"""")
+        .findAll(googleServicesFile.readText())
+        .map { it.groupValues[1] }
+        .toSet()
+    val missingFirebasePackages = requiredFirebasePackages - configuredFirebasePackages
+    if (missingFirebasePackages.isNotEmpty()) {
+        val message = "FIREBASE_ANDROID_JSON is missing Android client package(s): ${missingFirebasePackages.sorted().joinToString(", ")}"
+        println("::error title=Firebase Android configuration::$message")
+        error(message)
+    }
     apply(plugin = "com.google.gms.google-services")
 }
 
