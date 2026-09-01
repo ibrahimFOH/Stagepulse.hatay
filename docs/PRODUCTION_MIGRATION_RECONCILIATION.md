@@ -4,21 +4,26 @@
 
 The production ledger is now the sealed canonical baseline:
 
-- Production ledger rows: **349**
-- Repository SQL files inspected: **211**
+- Sealed production baseline rows: **349**
+- Post-cutoff active rows: **1**
+- Final production ledger rows: **350**
+- Historical repository SQL files inspected: **211**
+- Post-cutoff active repository SQL files: **1**
 - Shared version numbers: **100**
 - Production-only versions: **249**
 - Repository-only versions: **111**
 - Canonical production ledger fingerprint: regenerated from canonical JSON of
   each recorded statement array with SHA-256:
   `af025607b0b6b1325fa165d4bcaa413fad50d2457fcbf931002f0e0bbfdc4fd1`
-- Last production version: `20260831195655`
+- Last sealed baseline version: `20260831195655`
+- Last active production version: `20260901003500`
 - Baseline cutoff: `20260901003000`
 
-No production DML, migration repair, row deletion, or ledger-row mutation was
-performed during reconciliation. The only production write is a PostgreSQL
-`COMMENT` metadata seal on the migration ledger table; it changes no schema
-shape or application data.
+No production DML, migration repair, or row deletion was performed during
+baseline reconciliation. The baseline was independently sealed with PostgreSQL
+`COMMENT` metadata. A later concurrent post-cutoff hardening migration was
+applied atomically; it changed functions, a trigger, grants, and one ledger row
+without modifying application data.
 
 ## Effect matching
 
@@ -91,4 +96,4 @@ The prefix/drift guards remain enabled:
 - Every committed write is followed by ledger readback.
 
 This makes production and the repository show the same canonical history:
-the sealed 349-row baseline plus an initially empty post-cutoff active ledger.
+the sealed 349-row baseline plus the same one-row post-cutoff active ledger.
