@@ -78,7 +78,10 @@
       if(!firebase.apps.length)firebase.initializeApp(cfg);
       const supported=typeof firebase.messaging.isSupported==='function'?await firebase.messaging.isSupported():true;
       if(!supported){setState({status:'unsupported',channel:'web',error:null,subscription:false,token:false});return false;}
-      const sw=await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=20260823-fcm18',{scope:'/',updateViaCache:'none'});
+      // Reuse the site's root service worker. Registering a second worker with
+      // the same scope replaces the PWA worker and makes background delivery
+      // depend on which page was visited last.
+      const sw=await navigator.serviceWorker.register('/sw.js?v=20260901-fcm-unified',{scope:'/',updateViaCache:'none'});
       await navigator.serviceWorker.ready;try{await sw.update();}catch(_){ }
       const messaging=firebase.messaging();
       const token=await messaging.getToken({vapidKey:cfg.vapidKey,serviceWorkerRegistration:sw});
