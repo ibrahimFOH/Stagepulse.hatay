@@ -3,10 +3,10 @@
   'use strict';
   if (window.STAGEPULSE_ADMIN_BOOTSTRAPPED) return;
   window.STAGEPULSE_ADMIN_BOOTSTRAPPED = true;
+
   const loginForm = document.getElementById('loginForm');
-  if (loginForm) {
-    loginForm.addEventListener('submit', (event) => event.preventDefault());
-  }
+  loginForm?.addEventListener('submit', (event) => event.preventDefault());
+
   const scripts = [
     'admin-module-renderers-v2.js','admin.js','admin-dashboard-runtime-v1.js','admin-supabase-bridge-v1.js',
     'admin-company-organization-v1.js','admin-org-accounts-v1.js','admin-org-scope-v1.js','auth-layer.js',
@@ -21,40 +21,48 @@
     'admin-routing-repair-v1.js','admin-completion-guard-v1.js','admin-rbac-control-center-v1.js','admin-menu-final.js',
     '../shared/notification-deeplink.js'
   ];
-  const renderBootFailure = () => {
+
+  function renderBootFailure(failedPath) {
     const content = document.getElementById('content');
     if (!content) return;
-    const login = document.getElementById('loginView');
+    document.getElementById('loginView')?.classList.add('is-hidden');
     const app = document.getElementById('appView');
-    if (login) { login.hidden = true; login.classList.add('is-hidden'); }
     if (app) { app.hidden = false; app.classList.remove('is-hidden'); }
-    const offline = navigator.onLine === false;
-    content.innerHTML = `<div class="panel" id="adminBootFailure" role="alert" aria-live="assertive" tabindex="-1"><h2>Yönetim paneli yüklenemedi</h2><p>${offline ? 'İnternet bağlantınız çevrimdışı görünüyor. Bağlantı geri geldiğinde yeniden deneyin.' : 'Gerekli modüller yüklenemedi. Lütfen yeniden deneyin.'}</p><button class="btn btn-primary" id="adminBootRetry" type="button"${offline ? ' disabled' : ''}>Yeniden dene</button></div>`;
-    const panel = document.getElementById('adminBootFailure');
-    const retry = document.getElementById('adminBootRetry');
-    retry?.addEventListener('click', () => location.reload());
-    panel?.focus();
-    if (offline) window.addEventListener('online', () => {
-      const message = panel?.querySelector('p');
-      if (message) message.textContent = 'Bağlantı geri geldi. Paneli yeniden yüklemeyi deneyebilirsiniz.';
-      if (retry) retry.disabled = false;
-      retry?.focus();
-    }, { once: true });
-  };
+    content.innerHTML = `<div class="panel" id="adminBootFailure" role="alert" aria-live="assertive" tabindex="-1"><h2>Yönetim paneli yüklenemedi</h2><p>Gerekli yönetim çekirdeği başlatılamadı${failedPath ? `: ${failedPath}` : '.'}</p><button class="btn btn-primary" id="adminBootRetry" type="button">Yeniden dene</button></div>`;
+    document.getElementById('adminBootRetry')?.addEventListener('click', () => location.reload());
+    document.getElementById('adminBootFailure')?.focus();
+  }
+
+  function loadScript(path) {
+    return new Promise((resolve, reject) => {
+      const tag = document.createElement('script');
+      tag.src = `${path}?v=20260901-canonical`;
+      tag.async = false;
+      tag.onload = () => resolve(path);
+      tag.onerror = () => reject(new Error(`Admin module failed: ${path}`));
+      document.body.appendChild(tag);
+    });
+  }
+
+  // Modules are loaded in their existing order, but one optional module must
+  // never blank the entire panel. The canonical admin.js remains the shell.
   let chain = Promise.resolve();
-  for (const path of scripts) chain = chain.then(() => new Promise((resolve, reject) => {
-    const tag = document.createElement('script');
-    tag.src = `${path}?v=20260831-canonical`;
-    tag.async = false;
-    tag.onload = resolve;
-    tag.onerror = () => reject(new Error(`Admin module failed: ${path}`));
-    document.body.appendChild(tag);
-  }));
+  for (const path of scripts) {
+    chain = chain.then(() => loadScript(path).catch((error) => {
+      console.warn('[Stagepulse admin] optional module skipped:', error.message);
+      return path;
+    }));
+  }
+
   chain.then(() => {
+    if (typeof window.loadView !== 'function') {
+      renderBootFailure('admin.js');
+      return;
+    }
     window.STAGEPULSE_ADMIN_READY = true;
     window.dispatchEvent(new CustomEvent('stagepulse:admin-ready'));
   }).catch((error) => {
-    console.error(error);
-    renderBootFailure();
+    console.error('[Stagepulse admin boot]', error);
+    renderBootFailure(error?.message || 'unknown');
   });
 })();
