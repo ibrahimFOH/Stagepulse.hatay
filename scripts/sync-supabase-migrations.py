@@ -26,6 +26,22 @@ if not re.fullmatch(r"[a-z0-9]{20}", PROJECT_REF):
 API_URL = f"https://api.supabase.com/v1/projects/{PROJECT_REF}/database/query"
 
 
+def github_annotation(level: str, title: str, message: str):
+    escaped = (
+        message.replace("%", "%25")
+        .replace("\r", "%0D")
+        .replace("\n", "%0A")
+    )
+    print(f"::{level} title={title}::{escaped}", flush=True)
+
+
+def github_summary(message: str):
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "").strip()
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as summary:
+            summary.write(message.rstrip() + "\n")
+
+
 def query(sql: str, *, read_only: bool):
     request = urllib.request.Request(
         API_URL,
@@ -78,10 +94,14 @@ def require_exact_prefix(remote, local_versions):
     if len(remote) > len(local_versions) or remote != local_versions[: len(remote)]:
         local_only = sorted(set(local_versions) - set(remote))
         remote_only = sorted(set(remote) - set(local_versions))
-        print(
-            f"local={len(local_versions)} remote={len(remote)} "
-            f"local_only={len(local_only)} remote_only={len(remote_only)}"
+        detail = (
+            f"local={len(local_versions)} remote={len(remote)}; "
+            f"local_only={','.join(local_only) or '-'}; "
+            f"remote_only={','.join(remote_only) or '-'}"
         )
+        print(detail)
+        github_summary(f"## Migration audit blocked\n\n{detail}")
+        github_annotation("error", "Migration history drift", detail)
         raise SystemExit(
             "Production migration history is not an exact repository prefix; automatic apply is blocked"
         )
@@ -108,12 +128,21 @@ remote = remote_versions()
 require_exact_prefix(remote, local_versions)
 
 missing = local[len(remote) :]
-print(f"local={len(local_versions)} remote={len(remote)} missing={len(missing)}")
+missing_versions = [version for version, _, _ in missing]
+audit_detail = (
+    f"local={len(local_versions)} remote={len(remote)} missing={len(missing)}; "
+    f"versions={','.join(missing_versions) or '-'}"
+)
+print(audit_detail)
+github_summary(f"## Migration audit\n\n{audit_detail}")
+github_annotation("notice", "Migration audit", audit_detail)
 if len(missing) > 10:
+    github_annotation("error", "Migration apply blocked", audit_detail)
     raise SystemExit(
         "More than 10 migrations are missing; automatic apply is blocked for manual history reconciliation"
     )
 if missing and not APPLY_MISSING:
+    github_annotation("warning", "Unapplied migrations", audit_detail)
     raise SystemExit("Production has unapplied repository migrations")
 
 for version, name, path in missing:
@@ -148,3 +177,8 @@ if verified != local_versions:
         f"Migration verification failed after apply: local={len(local_versions)} remote={len(verified)}"
     )
 print(f"Production migration ledger synchronized: {len(verified)} migrations")
+github_annotation(
+    "notice",
+    "Migration ledger synchronized",
+    f"Production and repository both contain {len(verified)} migrations",
+)
