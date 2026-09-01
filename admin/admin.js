@@ -41,7 +41,7 @@
     history.replaceState(null,document.title,url.pathname+(url.searchParams.toString()?`?${url.searchParams}`:'')+hash);
   }
   async function recoverAdminSessionFromUrl(){
-    const url=new URL(location.href),hash=new URLSearchParams(/^#[^#]*=/.test(url.hash)?url.hash.slice(1):'');
+    const url=new window.URL(location.href),hash=new URLSearchParams(/^#[^#]*=/.test(url.hash)?url.hash.slice(1):'');
     const code=url.searchParams.get('code');
     const accessToken=hash.get('access_token');
     const refreshToken=hash.get('refresh_token');
