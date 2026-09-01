@@ -8,7 +8,14 @@
     document.body.innerHTML = '<div style="padding:40px;font-family:system-ui;color:#fff;background:#090909;min-height:100vh">Supabase yapılandırması yüklenemedi.</div>';
     return;
   }
-  const client = window.__stagepulseAdminClient || window.supabase.createClient(URL, KEY, { auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true} });
+  const client = window.__stagepulseAdminClient || window.supabase.createClient(URL, KEY, {
+    auth:{
+      persistSession:true,
+      autoRefreshToken:true,
+      detectSessionInUrl:true,
+      storageKey:'stagepulse-admin-auth-v2'
+    }
+  });
   window.__stagepulseAdminClient = client;
   window.sb = window.sb || client;
   window.supabaseClient = window.supabaseClient || client;
