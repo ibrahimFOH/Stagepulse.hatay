@@ -50,6 +50,7 @@ async function github(path = "", init: RequestInit = {}) {
     .join("/")}${query ? `?${query}` : ""}`;
   const response = await fetch(url, {
     ...init,
+    signal: AbortSignal.timeout(15_000),
     headers: {
       Accept: "application/vnd.github+json",
       "User-Agent": "Stagepulse-Media-Manager",
@@ -58,7 +59,10 @@ async function github(path = "", init: RequestInit = {}) {
     },
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(body?.message || `GitHub API ${response.status}`), { status: response.status });
+  if (!response.ok) {
+    console.error("[admin-github-media] GitHub API request failed", response.status, body?.message || "");
+    throw Object.assign(new Error("GitHub işlemi başarısız."), { status: response.status >= 400 && response.status < 500 ? 400 : 502 });
+  }
   return body;
 }
 

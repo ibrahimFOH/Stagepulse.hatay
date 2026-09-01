@@ -18,7 +18,9 @@ Deno.serve(async(req)=>{
     const anon=Deno.env.get("SUPABASE_ANON_KEY")!;
     const admin=createClient(url,service,{auth:{persistSession:false}});
     const ip=getClientIp(req);
-    if(await isDistributedRateLimited(admin,`portal-login:${ip}`,10)){
+    const limitedByIp=await isDistributedRateLimited(admin,`portal-login:ip:${ip}`,10);
+    const limitedByAccount=await isDistributedRateLimited(admin,`portal-login:account:${username.slice(0,120)}`,10);
+    if(limitedByIp||limitedByAccount){
       return jsonError("Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.",429,headers);
     }
 

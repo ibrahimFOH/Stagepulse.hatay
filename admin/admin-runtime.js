@@ -5,8 +5,6 @@
   window.STAGEPULSE_ADMIN_BOOTSTRAPPED = true;
   const loginForm = document.getElementById('loginForm');
   if (loginForm) {
-    loginForm.method = 'post';
-    loginForm.action = '/admin/';
     loginForm.addEventListener('submit', (event) => event.preventDefault());
   }
   const scripts = [

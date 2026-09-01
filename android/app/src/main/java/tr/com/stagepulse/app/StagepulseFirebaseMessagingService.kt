@@ -20,12 +20,13 @@ import kotlin.concurrent.thread
 class StagepulseFirebaseMessagingService : FirebaseMessagingService() {
     companion object {
         const val CHANNEL_ID = "stagepulse_default"
+        private const val FCM_PENDING_TOKEN = "fcm_pending_token"
         private val ids = AtomicInteger(1000)
     }
 
     override fun onNewToken(token: String) {
         val prefs = getSharedPreferences("stagepulse", MODE_PRIVATE)
-        prefs.edit().putString("fcm_token", token).apply()
+        prefs.edit().putString("fcm_token", token).putString(FCM_PENDING_TOKEN, token).apply()
         registerTokenInBackground(token, prefs.getString("access_token", null))
     }
 
@@ -47,6 +48,9 @@ class StagepulseFirebaseMessagingService : FirebaseMessagingService() {
                 conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
                 val status = conn.responseCode
                 if (status in 200..299) {
+                    if (prefsToken() == token) {
+                        getSharedPreferences("stagepulse", MODE_PRIVATE).edit().remove(FCM_PENDING_TOKEN).apply()
+                    }
                     android.util.Log.i("StagepulseFCM", "FCM token yenilendi ve Android cihaz kaydı güncellendi")
                 } else {
                     android.util.Log.e("StagepulseFCM", "Token yenileme kaydı başarısız: HTTP $status")
@@ -57,6 +61,9 @@ class StagepulseFirebaseMessagingService : FirebaseMessagingService() {
             }
         }
     }
+
+    private fun prefsToken(): String? =
+        getSharedPreferences("stagepulse", MODE_PRIVATE).getString(FCM_PENDING_TOKEN, null)
 
     override fun onMessageReceived(message: RemoteMessage) {
         if (

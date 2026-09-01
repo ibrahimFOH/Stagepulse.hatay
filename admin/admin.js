@@ -12,7 +12,7 @@
     auth:{
       persistSession:true,
       autoRefreshToken:true,
-      detectSessionInUrl:true,
+      detectSessionInUrl:false,
       storageKey:'stagepulse-admin-auth-v2'
     }
   });
@@ -29,6 +29,34 @@
   function showApp(){const l=$('#loginView'),a=$('#appView');if(l){l.classList.add('is-hidden');l.hidden=true}if(a){a.classList.remove('is-hidden');a.hidden=false}}
   function toast(msg,ok=true){let t=$('#adminToast');if(!t){t=document.createElement('div');t.id='adminToast';t.className='admin-toast';document.body.appendChild(t)}t.textContent=msg;t.className=`admin-toast ${ok?'ok':'err'} show`;setTimeout(()=>t.classList.remove('show'),2800)}
   window.toast = window.toast || toast;
+  const authUrlKeys=['code','type','token','token_hash','access_token','refresh_token','expires_at','expires_in','provider_token','provider_refresh_token','error','error_code','error_description','password','passwd','pass','pwd'];
+  function cleanAuthUrl(url){
+    authUrlKeys.forEach(key=>url.searchParams.delete(key));
+    let hash=url.hash;
+    if(/^#[^#]*=/.test(hash)){
+      const params=new URLSearchParams(hash.slice(1));
+      authUrlKeys.forEach(key=>params.delete(key));
+      hash=params.toString()?`#${params}`:'';
+    }
+    history.replaceState(null,document.title,url.pathname+(url.searchParams.toString()?`?${url.searchParams}`:'')+hash);
+  }
+  async function recoverAdminSessionFromUrl(){
+    const url=new URL(location.href),hash=new URLSearchParams(/^#[^#]*=/.test(url.hash)?url.hash.slice(1):'');
+    const code=url.searchParams.get('code');
+    const accessToken=hash.get('access_token');
+    const refreshToken=hash.get('refresh_token');
+    const type=url.searchParams.get('type')||hash.get('type');
+    const hasAuthUrl=authUrlKeys.some(key=>url.searchParams.has(key)||hash.has(key));
+    if(!hasAuthUrl)return false;
+    try{
+      if(url.searchParams.get('error'))throw new Error(url.searchParams.get('error_description')||'Kimlik doğrulama bağlantısı geçersiz.');
+      if(code){const {error}=await client.auth.exchangeCodeForSession(code);if(error)throw error;}
+      else if(accessToken&&refreshToken){const {error}=await client.auth.setSession({access_token:accessToken,refresh_token:refreshToken});if(error)throw error;}
+      else throw new Error('Kimlik doğrulama bağlantısı eksik veya geçersiz.');
+      window.__stagepulseAdminRecovery=type==='recovery';
+      return true;
+    }finally{cleanAuthUrl(url);}
+  }
   function closeMobileNav(){const s=$('#sidebar'),o=$('#mobileOverlay');s?.classList.remove('open');if(o){o.hidden=true;o.classList.remove('open')}}
   function routeView(v){if((location.hash||'').slice(1)!==v)history.replaceState(null,'','#'+v)}
   async function guard(session){
@@ -71,7 +99,7 @@
     $('#sidebarClose')?.addEventListener('click',closeMobileNav);$('#mobileOverlay')?.addEventListener('click',closeMobileNav);$('#logoutBtn')?.addEventListener('click',async()=>{await client.auth.signOut();location.reload()});
     $$('#sideNav button[data-view]').forEach(b=>b.addEventListener('click',()=>window.loadView(b.dataset.view)));
   }
-  async function init(){bindShell();const {data:{session}}=await client.auth.getSession();if(session){if(await guard(session)){const h=(location.hash||'#dashboard').slice(1);await window.loadView(viewMeta[h]?h:'dashboard')} } else showLogin()}
+  async function init(){bindShell();try{await recoverAdminSessionFromUrl()}catch(error){await client.auth.signOut().catch(()=>{});showLogin();const box=$('#loginError');if(box)box.textContent=error?.message||'Kimlik doğrulama bağlantısı geçersiz.';return}const {data:{session}}=await client.auth.getSession();if(session){if(await guard(session)){const h=(location.hash||'#dashboard').slice(1);await window.loadView(viewMeta[h]?h:'dashboard')} } else showLogin()}
   window.getAdminClient=()=>client;
   window.StagepulseAdminSupabase=window.StagepulseAdminSupabase||{getClient:()=>client};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

@@ -21,17 +21,24 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        private const val PREFS = "stagepulse"
+        private const val FCM_TOKEN = "fcm_token"
+        private const val FCM_PENDING_TOKEN = "fcm_pending_token"
+        private const val ACCESS_TOKEN = "access_token"
+    }
+
     private lateinit var webView: WebView
     private lateinit var appUpdater: AppUpdater
     private val supabaseUrl = "https://mtjcqqrogjqaxkagwkti.supabase.co"
     private var fcmToken: String? = null
     private var accessToken: String? = null
-    private var nativeLoginBridgeInstalled = false
+    @Volatile private var bridgeAllowed = false
+    private var bridgeInstalled = false
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private val fileChooserRequest = 4101
     private val portalPath: String get() = BuildConfig.PORTAL_PATH
     private val appVariant: String get() = BuildConfig.APP_VARIANT
-    private val isAdminApp: Boolean get() = appVariant == "admin"
     private fun expectedUrl(): String = "https://stagepulse.com.tr$portalPath?apk=$appVariant-rbac-v10"
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -42,13 +49,16 @@ class MainActivity : AppCompatActivity() {
         appUpdater = AppUpdater(this)
         configureWebView()
         requestNotificationPermission()
-        val prefs = getSharedPreferences("stagepulse", MODE_PRIVATE)
-        fcmToken = prefs.getString("fcm_token", null)
-        accessToken = prefs.getString("access_token", null)
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        fcmToken = prefs.getString(FCM_PENDING_TOKEN, null) ?: prefs.getString(FCM_TOKEN, null)
+        accessToken = prefs.getString(ACCESS_TOKEN, null)
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful) {
+                val previous = prefs.getString(FCM_TOKEN, null)
                 fcmToken = task.result
-                prefs.edit().putString("fcm_token", task.result).apply()
+                val edit = prefs.edit().putString(FCM_TOKEN, task.result)
+                if (previous != task.result) edit.putString(FCM_PENDING_TOKEN, task.result)
+                edit.apply()
                 registerDeviceIfReady()
             }
         }
@@ -84,9 +94,9 @@ class MainActivity : AppCompatActivity() {
         webView.settings.allowContentAccess = true
         webView.settings.javaScriptCanOpenWindowsAutomatically = false
         webView.settings.setSupportMultipleWindows(false)
+        webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
         webView.settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
         webView.clearCache(true)
-        webView.addJavascriptInterface(AndroidBridge(), "StagepulseAndroid")
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(webView: WebView?, filePath: ValueCallback<Array<Uri>>?, fileChooserParams: FileChooserParams?): Boolean {
                 this@MainActivity.filePathCallback?.onReceiveValue(null)
@@ -107,22 +117,38 @@ class MainActivity : AppCompatActivity() {
             }
         }
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                bridgeAllowed = false
+                removeMinimalBridge()
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val host = request.url.host ?: return true
-                if (host == "stagepulse.com.tr" || host.endsWith(".stagepulse.com.tr")) {
-                    val path = request.url.path ?: "/"
-                    val wrongPortal = (isAdminApp && path.startsWith("/portal/")) || (!isAdminApp && path.startsWith("/admin/"))
-                    if (wrongPortal) { view.loadUrl(expectedUrl()); return true }
+                if (!request.isForMainFrame) return false
+                if (AndroidUrlPolicy.isCanonicalPortalUrl(request.url.toString(), portalPath)) {
                     return false
                 }
-                startActivity(Intent(Intent.ACTION_VIEW, request.url)); return true
+                bridgeAllowed = false
+                if (request.url.host.equals("stagepulse.com.tr", true)) {
+                    view.loadUrl(expectedUrl())
+                } else {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, request.url))
+                    } catch (e: Exception) {
+                        Log.w("StagepulseWebView", "Harici bağlantı açılamadı", e)
+                    }
+                }
+                return true
             }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                val path = try { Uri.parse(url).path ?: "/" } catch (_: Exception) { "/" }
-                val wrongPortal = (isAdminApp && path.startsWith("/portal/")) || (!isAdminApp && path.startsWith("/admin/"))
-                if (wrongPortal) { view.loadUrl(expectedUrl()); return }
-                installNativeLoginBridge(); readSupabaseSession()
+                if (!AndroidUrlPolicy.isCanonicalPortalUrl(url, portalPath)) {
+                    bridgeAllowed = false
+                    view.loadUrl(expectedUrl())
+                    return
+                }
+                bridgeAllowed = true
+                installMinimalBridge(); readSupabaseSession()
             }
         }
     }
@@ -133,12 +159,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun installNativeLoginBridge() {
-        if (nativeLoginBridgeInstalled) return
-        nativeLoginBridgeInstalled = true
-        webView.evaluateJavascript("""
-            (function(){if(window.__stagepulseNativeLogin)return;window.__stagepulseNativeLogin=true;const originalFetch=window.fetch.bind(window);window.fetch=function(input,init){const url=typeof input==='string'?input:(input&&input.url)||'';if(/\\/functions\\/v1\\/(admin-login|portal-login)(?:\\?|$)/.test(url)&&window.StagepulseAndroid){let body={};try{body=JSON.parse((init&&init.body)||'{}')}catch(e){}try{const packet=JSON.parse(StagepulseAndroid.portalLogin(String(body.username||''),String(body.password||'')));return Promise.resolve(new Response(packet.body||'',{status:Number(packet.status)||500,headers:{'Content-Type':'application/json'}}));}catch(e){return Promise.reject(e);}}return originalFetch(input,init);};})();
-        """.trimIndent(), null)
+    private fun installMinimalBridge() {
+        if (bridgeInstalled) return
+        webView.addJavascriptInterface(AndroidBridge(), "StagepulseAndroid")
+        bridgeInstalled = true
+    }
+
+    private fun removeMinimalBridge() {
+        if (!bridgeInstalled) return
+        webView.removeJavascriptInterface("StagepulseAndroid")
+        bridgeInstalled = false
     }
 
     private fun readSupabaseSession() {
@@ -146,49 +176,49 @@ class MainActivity : AppCompatActivity() {
             (function(){try{for(const store of [localStorage,sessionStorage])for(let i=0;i<store.length;i++){const k=store.key(i)||'';if(k.startsWith('sb-')&&k.endsWith('-auth-token')){const v=JSON.parse(store.getItem(k)||'{}');if(v.access_token)return v.access_token;}}}catch(e){}return '';})();
         """.trimIndent()) { value ->
             val token = value.trim('"').replace("\\\"", "\"")
-            if (token.isNotBlank() && token != accessToken) {
-                accessToken = token
-                getSharedPreferences("stagepulse", MODE_PRIVATE).edit().putString("access_token", token).apply()
+            if (token.isNotBlank()) {
+                if (token != accessToken) {
+                    accessToken = token
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACCESS_TOKEN, token).apply()
+                }
                 registerDeviceIfReady()
             }
         }
     }
 
     private fun registerDeviceIfReady() {
-        val token = fcmToken ?: return
-        val auth = accessToken ?: return
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val token = prefs.getString(FCM_PENDING_TOKEN, null) ?: fcmToken ?: return
+        val auth = accessToken?.takeIf { it.isNotBlank() } ?: return
         thread {
+            var c: java.net.HttpURLConnection? = null
             try {
-                val c = (java.net.URL("$supabaseUrl/functions/v1/register-android-device").openConnection() as java.net.HttpURLConnection).apply {
+                val connection = (java.net.URL("$supabaseUrl/functions/v1/register-android-device").openConnection() as java.net.HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true; connectTimeout = 15000; readTimeout = 15000
                     setRequestProperty("Authorization", "Bearer $auth"); setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY); setRequestProperty("Content-Type", "application/json")
                 }
-                c.outputStream.use { it.write("{\"token\":\"${token.replace("\\", "\\\\").replace("\"", "\\\"")}\",\"app_variant\":\"$appVariant\"}".toByteArray()) }
-                c.inputStream?.close(); c.disconnect()
+                c = connection
+                connection.outputStream.use { it.write("{\"token\":\"${token.replace("\\", "\\\\").replace("\"", "\\\"")}\",\"app_variant\":\"$appVariant\"}".toByteArray()) }
+                val status = connection.responseCode
+                (if (status in 200..299) connection.inputStream else connection.errorStream)?.close()
+                if (status in 200..299) {
+                    if (prefs.getString(FCM_PENDING_TOKEN, null) == token) prefs.edit().remove(FCM_PENDING_TOKEN).apply()
+                } else {
+                    Log.w("StagepulseFCM", "register failed: HTTP $status")
+                }
             } catch (e: Exception) { Log.w("StagepulseFCM", "register failed: ${e.message}") }
+            finally { c?.disconnect() }
         }
+    }
+
+    private fun isBridgeAllowed(): Boolean {
+        return bridgeAllowed
     }
 
     inner class AndroidBridge {
-        @JavascriptInterface fun refreshSession() { runOnUiThread { readSupabaseSession() } }
-        @JavascriptInterface fun setAccessToken(token: String?) { runOnUiThread { accessToken = token; getSharedPreferences("stagepulse", MODE_PRIVATE).edit().putString("access_token", token.orEmpty()).apply(); registerDeviceIfReady() } }
-        @JavascriptInterface fun portalLogin(username: String?, password: String?): String {
-            val u = username?.trim()?.lowercase().orEmpty(); val p = password.orEmpty()
-            if (u.isBlank() || p.isBlank()) return packet(400, "{\"error\":\"Kullanıcı adı ve şifre zorunludur.\"}")
-            val functionName = if (isAdminApp) "admin-login" else "portal-login"
-            return try {
-                val c = (java.net.URL("$supabaseUrl/functions/v1/$functionName").openConnection() as java.net.HttpURLConnection).apply {
-                    requestMethod = "POST"; doOutput = true; connectTimeout = 15000; readTimeout = 15000
-                    setRequestProperty("Content-Type", "application/json"); setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY); setRequestProperty("Accept", "application/json")
-                }
-                c.outputStream.use { it.write("{\"username\":${json(u)},\"password\":${json(p)}}".toByteArray()) }
-                val status = c.responseCode; val stream = if (status in 200..299) c.inputStream else c.errorStream; val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty(); c.disconnect(); packet(status, body)
-            } catch (e: Exception) { packet(0, "{\"error\":${json(e.message ?: "Bağlantı hatası")} }") }
-        }
+        @JavascriptInterface fun refreshSession() { runOnUiThread { if (isBridgeAllowed()) readSupabaseSession() } }
+        @JavascriptInterface fun setAccessToken(token: String?) { runOnUiThread { if (isBridgeAllowed()) { accessToken = token; getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACCESS_TOKEN, token.orEmpty()).apply(); registerDeviceIfReady() } } }
     }
-
-    private fun packet(status: Int, body: String) = "{\"status\":$status,\"body\":${json(body)}}"
-    private fun json(v: String) = "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
 
     @Deprecated("Deprecated in Android API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -198,5 +228,5 @@ class MainActivity : AppCompatActivity() {
         val uris = mutableListOf<Uri>(); data?.clipData?.let { clip -> for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri) }; if (uris.isEmpty()) data?.data?.let { uris.add(it) }; callback.onReceiveValue(uris.toTypedArray())
     }
 
-    override fun onResume() { super.onResume(); if (::webView.isInitialized) { readSupabaseSession(); appUpdater.checkOnResume(); AppUpdateWorker.schedule(this) } }
+    override fun onResume() { super.onResume(); if (::webView.isInitialized) { if (isBridgeAllowed()) readSupabaseSession(); registerDeviceIfReady(); appUpdater.checkOnResume(); AppUpdateWorker.schedule(this) } }
 }

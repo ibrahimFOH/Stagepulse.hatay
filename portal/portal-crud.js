@@ -3,8 +3,7 @@
   const oldAfterLogin = window.afterLogin;
   const aliases = {accept_job:'jobs.accept',reject_job:'jobs.reject',update_job_status:'jobs.status.update',update_job_notes:'jobs.notes.update',manage_job_equipment:'jobs.equipment.manage',pricing_manage:'pricing.manage',equipment_manage:'equipment.manage',customers_manage:'customers.manage',offers_manage:'offers.manage',offer_create:'offers.create',offer_update:'offers.update',offer_send:'offers.send'};
   function hydrate(){
-    let p=window.staffUser;
-    if(!p){try{p=JSON.parse(localStorage.getItem('sp_staff_meta')||'null');if(p)window.staffUser=p;}catch(_){}}
+    const p=window.staffUser;
     if(!p||typeof p!=='object')return;
     p.permissions=p.permissions&&typeof p.permissions==='object'?p.permissions:{};
     Object.entries(aliases).forEach(([legacy,canonical])=>{if(p.permissions[canonical]===true)p.permissions[legacy]=true;});

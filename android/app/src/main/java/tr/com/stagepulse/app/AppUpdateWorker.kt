@@ -54,7 +54,7 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
             val remoteVersion = item.optLong("apk_version", 0L).toInt()
             val apkUrl = item.optString("apk_url").trim()
             val apkSha256 = item.optString("apk_sha256").trim().lowercase(Locale.US)
-            if (!isTrustedReleaseUrl(apkUrl) || !SHA256.matches(apkSha256)) return Result.success()
+            if (!AndroidUrlPolicy.isTrustedReleaseUrl(apkUrl) || !SHA256.matches(apkSha256)) return Result.success()
             val currentVersion = currentVersionCode()
             if (remoteVersion <= currentVersion) return Result.success()
 
@@ -72,19 +72,6 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
             Result.success()
         } catch (_: Exception) {
             Result.retry()
-        }
-    }
-
-    private fun isTrustedReleaseUrl(value: String): Boolean {
-        return try {
-            val url = URL(value)
-            url.protocol.equals("https", true) &&
-                url.host.equals("github.com", true) &&
-                url.port == -1 &&
-                url.path.startsWith("/ibrahimFOH/Stagepulse.hatay/releases/download/") &&
-                !url.path.contains("..")
-        } catch (_: Exception) {
-            false
         }
     }
 

@@ -5,8 +5,6 @@
   window.STAGEPULSE_PORTAL_BOOTSTRAPPED = true;
   const loginForm = document.getElementById('loginForm');
   if (loginForm) {
-    loginForm.method = 'post';
-    loginForm.action = '/portal/';
     loginForm.addEventListener('submit', (event) => event.preventDefault());
   }
   const scripts = [

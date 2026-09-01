@@ -5,6 +5,13 @@ import { getClientIp, isDistributedRateLimited } from "../_shared/security.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ALLOWED = new Set(["https://stagepulse.com.tr", "https://www.stagepulse.com.tr"]);
+const PUBLIC_ERRORS = new Set([
+  "Teklif bağlantısı eksik.",
+  "Teklif bulunamadı veya bağlantı geçersiz.",
+  "Teklif bağlantısının süresi dolmuş.",
+  "Bu teklif artık kullanılamıyor.",
+  "PDF bağlantısı oluşturulamadı.",
+]);
 
 function cors(req: Request) {
   const origin = req.headers.get("origin") || "";
@@ -49,7 +56,7 @@ function publicOffer(row: any, pdf: any = null) {
     status: row.status,
     public_code: row.public_code,
     pdf: visible && pdf?.storage_path
-      ? { available: true, file_name: pdf.file_name || row.pdf_file_name, updated_at: row.pdf_updated_at }
+      ? { available: true, file_name: pdf.file_name || null, updated_at: pdf.updated_at }
       : { available: false },
   };
 }
@@ -74,20 +81,13 @@ async function findOffer(db: any, body: any) {
 async function currentPdf(db: any, offer: any) {
   const { data, error } = await db
     .from("offer_pdf_assets")
-    .select("storage_path,file_name,customer_visible,created_at")
+    .select("storage_path,file_name,customer_visible,created_at,mime_type")
     .eq("offer_id", offer.id)
     .eq("is_current", true)
+    .eq("mime_type", "application/pdf")
     .maybeSingle();
   if (error) throw error;
   if (data?.storage_path) return { ...data, updated_at: data.created_at };
-  if (offer.pdf_storage_path) {
-    return {
-      storage_path: offer.pdf_storage_path,
-      file_name: offer.pdf_file_name,
-      customer_visible: offer.pdf_customer_visible !== false,
-      updated_at: offer.pdf_updated_at,
-    };
-  }
   return null;
 }
 
@@ -131,8 +131,15 @@ Deno.serve(async (req) => {
         rejected_at: status === "rejected" ? new Date().toISOString() : offer.rejected_at,
         updated_at: new Date().toISOString(),
       };
-      const { error } = await db.from("teklifler").update(patch).eq("id", offer.id);
+      const { data: updated, error } = await db
+        .from("teklifler")
+        .update(patch)
+        .eq("id", offer.id)
+        .in("status", ["new", "reviewing", "preparing", "sent"])
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!updated) return response(req, { error: "Teklif artık yanıtlanamaz." }, 409);
       await db.from("notifications").insert({
         kind: "quote_response",
         title: "Teklif yanıtı",
@@ -145,6 +152,9 @@ Deno.serve(async (req) => {
     return response(req, { error: "Geçersiz işlem." }, 400);
   } catch (error) {
     console.error("[offer-pdf-v3]", error);
-    return response(req, { error: error instanceof Error ? error.message : "İşlem başarısız." }, 400);
+    const message = error instanceof Error ? error.message : "";
+    return PUBLIC_ERRORS.has(message)
+      ? response(req, { error: message }, 400)
+      : response(req, { error: "İşlem başarısız." }, 500);
   }
 });

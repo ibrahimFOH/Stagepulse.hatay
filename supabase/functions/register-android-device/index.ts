@@ -113,6 +113,7 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, id: data.id, action: "created", app_variant: appVariant, platform: "android" });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "REGISTER_FAILED" }, 500);
+    console.error("[register-android-device]", error);
+    return json({ error: "REGISTER_FAILED" }, 500);
   }
 });
