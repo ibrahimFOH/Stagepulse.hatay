@@ -3,6 +3,12 @@
   'use strict';
   if (window.STAGEPULSE_ADMIN_BOOTSTRAPPED) return;
   window.STAGEPULSE_ADMIN_BOOTSTRAPPED = true;
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.method = 'post';
+    loginForm.action = '/admin/';
+    loginForm.addEventListener('submit', (event) => event.preventDefault());
+  }
   const scripts = [
     'admin-module-renderers-v2.js','admin.js','admin-dashboard-runtime-v1.js','admin-supabase-bridge-v1.js',
     'admin-company-organization-v1.js','admin-org-accounts-v1.js','admin-org-scope-v1.js','auth-layer.js',
