@@ -114,7 +114,8 @@
   }
 
   window.StagepulseFCM={register,enable,diagnostics,getStatus:()=>({...state})};
-  document.addEventListener('DOMContentLoaded',()=>register(false));
+  const initFcm=()=>register(false).catch(()=>{});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initFcm,{once:true});else void initFcm();
   client.auth.onAuthStateChange((event,session)=>{
     if(isNativeAndroid()){
       syncNativeSession(session);

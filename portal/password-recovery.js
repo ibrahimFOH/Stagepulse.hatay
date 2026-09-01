@@ -42,8 +42,12 @@
   }
 
   function errBox() { return $('#loginErr'); }
-  document.addEventListener('DOMContentLoaded', () => {
+  function initPasswordRecovery() {
     $('#forgotPasswordBtn')?.addEventListener('click', forgotPassword);
-    sb.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') recoveryModal(); });
-  });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPasswordRecovery, { once:true });
+  } else {
+    initPasswordRecovery();
+  }
 })();

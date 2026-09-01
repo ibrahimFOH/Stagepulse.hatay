@@ -3,6 +3,12 @@
   'use strict';
   if (window.STAGEPULSE_PORTAL_BOOTSTRAPPED) return;
   window.STAGEPULSE_PORTAL_BOOTSTRAPPED = true;
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.method = 'post';
+    loginForm.action = '/portal/';
+    loginForm.addEventListener('submit', (event) => event.preventDefault());
+  }
   const scripts = [
     'session-isolation.js','portal.js','portal-modules.js','portal-permissions.js','admin-parity-v3.js',
     'portal-view-integrity.js','incoming-offers-ui.js','portal-auto-sync.js','portal-pricing-live.js',
