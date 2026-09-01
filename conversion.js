@@ -17,5 +17,16 @@
     hero.appendChild(strip);
   }
 
-  document.addEventListener('DOMContentLoaded', homePage, { once: true });
+  // Keep the legacy public teklif form a real native form submission.
+  function preserveOfferSubmission() {
+    const form = document.getElementById('offerForm');
+    if (!form) return;
+    const submit = form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
+    if (submit) submit.type = 'submit';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    homePage();
+    preserveOfferSubmission();
+  }, { once: true });
 })();
