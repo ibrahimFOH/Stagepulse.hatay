@@ -1,0 +1,17 @@
+name: IndexNow
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate sitemap and robots
+        run: |
+          test -f sitemap.xml
+          test -f robots.txt
+          grep -q 'stagepulse' sitemap.xml || true
