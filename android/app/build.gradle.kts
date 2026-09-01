@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,7 +13,7 @@ if (googleServicesFile.isFile) {
         suppliedFirebaseConfig
     } else {
         runCatching {
-            String(java.util.Base64.getDecoder().decode(suppliedFirebaseConfig), Charsets.UTF_8).trim()
+            String(Base64.getDecoder().decode(suppliedFirebaseConfig), Charsets.UTF_8).trim()
         }.getOrElse {
             println("::error title=Firebase Android configuration::FIREBASE_ANDROID_JSON must contain raw or Base64-encoded JSON")
             error("FIREBASE_ANDROID_JSON must contain raw or Base64-encoded JSON")
