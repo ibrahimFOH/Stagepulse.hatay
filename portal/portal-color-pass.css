@@ -1,0 +1,32 @@
+/* Stagepulse portal — color-only pass. No layout/behavior changes. */
+:root{
+  --sp-color-text:#eadfca;
+  --sp-color-muted:#b5a990;
+  --sp-color-gold:#ffb000;
+  --sp-color-amber:#f5c451;
+  --sp-color-purple:#b58cff;
+  --sp-color-teal:#45d6bd;
+  --sp-color-green:#69df91;
+  --sp-color-red:#ff7373;
+}
+body,.main{color:var(--sp-color-text)}
+h1,h2,h3,h4,h5,h6,.page-head h1,.portal-topbar-title h1{color:var(--sp-color-gold)!important}
+p,label,.muted,.portal-topbar-title p{color:var(--sp-color-muted)!important}
+a{color:var(--sp-color-amber)!important}
+input,select,textarea{color:var(--sp-color-text)!important;background:#0d0b09!important;border-color:rgba(255,176,0,.20)!important}
+input:focus,select:focus,textarea:focus{border-color:var(--sp-color-gold)!important;box-shadow:0 0 0 2px rgba(255,176,0,.10)!important}
+.btn{color:var(--sp-color-amber)!important;background:#17130d!important;border-color:rgba(255,176,0,.24)!important}
+.btn:hover{color:#ffd86a!important;border-color:var(--sp-color-gold)!important;background:#211a0e!important}
+.btn-primary{color:#21180a!important;background:linear-gradient(135deg,#ffb000,#d99100)!important;border-color:#ffb000!important;box-shadow:0 8px 22px rgba(255,176,0,.18)!important}
+.sidebar{background:#0d0b09!important;border-color:rgba(255,176,0,.14)!important}
+#sideNav button{color:var(--sp-color-muted)!important}
+#sideNav button.active,#sideNav button:hover{color:var(--sp-color-gold)!important;background:linear-gradient(90deg,rgba(255,176,0,.16),rgba(181,140,255,.07))!important;border-color:rgba(255,176,0,.18)!important;box-shadow:inset 3px 0 0 var(--sp-color-gold)!important}
+.card,.panel,.portal-customer-card,.portal-price-card{border-color:rgba(255,176,0,.15)!important;background:linear-gradient(145deg,rgba(255,176,0,.065),rgba(181,140,255,.025))!important}
+#content .card:before{background:linear-gradient(90deg,var(--sp-color-gold),var(--sp-color-purple))!important}
+#content .card:nth-child(4n+2):before{background:linear-gradient(90deg,var(--sp-color-purple),var(--sp-color-teal))!important}
+#content .card:nth-child(4n+3):before{background:linear-gradient(90deg,var(--sp-color-teal),var(--sp-color-gold))!important}
+#content .card:nth-child(4n):before{background:linear-gradient(90deg,var(--sp-color-gold),var(--sp-color-red))!important}
+#content .price{color:var(--sp-color-teal)!important}
+.portal-pill{color:var(--sp-color-purple)!important;border-color:rgba(181,140,255,.28)!important;background:rgba(181,140,255,.08)!important}
+.status.sent,.status.preparing{color:var(--sp-color-purple)!important;border-color:rgba(181,140,255,.28)!important;background:rgba(181,140,255,.08)!important}
+.portal-site-link,.portal-menu-btn{color:var(--sp-color-amber)!important;border-color:rgba(255,176,0,.22)!important}

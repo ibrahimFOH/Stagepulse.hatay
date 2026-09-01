@@ -1,0 +1,17 @@
+/* Stagepulse Personel Portal v2 — mobile-first visual consistency. */
+.personnel-v2{display:block}
+.portal-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 16px}
+.portal-search{flex:1 1 260px;min-width:180px}
+.portal-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.portal-kpi{padding:14px;border:1px solid var(--portal-line);background:var(--portal-panel);border-radius:12px}
+.portal-kpi .label{display:block;color:var(--portal-muted);font-size:12px;margin-bottom:6px}.portal-kpi .value{font-size:21px;font-weight:800}
+.portal-list{display:grid;gap:8px}.portal-list-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px;border:1px solid var(--portal-line);background:#0d0d0d;border-radius:11px}
+.portal-list-item strong{display:block;font-size:14px}.portal-list-item small{display:block;color:var(--portal-muted);margin-top:4px;line-height:1.4}
+.portal-pill{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:4px 9px;border:1px solid #303030;border-radius:999px;color:#cfcfcf;font-size:12px;white-space:nowrap}
+.portal-empty{padding:28px 16px;text-align:center;color:var(--portal-muted)}
+.portal-note{margin-top:12px;padding:11px 12px;border:1px solid #302714;border-radius:10px;background:#151208;color:#b9b19e;font-size:12px;line-height:1.5}
+.portal-table-wrap{overflow:auto;border:1px solid var(--portal-line);border-radius:12px}.portal-table{width:100%;min-width:680px;border-collapse:collapse}.portal-table th,.portal-table td{padding:11px 10px;border-bottom:1px solid var(--portal-line);text-align:left;vertical-align:top}.portal-table th{color:var(--portal-muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}.portal-table tr:last-child td{border-bottom:0}
+.portal-customer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.portal-customer-card{padding:14px;border:1px solid var(--portal-line);border-radius:12px;background:var(--portal-panel)}.portal-customer-card h3{margin:0;font-size:15px}.portal-customer-card p{margin:5px 0 0;color:var(--portal-muted);font-size:13px;line-height:1.45}.portal-customer-card .meta{margin-top:10px;display:grid;gap:4px;font-size:12px;color:#c5c5c5}
+.portal-price-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.portal-price-card{padding:14px;border:1px solid var(--portal-line);border-radius:12px;background:var(--portal-panel)}.portal-price-card h3{margin:0;font-size:14px}.portal-price-card p{margin:6px 0 0;color:var(--portal-muted);font-size:12px;line-height:1.4}.portal-price-card .price{margin-top:12px;font-size:20px;font-weight:800;color:var(--portal-gold)}
+@media(max-width:860px){.portal-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.portal-customer-grid{grid-template-columns:1fr}.portal-price-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.portal-list-item{grid-template-columns:1fr}.portal-list-item .portal-pill{justify-self:start}}
+@media(max-width:480px){.portal-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.portal-kpi{padding:11px}.portal-kpi .value{font-size:18px}.portal-price-grid{grid-template-columns:1fr}.portal-toolbar{margin-bottom:12px}.portal-search{flex-basis:100%}}

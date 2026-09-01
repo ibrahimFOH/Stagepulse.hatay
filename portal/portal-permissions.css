@@ -1,0 +1,17 @@
+.portal-reset{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(14px)}
+.portal-reset .login-card{width:min(420px,100%);background:#101010;border:1px solid #292929;border-radius:20px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.portal-reset .brand{letter-spacing:.16em;font-weight:800;color:#ffb000;margin-bottom:14px}
+.portal-reset h1{margin-bottom:6px}.portal-reset label{display:block;color:#929292;font-size:12px;margin:14px 0}
+.portal-reset input{width:100%;margin-top:6px;padding:13px;background:#0a0a0a;color:#fff;border:1px solid #2b2b2b;border-radius:10px;outline:none}
+.portal-reset input:focus{border-color:#ffb000;box-shadow:0 0 0 3px rgba(255,176,0,.12)}
+.portal-reset .err{min-height:18px;color:#ff9292;font-size:12px;margin-top:10px}
+.login-card #forgotPasswordBtn{width:100%;border:0;background:none;color:#a49369;cursor:pointer;margin-top:10px;padding:9px}
+.login-card #forgotPasswordBtn:hover{color:#ffb000}
+#sideNav{display:flex;flex-direction:column;gap:5px}
+#sideNav button[hidden]{display:none!important}
+#sideNav button.active{border-color:rgba(255,176,0,.45);background:rgba(255,176,0,.09);color:#fff}
+#portalPermissionBadge{display:block;margin:12px 10px 4px;color:#777;font-size:11px;letter-spacing:.04em}
+.portal-placeholder,.portal-error{animation:portalIn .18s ease-out}
+.portal-error{border-color:rgba(255,120,120,.25)}
+@keyframes portalIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.portal-placeholder,.portal-error{animation:none}}

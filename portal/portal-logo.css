@@ -1,0 +1,6 @@
+/* CSS-only Stagepulse brand mark. No image/SVG asset is used for the portal logo. */
+.brand-row{display:flex;align-items:center;gap:10px;min-height:32px}
+.brand-logo-css,.portal-brand-dot{display:inline-grid;place-items:center;width:32px;height:32px;flex:0 0 32px;border-radius:9px;background:linear-gradient(145deg,#f5c400,#d99a00);color:#111;font-size:12px;font-weight:900;letter-spacing:-.04em;line-height:1;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.side-brand{display:flex;align-items:center;gap:10px}
+.portal-brand-text{display:grid;gap:2px;line-height:1.05}
+.portal-brand-text span{color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.05em}
