@@ -16,13 +16,13 @@
   });
 
   function loadAnalytics() {
-    if (document.getElementById('sp-google-analytics')) return;
     global.gtag('consent', 'update', {
       analytics_storage: 'granted',
       ad_storage: 'denied',
       ad_user_data: 'denied',
       ad_personalization: 'denied'
     });
+    if (document.getElementById('sp-google-analytics')) return;
     global.gtag('js', new Date());
     global.gtag('config', GA_ID, { anonymize_ip: true });
     var script = document.createElement('script');

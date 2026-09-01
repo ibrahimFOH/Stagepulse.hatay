@@ -48,6 +48,10 @@ requireMatch(conversionScript.includes("submit.type='submit'"), 'Offer enhanceme
 requireMatch(consentScript.includes("analytics_storage: 'denied'"), 'Consent defaults must deny analytics storage.');
 requireMatch(consentScript.includes("state === 'accepted') loadAnalytics()"), 'Analytics must load only after explicit opt-in.');
 requireMatch(consentScript.includes('cookie-preferences-reset'), 'Public consent UI must expose a preference reset control.');
+requireMatch(
+  consentScript.indexOf("global.gtag('consent', 'update'") < consentScript.indexOf("document.getElementById('sp-google-analytics')"),
+  'Re-consent must restore analytics permission even when the analytics script is already loaded.'
+);
 for (const name of readdirSync(root).filter(name => name.endsWith('.html'))) {
   const html = read(name);
   requireMatch(!html.includes('googletagmanager.com/gtag/js'), `${name} must not load Google Analytics before consent.`);
