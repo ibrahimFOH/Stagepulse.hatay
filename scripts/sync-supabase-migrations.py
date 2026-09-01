@@ -139,7 +139,8 @@ def remote_migrations():
 
 def load_baseline():
     try:
-        baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+        baseline_bytes = BASELINE_PATH.read_bytes()
+        baseline = json.loads(baseline_bytes)
     except (OSError, json.JSONDecodeError) as exc:
         abort(f"Migration baseline manifest is unreadable: {exc}")
     required = {
@@ -158,6 +159,7 @@ def load_baseline():
         abort("Migration baseline cutoff is invalid")
     if not re.fullmatch(r"[0-9a-f]{64}", str(baseline["ledger_sha256"])):
         abort("Migration baseline ledger hash is invalid")
+    baseline["_manifest_sha256"] = hashlib.sha256(baseline_bytes).hexdigest()
     return baseline
 
 
@@ -193,6 +195,49 @@ def require_sealed_baseline(remote, baseline):
         github_annotation("error", "Sealed migration baseline drift", detail)
         abort("Production migration baseline no longer matches the sealed repository snapshot")
     github_annotation("notice", "Sealed migration baseline verified", detail)
+
+
+def production_baseline_guard():
+    payload = query(
+        "select coalesce("
+        "obj_description('supabase_migrations.schema_migrations'::regclass),"
+        "'') as baseline_guard",
+        read_only=True,
+    )
+    result_rows = rows(payload)
+    if len(result_rows) != 1 or not isinstance(result_rows[0], dict):
+        abort("Production migration baseline guard query returned an invalid result")
+    return str(result_rows[0].get("baseline_guard", ""))
+
+
+def require_production_baseline_guard(baseline, *, allow_initialize):
+    expected = f"stagepulse-migration-baseline:{baseline['_manifest_sha256']}"
+    actual = production_baseline_guard()
+    if actual == expected:
+        return
+    if not actual and allow_initialize:
+        query(
+            "comment on table supabase_migrations.schema_migrations is "
+            f"'{expected}'",
+            read_only=False,
+        )
+        if production_baseline_guard() != expected:
+            abort("Production migration baseline guard initialization readback failed")
+        github_annotation(
+            "notice",
+            "Production migration baseline guard initialized",
+            baseline["_manifest_sha256"],
+        )
+        return
+    if actual:
+        abort(
+            "Production migration baseline guard does not match the repository manifest; "
+            "automatic rotation is forbidden"
+        )
+    abort(
+        "Production migration baseline guard is not initialized; rerun once with "
+        "apply_missing=true after production approval"
+    )
 
 
 def require_exact_prefix(remote_versions, local_versions):
@@ -238,6 +283,7 @@ active = [
 active_versions = [version for version, _, _ in active]
 remote_inventory = remote_migrations()
 require_sealed_baseline(remote_inventory, baseline)
+require_production_baseline_guard(baseline, allow_initialize=APPLY_MISSING)
 remote_active = [
     migration["version"]
     for migration in remote_inventory
@@ -270,6 +316,7 @@ for version, name, path in missing:
     # transaction below.
     current_inventory = remote_migrations()
     require_sealed_baseline(current_inventory, baseline)
+    require_production_baseline_guard(baseline, allow_initialize=False)
     current = [
         migration["version"]
         for migration in current_inventory

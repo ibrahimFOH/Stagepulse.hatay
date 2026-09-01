@@ -13,15 +13,19 @@ ledger count, first/last versions, and a SHA-256 fingerprint over
    `cutoff_version`.
 3. Before any apply, the workflow re-reads production and requires the sealed
    historical count and SHA-256 statement fingerprint to match exactly.
-4. Production migrations after the cutoff must be an exact prefix of active
+4. The complete baseline manifest must match the SHA-256 seal stored in the
+   production migration ledger table's PostgreSQL comment metadata. A
+   repository change cannot rotate the production seal by itself.
+5. Production migrations after the cutoff must be an exact prefix of active
    repository migrations.
-5. The existing limit of at most 10 automatically applied migrations remains
+6. The existing limit of at most 10 automatically applied migrations remains
    enforced.
-6. Each active migration and its ledger insert run in one transaction after an
+7. Each active migration and its ledger insert run in one transaction after an
    advisory lock, an exclusive ledger lock, and an in-transaction history
    recheck.
-7. Never edit the baseline fingerprint to silence drift. Re-run the
-   effect/state reconciliation and document a new baseline.
+8. Never edit the baseline fingerprint to silence drift. Re-run the
+   effect/state reconciliation, document a new baseline, and separately rotate
+   the production metadata seal through an authorized production change.
 
 The earlier no-op `reconcile_remote_history` files remain immutable historical
 source. They no longer pretend to be the complete production ledger.

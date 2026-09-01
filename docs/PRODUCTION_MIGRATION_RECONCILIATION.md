@@ -10,12 +10,15 @@ The production ledger is now the sealed canonical baseline:
 - Production-only versions: **249**
 - Repository-only versions: **111**
 - Canonical production ledger fingerprint: regenerated from canonical JSON of
-  each recorded statement array with SHA-256 (see the sealed manifest)
+  each recorded statement array with SHA-256:
+  `af025607b0b6b1325fa165d4bcaa413fad50d2457fcbf931002f0e0bbfdc4fd1`
 - Last production version: `20260831195655`
 - Baseline cutoff: `20260901003000`
 
-No production DDL, DML, migration repair, row deletion, or ledger mutation was
-performed during reconciliation.
+No production DML, migration repair, row deletion, or ledger-row mutation was
+performed during reconciliation. The only production write is a PostgreSQL
+`COMMENT` metadata seal on the migration ledger table; it changes no schema
+shape or application data.
 
 ## Effect matching
 
@@ -63,9 +66,13 @@ the divergent branch wholesale would not be data-safe.
    definition hash.
 4. Seal the production ledger count and fingerprint in
    `supabase/migration-baseline.json`.
-5. Treat all existing SQL files at or below the cutoff as immutable historical
+5. Seal the complete manifest again with a SHA-256 guard in the production
+   migration ledger table's PostgreSQL comment metadata. Initialization
+   requires one explicit `apply_missing=true` approval; rotation is forbidden
+   by the normal workflow.
+6. Treat all existing SQL files at or below the cutoff as immutable historical
    source, not as an apply queue.
-6. Apply only future migrations strictly above the cutoff, and only when
+7. Apply only future migrations strictly above the cutoff, and only when
    production's post-cutoff ledger is an exact repository prefix.
 
 ## Guard behavior
@@ -73,6 +80,8 @@ the divergent branch wholesale would not be data-safe.
 The prefix/drift guards remain enabled:
 
 - Any change to the 349-row production baseline blocks the workflow.
+- Any repository-only change to the baseline manifest or cutoff blocks the
+  workflow against the independently stored production metadata seal.
 - Any post-cutoff non-prefix history blocks the workflow.
 - More than 10 missing active migrations blocks automatic apply.
 - Every migration write is preceded by a fresh baseline and prefix read.
