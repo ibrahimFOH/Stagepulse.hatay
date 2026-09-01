@@ -2,6 +2,12 @@ name: Supabase Migration Audit
 
 on:
   workflow_dispatch:
+    inputs:
+      apply_missing:
+        description: Explicitly apply missing repository migrations (production approval required)
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -12,45 +18,14 @@ jobs:
     timeout-minutes: 10
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Verify immutable local migration ledger
         run: python3 scripts/validate-migration-integrity.py
-      - name: Compare repository and production migration ledgers
+      - name: Synchronize and verify production migration ledger
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          APPLY_MISSING: ${{ inputs.apply_missing }}
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_ACCESS_TOKEN"
-          test -n "$SUPABASE_PROJECT_REF"
-          printf '%s' '{"query":"select version from supabase_migrations.schema_migrations order by version","read_only":true}' > /tmp/query.json
-          curl -fsS -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query" \
-            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data-binary @/tmp/query.json > /tmp/remote.json
-          python3 - <<'PY'
-          import json
-          import pathlib
-          import re
-
-          local = []
-          for path in sorted(pathlib.Path("supabase/migrations").glob("*.sql")):
-              match = re.fullmatch(r"(\d{14})_[A-Za-z0-9_]+\.sql", path.name)
-              if not match:
-                  raise SystemExit(f"Invalid local migration: {path.name}")
-              local.append(match.group(1))
-          payload = json.loads(pathlib.Path("/tmp/remote.json").read_text())
-          rows = payload if isinstance(payload, list) else payload.get("result", payload.get("data", []))
-          remote = [str(row["version"]) for row in rows]
-          if remote != sorted(remote) or len(remote) != len(set(remote)):
-              raise SystemExit("Production migration ledger is unordered or contains duplicate versions")
-          local_only = sorted(set(local) - set(remote))
-          remote_only = sorted(set(remote) - set(local))
-          print(f"local={len(local)} remote={len(remote)} local_only={len(local_only)} remote_only={len(remote_only)}")
-          if local_only:
-              print("Local-only:", *local_only, sep="\n")
-          if remote_only:
-              print("Production-only:", *remote_only, sep="\n")
-          if local_only or remote_only or local != remote:
-              raise SystemExit("Migration drift or ordering mismatch detected; automatic database push remains blocked.")
-          PY
+          python3 scripts/sync-supabase-migrations.py
