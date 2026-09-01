@@ -136,7 +136,7 @@ def emit_remote_inventory(remote):
         f"{migration['statement_hash'] or '-'}"
         for migration in remote
     ]
-    chunk_size = 40
+    chunk_size = 150
     chunk_count = (len(entries) + chunk_size - 1) // chunk_size
     for index in range(0, len(entries), chunk_size):
         chunk = entries[index : index + chunk_size]
@@ -236,7 +236,7 @@ def emit_production_state_inventory(local_only):
         f"{row['kind']}|{row['identity']}|{row['definition_hash']}"
         for row in rows(payload)
     ]
-    chunk_size = 40
+    chunk_size = 150
     chunk_count = (len(entries) + chunk_size - 1) // chunk_size
     for index in range(0, len(entries), chunk_size):
         github_annotation(
@@ -261,11 +261,11 @@ def require_exact_prefix(remote, local):
             f"remote_only={','.join(remote_only) or '-'}"
         )
         print(detail)
-        emit_remote_inventory(remote)
         local_only_migrations = [
             migration for migration in local if migration[0] not in set(remote_versions)
         ]
         emit_production_state_inventory(local_only_migrations)
+        emit_remote_inventory(remote)
         github_summary(f"## Migration audit blocked\n\n{detail}")
         github_annotation("error", "Migration history drift", detail)
         abort(
