@@ -12,11 +12,8 @@
 
   function sb() {
     if (client) return client;
-    const cfg = runtime();
-    client = window.__stagepulseAdminClient || window.supabaseClient ||
-      (cfg.supabaseUrl && cfg.supabasePublishableKey && window.supabase?.createClient
-        ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey)
-        : null);
+    client = window.StagepulseAdminSupabase?.getClient?.() ||
+      window.__stagepulseAdminClient || window.supabaseClient || window.sb || null;
     return client;
   }
 
