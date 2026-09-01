@@ -1,7 +1,7 @@
 /* Stagepulse — live owner RBAC + organization structure editor */
 (function(){'use strict';
   function runtime(){return window.STAGEPULSE_RUNTIME||{};}
-  function client(){return (window.StagepulseAdminSupabase&&window.StagepulseAdminSupabase.getClient)?window.StagepulseAdminSupabase.getClient():(window.AdminSupabase&&window.AdminSupabase.getClient?window.AdminSupabase.getClient():window.supabase.createClient(runtime().supabaseUrl,runtime().supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true}}));}
+  function client(){if(window.StagepulseAdminSupabase?.getClient)return window.StagepulseAdminSupabase.getClient();if(window.AdminSupabase?.getClient)return window.AdminSupabase.getClient();if(window.__stagepulseAdminClient)return window.__stagepulseAdminClient;throw Error('Yönetici istemcisi hazır değil.');}
   const esc=v=>String(v==null?'':v).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
   let C=null,currentTab='roles';
   function ensureStyles(){
