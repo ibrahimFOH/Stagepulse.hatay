@@ -1,6 +1,6 @@
 // Stagepulse shared security helpers: CORS, password policy, distributed login/submit limits.
 const ALLOWED_ORIGINS=new Set<string>(["https://stagepulse.com.tr","https://www.stagepulse.com.tr","http://localhost:5173","http://127.0.0.1:5173"]);
-export function corsHeadersFor(req:Request):Record<string,string>{const origin=req.headers.get("origin")||"";const h:Record<string,string>={"Vary":"Origin","Access-Control-Allow-Headers":"authorization,x-client-info,apikey,content-type","Access-Control-Allow-Methods":"POST,OPTIONS"};if(ALLOWED_ORIGINS.has(origin))h["Access-Control-Allow-Origin"]=origin;return h;}
+export function corsHeadersFor(req:Request):Record<string,string>{const origin=req.headers.get("origin")||"";const h:Record<string,string>={"Vary":"Origin","Access-Control-Allow-Headers":"authorization,x-client-info,apikey,content-type","Access-Control-Allow-Methods":"POST,OPTIONS","Cache-Control":"no-store"};if(ALLOWED_ORIGINS.has(origin))h["Access-Control-Allow-Origin"]=origin;return h;}
 export function handleOptions(req:Request):Response|null{if(req.method==="OPTIONS")return new Response("ok",{headers:corsHeadersFor(req)});return null;}
 const fallbackBuckets=new Map<string,number[]>(),WINDOW=60_000,MAX=10;
 export function getClientIp(req:Request):string{return req.headers.get("cf-connecting-ip")?.trim()||req.headers.get("x-real-ip")?.trim()||req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()||"unknown";}
