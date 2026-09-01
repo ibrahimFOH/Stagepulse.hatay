@@ -1,0 +1,21 @@
+name: Stagepulse Guardian
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guardian:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate critical paths
+        shell: bash
+        run: |
+          set -e
+          for p in admin portal shared supabase documents images; do test -d "$p"; done
+          for f in teklif.html teklif-view.html media.json sitemap.xml robots.txt; do test -f "$f"; done
+          node --check inventory-status.js
+          node --check conversion.js
+          node --check site-ai.js
+          python3 -m py_compile generate_media_json.py optimize_images.py
