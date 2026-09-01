@@ -22,7 +22,7 @@
     const form = document.getElementById('offerForm');
     if (!form) return;
     const submit = form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
-    if (submit) submit.type = 'submit';
+    if (submit) submit.type='submit';
   }
 
   document.addEventListener('DOMContentLoaded', () => {
