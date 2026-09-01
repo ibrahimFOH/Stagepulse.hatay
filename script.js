@@ -162,7 +162,7 @@ ensureLanguageSwitcher();
   ctrl.async = true;
   ctrl.onerror = function () {
     var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/gh/ibrahimFOH/Stagepulse.hatay@e64b50d9129f766a3bc973aaf3c1cc0434f2fd3e/script.js';
+    s.src = '/core.js?v=20260827-nav3';
     document.head.appendChild(s);
   };
   document.head.appendChild(ctrl);
