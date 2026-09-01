@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const URL='https://mtjcqqrogjqaxkagwkti.supabase.co',KEY='sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
-  const client=()=>window.sb||window.__stagepulseAdminClient||window.supabase?.createClient?.(URL,KEY);
+  const client=()=>window.StagepulseAdminSupabase?.getClient?.()||window.__stagepulseAdminClient||window.sb||window.supabaseClient||null;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num=v=>Number(v)||0;
   const toast=(m,ok=true)=>window.toast?.(m,ok)||console.log(m);
