@@ -1,7 +1,7 @@
 /* Stagepulse Command Center final guard: canonical contexts + safe live status. */
 (function(){'use strict';
   var URL='https://mtjcqqrogjqaxkagwkti.supabase.co',KEY='sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6',client=null;
-  function sb(){if(client)return client;client=window.__stagepulseAdminClient||window.supabaseClient||(window.supabase&&window.supabase.createClient?window.supabase.createClient(URL,KEY):null);return client}
+  function sb(){if(client)return client;client=window.StagepulseAdminSupabase?.getClient?.()||window.__stagepulseAdminClient||window.supabaseClient||window.sb||null;return client}
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
   async function rows(table,select,filter){var c=sb();if(!c)return {data:[],count:0,error:new Error('client')};var q=c.from(table).select(select,{count:'exact'});if(filter)q=q.eq(filter[0],filter[1]);return await q}
   async function renderGuard(){
