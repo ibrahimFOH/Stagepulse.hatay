@@ -1,0 +1,18 @@
+name: Stagepulse Orchestrator
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repository preflight
+        run: |
+          set -e
+          for p in admin portal shared supabase scripts; do test -d "$p"; done
+          test -f .github/ai-guardian.config.yml
+          test -f supabase/config.toml
