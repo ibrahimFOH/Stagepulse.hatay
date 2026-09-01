@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "projectRefVariable": "SUPABASE_PROJECT_REF",
+  "functions": [
+    { "name": "admin-data", "verifyJwt": true },
+    { "name": "admin-github-media", "verifyJwt": true },
+    { "name": "admin-login", "verifyJwt": false },
+    { "name": "admin-offer-runtime", "verifyJwt": false },
+    { "name": "admin-password-reset", "verifyJwt": false },
+    { "name": "ai-manage", "verifyJwt": false },
+    { "name": "offer-pdf", "verifyJwt": false },
+    { "name": "offer-pdf-v3", "verifyJwt": false },
+    { "name": "org-admin-control", "verifyJwt": false },
+    { "name": "portal-login", "verifyJwt": false },
+    { "name": "public-quote", "verifyJwt": false },
+    { "name": "register-android-device", "verifyJwt": true },
+    { "name": "send-fcm-notification", "verifyJwt": false },
+    { "name": "site-ai", "verifyJwt": false },
+    { "name": "staff-login", "verifyJwt": false },
+    { "name": "staff-session", "verifyJwt": false }
+  ]
+}

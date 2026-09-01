@@ -1,5 +1,7 @@
 /* Stagepulse Personel — secure self-service password recovery */
 (() => {
+  if (window.STAGEPULSE_PASSWORD_RECOVERY_BOUND) return;
+  window.STAGEPULSE_PASSWORD_RECOVERY_BOUND = true;
   const resetUrl = `${location.origin}/portal/`;
   const $ = (s) => document.querySelector(s);
   const strong = (p) => typeof p === 'string' && p.length >= 10 && p.length <= 128 && /[A-Za-zğüşıöçĞÜŞİÖÇ]/.test(p) && /\d/.test(p);

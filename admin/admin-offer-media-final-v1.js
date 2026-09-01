@@ -16,7 +16,7 @@
     p = document.createElement('section');
     p.id = 'spCanonicalOfferMedia';
     p.className = 'panel';
-    p.innerHTML = `<h3>Teklif fotoğrafları</h3><p class="muted small">PDF içinde ve müşteriye gösterilecek görselleri buradan ekleyin. JPG, PNG ve WebP desteklenir.</p><div class="sp-media-upload"><input id="spOfferMediaFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple><button type="button" class="btn btn-primary" id="spOfferMediaUpload">Fotoğrafları yükle</button></div><div id="spOfferMediaStatus" class="muted small" style="margin-top:8px"></div><div id="spOfferMediaGrid" class="sp-media-grid" style="margin-top:12px"></div>`;
+    p.innerHTML = `<h3>Teklif fotoğrafları</h3><p class="muted small">PDF içinde ve müşteriye gösterilecek görselleri buradan ekleyin. JPG ve PNG doğrudan, WebP ise PDF uyumluluğu için otomatik PNG olarak yüklenir.</p><div class="sp-media-upload"><input id="spOfferMediaFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple><button type="button" class="btn btn-primary" id="spOfferMediaUpload">Fotoğrafları yükle</button></div><div id="spOfferMediaStatus" class="muted small" style="margin-top:8px"></div><div id="spOfferMediaGrid" class="sp-media-grid" style="margin-top:12px"></div>`;
     const actions = card(m)?.querySelector('.modal-actions');
     actions ? card(m).insertBefore(p, actions) : card(m)?.appendChild(p);
     p.querySelector('#spOfferMediaUpload').onclick = () => uploadSelected(m);
@@ -70,6 +70,32 @@
       status.textContent = `${items.length} fotoğraf`;
     } catch (e) { status.textContent = ''; grid.innerHTML = `<div class="form-error">${esc(e.message || e)}</div>`; }
   }
+  async function normalizeForPdf(file) {
+    if (file.type !== 'image/webp') return file;
+    let source;
+    if (typeof createImageBitmap === 'function') source = await createImageBitmap(file);
+    else {
+      const url = URL.createObjectURL(file);
+      try {
+        source = await new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error('WebP görseli açılamadı.'));
+          image.src = url;
+        });
+      } finally { URL.revokeObjectURL(url); }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = source.width;
+    canvas.height = source.height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('WebP dönüştürme başlatılamadı.');
+    context.drawImage(source, 0, 0);
+    if (typeof source.close === 'function') source.close();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('WebP, PNG biçimine dönüştürülemedi.');
+    return new File([blob], file.name.replace(/\.webp$/i, '') + '.png', { type:'image/png', lastModified:file.lastModified });
+  }
   async function uploadSelected(m) {
     const id = offerId(m), p = ensurePanel(m), input = p.querySelector('#spOfferMediaFiles');
     if (!id || !input?.files?.length) return toast('Önce fotoğraf seçin.', false);
@@ -77,8 +103,9 @@
     if (!files.length) return toast('JPG, PNG veya WebP dosyası seçin.', false);
     const c = api(), status = p.querySelector('#spOfferMediaStatus');
     let done = 0;
-    for (const file of files) {
+    for (const originalFile of files) {
       try {
+        const file = await normalizeForPdf(originalFile);
         const safe = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-').replace(/-+/g,'-').slice(-90) || 'image';
         const path = `${id}/${crypto.randomUUID()}-${safe}`;
         const up = await c.storage.from(bucket).upload(path, file, { upsert:false, contentType:file.type, cacheControl:'3600' });
@@ -87,7 +114,7 @@
         if (reg.error) { await c.storage.from(bucket).remove([path]); throw reg.error; }
         done++;
         status.textContent = `${done}/${files.length} fotoğraf yüklendi…`;
-      } catch (e) { toast(`${file.name}: ${e.message || e}`, false); }
+      } catch (e) { toast(`${originalFile.name}: ${e.message || e}`, false); }
     }
     input.value = '';
     toast(done ? `${done} fotoğraf eklendi.` : 'Fotoğraf yüklenemedi.', !!done);

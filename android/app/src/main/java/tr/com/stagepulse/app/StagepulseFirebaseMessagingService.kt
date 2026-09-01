@@ -58,7 +58,7 @@ class StagepulseFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         val title = message.notification?.title ?: message.data["title"] ?: "Stagepulse"
         val body = message.notification?.body ?: message.data["body"] ?: "Yeni Stagepulse bildirimi"
-        val url = message.data["url"] ?: "/portal/"
+        val url = message.data["url"] ?: BuildConfig.PORTAL_PATH
         createChannel()
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP

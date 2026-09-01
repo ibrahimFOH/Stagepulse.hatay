@@ -28,7 +28,7 @@
     const r=await fetch(`${URL}/functions/v1/org-admin-control`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({action:'my_context'}),cache:'no-store'});
     const j=await r.json().catch(()=>({}));
     if(!r.ok||!j.membership||j.membership.active!==true||j.is_admin!==true){await client.auth.signOut();showLogin();$('#loginError').textContent='Bu hesap için aktif yönetim yetkisi bulunmuyor.';return false}
-    window.__stagepulseAdminContext=j;showApp();const p=j.profile||{};$('#adminUser').textContent='@'+(p.username||session.user?.email?.split('@')[0]||'admin');$('#sideAdminName').textContent=p.display_name||p.username||'Yönetici';return true;
+    window.__stagepulseAdminContext=j;showApp();const p=j.profile||{};$('#adminUser').textContent='@'+(p.username||session.user?.email?.split('@')[0]||'admin');$('#sideAdminName').textContent=p.display_name||p.username||'Yönetici';window.dispatchEvent(new CustomEvent('stagepulse:logged-in',{detail:{portal:'admin'}}));return true;
   }
   const handlers={
     'command-center':()=>window.commandCenterView?.(),dashboard:()=>window.dashboard?.(),analytics:()=>window.analyticsView?.(),customers:()=>window.customersView?.(),offers:()=>window.offersView?.(),pricing:()=>window.pricingView?.(),settlements:()=>window.settlementsView?.(),calendar:()=>window.calendarView?.(),equipment:()=>window.equipmentView?.(),personnel:()=>window.personnelView?.(),finance:()=>window.financeView?.(),notifications:()=>window.notificationsView?.(),activity:()=>window.activityView?.(),media:()=>window.mediaView?.(),settings:()=>window.settingsView?.()

@@ -15,7 +15,8 @@
     'password-recovery.js','fcm-config.js','/portal/vendor/firebase/firebase-app-compat.js',
     '/portal/vendor/firebase/firebase-messaging-compat.js','fcm-register-v3.js','live-sync.js',
     'inventory-ui-v3.js','inventory-ui-v4.js','portal-shell-parity.js','app-update.js','personnel-v2.js',
-    'portal-crud.js','portal-crud-v2.js','personnel-v121.js','portal-menu-final.js','portal-jobs-fix.js'
+    'portal-crud.js','portal-crud-v2.js','personnel-v121.js','portal-menu-final.js','portal-jobs-fix.js',
+    '/shared/notification-deeplink.js'
   ];
   let chain = Promise.resolve();
   for (const path of scripts) chain = chain.then(() => new Promise((resolve, reject) => {

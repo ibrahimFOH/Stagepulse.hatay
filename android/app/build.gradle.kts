@@ -10,17 +10,17 @@ val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
 val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
 val hasReleaseSigning = listOf(releaseKeystoreFile, releaseKeystorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() } && file(releaseKeystoreFile ?: "").exists()
 
-// Stagepulse production line: semantic releases. 2.1.9 -> 2.2.0 -> 2.2.1 ...
-val stagepulseVersionName = (project.findProperty("stagepulse.versionName") as String?)?.trim()?.ifBlank { null } ?: "2.2.1"
+// Stagepulse production line; CI supplies the custom next version and monotonic code.
+val stagepulseVersionName = (project.findProperty("stagepulse.versionName") as String?)?.trim()?.ifBlank { null } ?: "2.3.0"
 val stagepulseVersionParts = stagepulseVersionName.split(".")
 require(stagepulseVersionParts.size == 3 && stagepulseVersionParts.all { it.toIntOrNull() != null }) { "Stagepulse versionName must be MAJOR.MINOR.PATCH" }
 val stagepulseMajor = stagepulseVersionParts[0].toInt()
 val stagepulseMinor = stagepulseVersionParts[1].toInt()
 val stagepulsePatch = stagepulseVersionParts[2].toInt()
-require(stagepulseMajor == 2 && stagepulseMinor >= 2 && stagepulsePatch >= 0) { "Stagepulse production release must be 2.2.x or newer." }
+require(stagepulseMajor >= 2 && stagepulseMinor >= 0 && stagepulsePatch >= 0) { "Stagepulse production release must be 2.0.0 or newer." }
 val semanticVersionCode = stagepulseMajor * 1_000_000 + stagepulseMinor * 1_000 + stagepulsePatch
 val stagepulseVersionCode = (project.findProperty("stagepulse.versionCode") as String?)?.trim()?.toIntOrNull() ?: semanticVersionCode
-require(stagepulseVersionCode >= 2_002_000) { "Stagepulse production versionCode must be 2.2.0 or newer." }
+require(stagepulseVersionCode >= 2_000_000) { "Stagepulse production versionCode must be 2.0.0 or newer." }
 
 android {
     namespace = "tr.com.stagepulse.app"

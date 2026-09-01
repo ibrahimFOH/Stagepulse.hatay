@@ -1,16 +1,32 @@
+[functions.admin-data]
+verify_jwt = true
+[functions.admin-github-media]
+verify_jwt = true
 [functions.admin-login]
 verify_jwt = false
+[functions.admin-offer-runtime]
+verify_jwt = false
 [functions.admin-password-reset]
+verify_jwt = false
+[functions.ai-manage]
+verify_jwt = false
+[functions.offer-pdf]
+verify_jwt = false
+[functions.offer-pdf-v3]
+verify_jwt = false
+[functions.org-admin-control]
 verify_jwt = false
 [functions.portal-login]
 verify_jwt = false
 [functions.public-quote]
 verify_jwt = false
-[functions.offer-pdf-v3]
+[functions.register-android-device]
+verify_jwt = true
+[functions.send-fcm-notification]
 verify_jwt = false
 [functions.site-ai]
 verify_jwt = false
-[functions.admin-github-media]
-verify_jwt = true
-[functions.send-fcm-notification]
-verify_jwt = true
+[functions.staff-login]
+verify_jwt = false
+[functions.staff-session]
+verify_jwt = false

@@ -14,7 +14,8 @@
     'admin-offer-web-apk-final-fix-v1.js','site-media-manager.js','personel-yetki-v2.js','admin-business-flow-v1.js',
     'command-center-single-route.js','command-center-ai-v1.js','whatsapp-message-fix-v1.js','admin-final-hardening-v1.js',
     'admin-offer-final-fields-v1.js','admin-offer-pdf-auto-sync-v2.js','admin-runtime-repair-v1.js',
-    'admin-routing-repair-v1.js','admin-completion-guard-v1.js','admin-rbac-control-center-v1.js','admin-menu-final.js'
+    'admin-routing-repair-v1.js','admin-completion-guard-v1.js','admin-rbac-control-center-v1.js','admin-menu-final.js',
+    '../shared/notification-deeplink.js'
   ];
   let chain = Promise.resolve();
   for (const path of scripts) chain = chain.then(() => new Promise((resolve, reject) => {

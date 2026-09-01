@@ -52,8 +52,28 @@ class MainActivity : AppCompatActivity() {
                 registerDeviceIfReady()
             }
         }
-        webView.loadUrl(expectedUrl())
+        webView.loadUrl(notificationUrl(intent))
         appUpdater.checkOnStartup()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (::webView.isInitialized) webView.loadUrl(notificationUrl(intent))
+    }
+
+    private fun notificationUrl(source: Intent?): String {
+        val raw = source?.getStringExtra("notification_url")?.trim().orEmpty()
+        if (raw.isBlank()) return expectedUrl()
+        return try {
+            val parsed = Uri.parse(raw)
+            val path = parsed.path ?: return expectedUrl()
+            if (!path.startsWith(portalPath)) return expectedUrl()
+            Uri.Builder().scheme("https").authority("stagepulse.com.tr").path(path)
+                .encodedQuery(parsed.encodedQuery).fragment(parsed.fragment).build().toString()
+        } catch (_: Exception) {
+            expectedUrl()
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
