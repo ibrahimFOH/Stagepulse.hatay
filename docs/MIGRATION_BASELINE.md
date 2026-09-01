@@ -22,7 +22,8 @@ ledger count, first/last versions, and a SHA-256 fingerprint over
    enforced.
 7. Each active migration and its ledger insert run in one transaction after an
    advisory lock, an exclusive ledger lock, and an in-transaction history
-   recheck.
+   recheck of the active prefix, baseline count/range/SHA-256 fingerprint, and
+   independent production metadata seal.
 8. Never edit the baseline fingerprint to silence drift. Re-run the
    effect/state reconciliation, document a new baseline, and separately rotate
    the production metadata seal through an authorized production change.

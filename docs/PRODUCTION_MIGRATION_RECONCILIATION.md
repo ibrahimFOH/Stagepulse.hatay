@@ -86,7 +86,8 @@ The prefix/drift guards remain enabled:
 - More than 10 missing active migrations blocks automatic apply.
 - Every migration write is preceded by a fresh baseline and prefix read.
 - Migration SQL and its ledger insert are atomic under advisory and exclusive
-  ledger locks, with an in-transaction prefix recheck.
+  ledger locks, with in-transaction checks of the active prefix, historical
+  count/range/SHA-256 fingerprint, and production metadata seal.
 - Every committed write is followed by ledger readback.
 
 This makes production and the repository show the same canonical history:

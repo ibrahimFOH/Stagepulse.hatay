@@ -175,6 +175,23 @@ def migration_fingerprint(migrations):
     return digest.hexdigest()
 
 
+def sql_statement_hash_expression():
+    return (
+        "encode(extensions.digest(convert_to("
+        "to_json(coalesce(statements, array[]::text[]))::text,"
+        "'UTF8'),'sha256'),'hex')"
+    )
+
+
+def sql_ledger_fingerprint_expression():
+    return (
+        "encode(extensions.digest(convert_to(coalesce(string_agg("
+        "version::text||'|'||coalesce(name,'')||'|'||"
+        f"{sql_statement_hash_expression()}||E'\\n','' order by version),''),"
+        "'UTF8'),'sha256'),'hex')"
+    )
+
+
 def require_sealed_baseline(remote, baseline):
     historical = [
         migration
@@ -188,6 +205,7 @@ def require_sealed_baseline(remote, baseline):
     )
     if (
         len(historical) != baseline["migration_count"]
+        or not historical
         or historical[0]["version"] != baseline["first_version"]
         or historical[-1]["version"] != baseline["last_version"]
         or migration_fingerprint(historical) != baseline["ledger_sha256"]
@@ -195,6 +213,30 @@ def require_sealed_baseline(remote, baseline):
         github_annotation("error", "Sealed migration baseline drift", detail)
         abort("Production migration baseline no longer matches the sealed repository snapshot")
     github_annotation("notice", "Sealed migration baseline verified", detail)
+
+
+def require_sql_canonical_fingerprint(baseline):
+    payload = query(
+        "select count(*)::integer as migration_count, "
+        "min(version)::text as first_version, max(version)::text as last_version, "
+        f"{sql_ledger_fingerprint_expression()} as ledger_sha256 "
+        "from supabase_migrations.schema_migrations "
+        f"where version <= '{baseline['cutoff_version']}'",
+        read_only=True,
+    )
+    result_rows = rows(payload)
+    if len(result_rows) != 1 or not isinstance(result_rows[0], dict):
+        abort("SQL canonical migration fingerprint query returned an invalid result")
+    result = result_rows[0]
+    if (
+        result.get("migration_count") != baseline["migration_count"]
+        or str(result.get("first_version", "")) != baseline["first_version"]
+        or str(result.get("last_version", "")) != baseline["last_version"]
+        or str(result.get("ledger_sha256", "")) != baseline["ledger_sha256"]
+    ):
+        abort(
+            "SQL canonical migration fingerprint does not match the sealed baseline"
+        )
 
 
 def production_baseline_guard():
@@ -267,6 +309,11 @@ subprocess.run(
     cwd=ROOT,
     check=True,
 )
+subprocess.run(
+    [sys.executable, str(ROOT / "scripts" / "validate-migration-atomic-guard.py")],
+    cwd=ROOT,
+    check=True,
+)
 
 
 local = []
@@ -283,6 +330,7 @@ active = [
 active_versions = [version for version, _, _ in active]
 remote_inventory = remote_migrations()
 require_sealed_baseline(remote_inventory, baseline)
+require_sql_canonical_fingerprint(baseline)
 require_production_baseline_guard(baseline, allow_initialize=APPLY_MISSING)
 remote_active = [
     migration["version"]
@@ -336,6 +384,11 @@ for version, name, path in missing:
     version_sql = version.replace("'", "''")
     name_sql = name.replace("'", "''")
     cutoff_sql = baseline["cutoff_version"].replace("'", "''")
+    baseline_count = baseline["migration_count"]
+    baseline_first = baseline["first_version"]
+    baseline_last = baseline["last_version"]
+    baseline_hash = baseline["ledger_sha256"]
+    baseline_guard = f"stagepulse-migration-baseline:{baseline['_manifest_sha256']}"
     expected_sql = ",".join(f"'{item}'" for item in expected)
     query(
         "begin;\n"
@@ -344,14 +397,37 @@ for version, name, path in missing:
         "lock table supabase_migrations.schema_migrations in exclusive mode;\n"
         "do $migration_guard$\n"
         "declare\n"
-        "  actual text[];\n"
+        "  actual_active text[];\n"
+        "  actual_historical_count integer;\n"
+        "  actual_historical_first text;\n"
+        "  actual_historical_last text;\n"
+        "  actual_historical_hash text;\n"
+        "  actual_baseline_guard text;\n"
         "begin\n"
         "  select coalesce(array_agg(version::text order by version), array[]::text[])\n"
-        "    into actual\n"
+        "    into actual_active\n"
         "    from supabase_migrations.schema_migrations\n"
         f"   where version > '{cutoff_sql}';\n"
-        f"  if actual is distinct from array[{expected_sql}]::text[] then\n"
+        f"  if actual_active is distinct from array[{expected_sql}]::text[] then\n"
         "    raise exception 'post-cutoff migration history changed before atomic apply';\n"
+        "  end if;\n"
+        "  select count(*)::integer, min(version)::text, max(version)::text,\n"
+        f"         {sql_ledger_fingerprint_expression()}\n"
+        "    into actual_historical_count, actual_historical_first,\n"
+        "         actual_historical_last, actual_historical_hash\n"
+        "    from supabase_migrations.schema_migrations\n"
+        f"   where version <= '{cutoff_sql}';\n"
+        f"  if actual_historical_count <> {baseline_count}\n"
+        f"     or actual_historical_first <> '{baseline_first}'\n"
+        f"     or actual_historical_last <> '{baseline_last}'\n"
+        f"     or actual_historical_hash <> '{baseline_hash}' then\n"
+        "    raise exception 'sealed migration baseline changed before atomic apply';\n"
+        "  end if;\n"
+        "  select coalesce(obj_description("
+        "'supabase_migrations.schema_migrations'::regclass),'')\n"
+        "    into actual_baseline_guard;\n"
+        f"  if actual_baseline_guard <> '{baseline_guard}' then\n"
+        "    raise exception 'production migration baseline guard changed before atomic apply';\n"
         "  end if;\n"
         "  if exists (\n"
         "    select 1 from supabase_migrations.schema_migrations\n"
