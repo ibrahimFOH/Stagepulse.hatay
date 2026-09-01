@@ -1,0 +1,85 @@
+name: Stagepulse CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=$(find . -type f -name '*.js' \
+            -not -path './.git/*' \
+            -not -path './node_modules/*' \
+            -not -path './vendor/*')
+          if [ -n "$files" ]; then
+            while IFS= read -r file; do
+              node --check "$file"
+            done <<< "$files"
+          fi
+
+      - name: Migration integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d supabase/migrations
+          files=$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+          test -n "$files"
+          previous=''
+          while IFS= read -r file; do
+            base=$(basename "$file")
+            version=${base%%_*}
+            if [[ ! "$version" =~ ^[0-9]{14}$ ]]; then
+              echo "Invalid migration filename: $base"
+              exit 1
+            fi
+            if [[ -n "$previous" && "$version" <= "$previous" ]]; then
+              echo "Migration ordering problem: $base"
+              exit 1
+            fi
+            previous="$version"
+          done <<< "$files"
+
+      - name: Required runtime paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/config.toml
+          test -f supabase/functions/admin-offer-runtime/index.ts
+          test -d admin
+          test -d portal
+          test -d shared
+          test -d scripts
+
+      - name: Legacy RPC scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIn --exclude-dir=.git --exclude-dir=node_modules \
+            -E 'admin_get_offer_inventory\s*\(' .; then
+            echo 'Legacy admin_get_offer_inventory runtime reference found.'
+            exit 1
+          fi
+
+      - name: Basic media script check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/*.py generate_media_json.py optimize_images.py
