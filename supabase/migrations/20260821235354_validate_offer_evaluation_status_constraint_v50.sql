@@ -1,0 +1,1 @@
+ALTER TABLE public.teklifler VALIDATE CONSTRAINT teklifler_evaluation_status_check;

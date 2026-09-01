@@ -1,0 +1,4 @@
+CREATE OR REPLACE FUNCTION private.prevent_staff_privilege_escalation() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$ BEGIN IF auth.uid() IS NOT NULL AND NOT private.is_admin() AND OLD.user_id=auth.uid() THEN IF NEW.user_id IS DISTINCT FROM OLD.user_id OR NEW.role IS DISTINCT FROM OLD.role OR NEW.active IS DISTINCT FROM OLD.active OR NEW.permissions IS DISTINCT FROM OLD.permissions OR NEW.username IS DISTINCT FROM OLD.username THEN RAISE EXCEPTION 'Kritik personel yetkileri yalnızca admin tarafından değiştirilebilir'; END IF; END IF; RETURN NEW; END; $$;
+DROP TRIGGER IF EXISTS trg_staff_profile_security_fields ON public.staff_profiles;
+CREATE TRIGGER trg_staff_profile_security_fields BEFORE UPDATE ON public.staff_profiles FOR EACH ROW EXECUTE FUNCTION private.prevent_staff_privilege_escalation();
+REVOKE ALL ON FUNCTION private.prevent_staff_privilege_escalation() FROM PUBLIC,anon,authenticated;

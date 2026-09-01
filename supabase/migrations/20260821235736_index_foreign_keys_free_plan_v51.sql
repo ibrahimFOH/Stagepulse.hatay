@@ -1,0 +1,12 @@
+CREATE INDEX IF NOT EXISTS activity_logs_actor_id_fk_idx ON public.activity_logs(actor_id);
+CREATE INDEX IF NOT EXISTS job_equipment_equipment_id_fk_idx ON public.job_equipment(equipment_id);
+CREATE INDEX IF NOT EXISTS jobs_offer_id_fk_idx ON public.jobs(offer_id);
+CREATE INDEX IF NOT EXISTS notification_devices_user_id_fk_idx ON public.notification_devices(user_id);
+CREATE INDEX IF NOT EXISTS notifications_offer_id_fk_idx ON public.notifications(offer_id);
+CREATE INDEX IF NOT EXISTS offer_items_offer_id_fk_idx ON public.offer_items(offer_id);
+CREATE INDEX IF NOT EXISTS offer_items_service_id_fk_idx ON public.offer_items(service_id);
+CREATE INDEX IF NOT EXISTS payments_offer_id_fk_idx ON public.payments(offer_id);
+CREATE INDEX IF NOT EXISTS permission_aliases_canonical_key_fk_idx ON public.permission_aliases(canonical_key);
+CREATE INDEX IF NOT EXISTS settlements_offer_id_fk_idx ON public.settlements(offer_id);
+CREATE INDEX IF NOT EXISTS support_kit_runs_actor_id_fk_idx ON public.support_kit_runs(actor_id);
+CREATE INDEX IF NOT EXISTS teklifler_customer_id_fk_idx ON public.teklifler(customer_id);

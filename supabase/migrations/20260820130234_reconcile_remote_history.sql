@@ -1,0 +1,2 @@
+-- Historical migration marker retained for Supabase migration history reconciliation.
+-- This migration was already applied remotely; do not re-apply schema changes.

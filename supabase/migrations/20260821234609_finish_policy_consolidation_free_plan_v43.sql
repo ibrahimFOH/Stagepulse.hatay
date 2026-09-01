@@ -1,0 +1,12 @@
+DROP POLICY IF EXISTS admin_full_staff ON public.staff;
+DROP POLICY IF EXISTS staff_self_select ON public.staff;
+CREATE POLICY staff_select_canonical ON public.staff FOR SELECT TO authenticated USING ((SELECT private.is_admin()) OR ((SELECT auth.uid()) = user_id AND active = true));
+CREATE POLICY admin_staff_insert ON public.staff FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY admin_staff_update ON public.staff FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY admin_staff_delete ON public.staff FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
+DROP POLICY IF EXISTS admin_staff_permissions_delete ON public.staff_permissions;
+DROP POLICY IF EXISTS admin_staff_permissions_insert ON public.staff_permissions;
+DROP POLICY IF EXISTS admin_staff_permissions_update ON public.staff_permissions;
+DROP POLICY IF EXISTS staff_profiles_admin_update_v41 ON public.staff_profiles;
+DROP POLICY IF EXISTS staff_profiles_self_update ON public.staff_profiles;
+CREATE POLICY staff_profiles_update_canonical ON public.staff_profiles FOR UPDATE TO authenticated USING ((SELECT private.is_admin()) OR ((SELECT auth.uid()) = user_id AND active = true)) WITH CHECK ((SELECT private.is_admin()) OR ((SELECT auth.uid()) = user_id AND active = true));

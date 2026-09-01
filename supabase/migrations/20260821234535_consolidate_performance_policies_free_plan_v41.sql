@@ -1,0 +1,41 @@
+DROP POLICY IF EXISTS settings_admin ON public.business_settings;
+DROP POLICY IF EXISTS events_admin ON public.event_types;
+DROP POLICY IF EXISTS job_equipment_admin ON public.job_equipment;
+DROP POLICY IF EXISTS offer_items_admin ON public.offer_items;
+DROP POLICY IF EXISTS settlements_admin ON public.settlements;
+DROP POLICY IF EXISTS admin_full_permission_aliases ON public.permission_aliases;
+DROP POLICY IF EXISTS admin_full_permission_catalog ON public.permission_catalog;
+DO $$
+DECLARE t text; p text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['activity_logs','customers','equipment','jobs','notifications','payments','price_rules','services','teklifler'] LOOP
+    p := 'admin_full_' || t;
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p, t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()))', p||'_insert', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()))', p||'_update', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING ((SELECT private.is_admin()))', p||'_delete', t);
+  END LOOP;
+END $$;
+DROP POLICY IF EXISTS admin_full_job_staff ON public.job_staff;
+CREATE POLICY admin_job_staff_insert ON public.job_staff FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY admin_job_staff_delete ON public.job_staff FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
+DROP POLICY IF EXISTS admin_full_staff_permissions ON public.staff_permissions;
+CREATE POLICY admin_staff_permissions_insert ON public.staff_permissions FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY admin_staff_permissions_update ON public.staff_permissions FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY admin_staff_permissions_delete ON public.staff_permissions FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
+DROP POLICY IF EXISTS admin_full_staff_notification_preferences ON public.staff_notification_preferences;
+DROP POLICY IF EXISTS admin_full_staff_profiles ON public.staff_profiles;
+DROP POLICY IF EXISTS staff_profiles_admin_delete ON public.staff_profiles;
+DROP POLICY IF EXISTS staff_profiles_admin_write ON public.staff_profiles;
+DROP POLICY IF EXISTS staff_profiles_admin_update ON public.staff_profiles;
+CREATE POLICY staff_profiles_admin_insert ON public.staff_profiles FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY staff_profiles_admin_delete_v41 ON public.staff_profiles FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
+CREATE POLICY staff_profiles_admin_update_v41 ON public.staff_profiles FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+DROP POLICY IF EXISTS notification_devices_self_delete ON public.notification_devices;
+DROP POLICY IF EXISTS notification_devices_self_insert ON public.notification_devices;
+DROP POLICY IF EXISTS notification_devices_self_select ON public.notification_devices;
+DROP POLICY IF EXISTS notification_devices_self_update ON public.notification_devices;
+CREATE POLICY notification_devices_self_delete ON public.notification_devices FOR DELETE TO authenticated USING (user_id = (SELECT auth.uid()));
+CREATE POLICY notification_devices_self_insert ON public.notification_devices FOR INSERT TO authenticated WITH CHECK (user_id = (SELECT auth.uid()));
+CREATE POLICY notification_devices_self_select ON public.notification_devices FOR SELECT TO authenticated USING (user_id = (SELECT auth.uid()));
+CREATE POLICY notification_devices_self_update ON public.notification_devices FOR UPDATE TO authenticated USING (user_id = (SELECT auth.uid())) WITH CHECK (user_id = (SELECT auth.uid()));
