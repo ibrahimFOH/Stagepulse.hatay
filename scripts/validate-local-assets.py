@@ -10,8 +10,13 @@ class AssetParser(html.parser.HTMLParser):
         super().__init__()
         self.source = source
         self.refs = []
+        self.base_href = None
 
     def handle_starttag(self, tag, attrs):
+        if tag == "base":
+            href = dict(attrs).get("href")
+            if href:
+                self.base_href = href
         for key, value in attrs:
             if key not in ("src", "href") or not value:
                 continue
@@ -28,7 +33,12 @@ for source in root.rglob("*.html"):
     parser = AssetParser(source)
     parser.feed(source.read_text(encoding="utf-8", errors="ignore"))
     for ref in parser.refs:
-        target = root / ref.lstrip("/") if ref.startswith("/") else source.parent / ref
+        if ref.startswith("/"):
+            target = root / ref.lstrip("/")
+        elif parser.base_href and parser.base_href.startswith("/"):
+            target = root / parser.base_href.lstrip("/") / ref
+        else:
+            target = source.parent / ref
         target = target.resolve()
         try:
             target.relative_to(root.resolve())
