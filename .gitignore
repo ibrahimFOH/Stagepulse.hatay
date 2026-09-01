@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.gradle/
+local.properties
+build/
+android/app/build/
+*.iml
+.idea/
+android/app/google-services.json
