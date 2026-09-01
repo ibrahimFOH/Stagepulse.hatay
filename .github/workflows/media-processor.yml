@@ -1,0 +1,54 @@
+name: Stagepulse Media Processor
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'images/gallery/**'
+      - 'videos/**'
+      - 'documents/**'
+      - 'scripts/process_media.py'
+      - 'requirements-media.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stagepulse-media-processor
+  cancel-in-progress: false
+
+jobs:
+  process-media:
+    name: Optimize gallery media and rebuild media.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install media dependencies
+        run: pip install -r requirements-media.txt
+
+      - name: Run canonical media processor
+        run: python3 scripts/process_media.py
+
+      - name: Commit media.json and optimized assets
+        env:
+          GIT_AUTHOR_NAME: stagepulse-media-bot
+          GIT_AUTHOR_EMAIL: actions@users.noreply.github.com
+          GIT_COMMITTER_NAME: stagepulse-media-bot
+          GIT_COMMITTER_EMAIL: actions@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          git add media.json images/gallery videos documents
+          if git diff --cached --quiet; then
+            echo "No media changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(media): auto-optimize gallery and refresh media.json [skip ci]"
+          git push

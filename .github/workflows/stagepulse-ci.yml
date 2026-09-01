@@ -1,0 +1,172 @@
+name: Stagepulse CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stagepulse-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js-syntax:
+    name: JavaScript syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check every tracked .js file parses
+        run: |
+          set -euo pipefail
+          status=0
+          while IFS= read -r -d '' file; do
+            node --check "$file" || status=1
+          done < <(git ls-files -z -- '*.js')
+          exit $status
+
+  python-syntax:
+    name: Python syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile every tracked .py file
+        run: |
+          set -euo pipefail
+          files=$(git ls-files -- '*.py')
+          if [ -n "$files" ]; then
+            python -m py_compile $files
+          fi
+
+  edge-functions-typecheck:
+    name: Supabase Edge Function type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v1.x
+      - name: Type-check every Edge Function entrypoint
+        run: |
+          set -euo pipefail
+          if [ ! -d supabase/functions ]; then
+            echo "No supabase/functions directory found, skipping."
+            exit 0
+          fi
+          status=0
+          while IFS= read -r -d '' file; do
+            echo "::group::deno check $file"
+            deno check "$file" || status=1
+            echo "::endgroup::"
+          done < <(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' -print0)
+          exit $status
+
+  migration-integrity:
+    name: Supabase migration integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify migration filenames and uniqueness
+        run: |
+          set -euo pipefail
+          dir="supabase/migrations"
+          if [ ! -d "$dir" ]; then
+            echo "No migrations directory found, skipping."
+            exit 0
+          fi
+          status=0
+          declare -A seen
+          for f in "$dir"/*.sql; do
+            base=$(basename "$f")
+            ts=${base%%_*}
+            if ! [[ "$ts" =~ ^[0-9]{14}$ ]]; then
+              echo "::error file=$f::Migration filename must start with a 14-digit timestamp"
+              status=1
+            fi
+            if [ -n "${seen[$ts]:-}" ]; then
+              echo "::error file=$f::Duplicate migration timestamp $ts (also in ${seen[$ts]})"
+              status=1
+            fi
+            seen[$ts]="$f"
+            if [ ! -s "$f" ]; then
+              echo "::error file=$f::Migration file is empty"
+              status=1
+            fi
+          done
+          exit $status
+
+  security-checks:
+    name: Security checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for likely committed secrets
+        run: |
+          set -euo pipefail
+          status=0
+          # Hard-coded JWT-shaped literals, private key blocks or AWS access keys.
+          # Reading a secret name from an env var (Deno.env.get / process.env) is fine;
+          # only literal secret *values* checked into source are a problem.
+          pattern='"eyJ[A-Za-z0-9_.-]{30,}"|-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}'
+          if git grep -InE "$pattern" -- . ':!*.md' ':!.github/workflows/*' | grep -vE 'Deno\.env\.get|process\.env|\.replace\('; then
+            echo "::error::Potential secret material found in the working tree"
+            status=1
+          fi
+          exit $status
+      - name: Forbid service_role key usage in client-side code
+        run: |
+          set -euo pipefail
+          status=0
+          # Only flag places where the service role key is actually assigned/used as a
+          # value, not documentation comments that merely mention the term.
+          if git grep -InE "service_role.{0,10}(key)?\s*[:=]" -- '*.js' '*.html' ':!*.md' | grep -vE '^\s*\*|//'; then
+            echo "::error::service_role key appears to be referenced from client-side code"
+            status=1
+          fi
+          exit $status
+
+  endpoint-smoke:
+    name: Static endpoint smoke test
+    runs-on: ubuntu-latest
+    needs: [js-syntax]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Serve site and smoke-test key routes
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8080 &
+          server_pid=$!
+          trap 'kill $server_pid' EXIT
+          sleep 2
+          routes=(
+            "/"
+            "/teklif.html"
+            "/teklif-view.html"
+            "/admin/"
+            "/portal/"
+            "/manifest.webmanifest"
+            "/firebase-messaging-sw.js"
+            "/sitemap.xml"
+            "/robots.txt"
+          )
+          status=0
+          for route in "${routes[@]}"; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080${route}")
+            if [ "$code" != "200" ]; then
+              echo "::error::${route} returned HTTP ${code}"
+              status=1
+            else
+              echo "${route} -> ${code}"
+            fi
+          done
+          exit $status

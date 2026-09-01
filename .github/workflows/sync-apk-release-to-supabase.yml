@@ -1,0 +1,56 @@
+name: Sync APK Release to Supabase
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-app-versions:
+    name: Update public.app_versions from latest.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Read latest.json
+        id: latest
+        run: |
+          set -euo pipefail
+          if [ ! -f latest.json ]; then
+            echo "::error::latest.json not found on main; run apk-release.yml first"
+            exit 1
+          fi
+          echo "json=$(cat latest.json | jq -c '.')" >> "$GITHUB_OUTPUT"
+
+      - name: Upsert admin and staff rows into Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LATEST_JSON: ${{ steps.latest.outputs.json }}
+        run: |
+          set -euo pipefail
+          : "${SUPABASE_URL:?SUPABASE_URL secret is required}"
+          : "${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY secret is required}"
+
+          for platform in staff admin; do
+            payload=$(echo "$LATEST_JSON" | jq -c --arg p "$platform" '.[$p] + {notes: ("Synced from "+.release)}')
+            echo "Upserting $platform: $payload"
+            auth_header="Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
+            http_code=$(curl -s -o /tmp/response.json -w '%{http_code}' \
+              -X POST "${SUPABASE_URL}/rest/v1/app_versions" \
+              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "$auth_header" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: resolution=merge-duplicates,return=minimal" \
+              -d "$payload")
+            if [ "$http_code" -ge 300 ]; then
+              echo "::error::Supabase upsert for $platform failed with HTTP $http_code"
+              cat /tmp/response.json
+              exit 1
+            fi
+          done

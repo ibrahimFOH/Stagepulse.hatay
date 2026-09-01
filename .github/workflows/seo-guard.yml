@@ -1,0 +1,90 @@
+name: Stagepulse SEO Guard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.html'
+      - 'sitemap.xml'
+      - 'robots.txt'
+      - 'manifest.webmanifest'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.html'
+      - 'sitemap.xml'
+      - 'robots.txt'
+      - 'manifest.webmanifest'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  seo-guard:
+    name: Validate sitemap, robots.txt and on-page SEO tags
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: sitemap.xml must be well-formed XML
+        run: python3 -c "import xml.etree.ElementTree as ET; ET.parse('sitemap.xml')"
+
+      - name: Static .html sitemap entries must resolve to a real file
+        run: |
+          python3 - <<'PY'
+          import re, sys, pathlib
+
+          text = pathlib.Path("sitemap.xml").read_text(encoding="utf-8")
+          locs = re.findall(r"<loc>https://stagepulse\.com\.tr(/[^<]*)</loc>", text)
+          if not locs:
+              print("::error::No <loc> entries found in sitemap.xml")
+              sys.exit(1)
+
+          status = 0
+          for loc in locs:
+              if loc.endswith(".html"):
+                  path = pathlib.Path(loc.lstrip("/"))
+                  if not path.is_file():
+                      print(f"::error file=sitemap.xml::{loc} is listed in sitemap.xml but the file does not exist")
+                      status = 1
+          sys.exit(status)
+          PY
+
+      - name: robots.txt must reference the sitemap
+        run: |
+          set -euo pipefail
+          if ! grep -qi '^Sitemap:' robots.txt; then
+            echo "::error file=robots.txt::robots.txt is missing a Sitemap: directive"
+            exit 1
+          fi
+
+      - name: Public HTML pages must carry core SEO tags
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+
+          # Only check top-level public marketing pages. Search-engine verification
+          # files, the 404 shell and the token-based quote viewer are intentionally
+          # excluded: they are not indexable marketing landing pages.
+          skip_files = {"404.html", "teklif-view.html"}
+          status = 0
+          for path in sorted(pathlib.Path(".").glob("*.html")):
+              name = path.name
+              if name in skip_files:
+                  continue
+              if name.startswith("google") or name.startswith("yandex"):
+                  continue
+              html = path.read_text(encoding="utf-8", errors="ignore")
+              lower = html.lower()
+              checks = {
+                  "<title>": "<title" in lower,
+                  'meta name="description"': 'name="description"' in lower,
+                  "canonical link": 'rel="canonical"' in lower,
+              }
+              missing = [name for name, ok in checks.items() if not ok]
+              if missing:
+                  print(f"::error file={path}::Missing SEO tag(s): {', '.join(missing)}")
+                  status = 1
+          sys.exit(status)
+          PY

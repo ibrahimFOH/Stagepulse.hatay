@@ -1,0 +1,152 @@
+name: Stagepulse APK Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Semantic version to release, e.g. 2.3.1 (must be 2.2.0 or newer)'
+        required: true
+      version_code:
+        description: 'Optional explicit versionCode override (defaults to the semantic version code)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stagepulse-apk-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Build signed Admin + Personel APKs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          : "${ANDROID_KEYSTORE_BASE64:?ANDROID_KEYSTORE_BASE64 secret is required}"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Write google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          : "${GOOGLE_SERVICES_JSON:?GOOGLE_SERVICES_JSON secret is required}"
+          echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+
+      - name: Build release APKs
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        working-directory: android
+        run: |
+          set -euo pipefail
+          gradle --no-daemon \
+            -Pstagepulse.versionName="${{ inputs.version_name }}" \
+            ${{ inputs.version_code != '' && format('-Pstagepulse.versionCode={0}', inputs.version_code) || '' }} \
+            :app:assemblePersonelRelease :app:assembleAdminRelease
+
+      - name: Collect, rename and hash APKs
+        id: artifacts
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version_name }}"
+          staff_src=$(find android/app/build/outputs/apk/personel/release -name '*.apk' | head -n1)
+          admin_src=$(find android/app/build/outputs/apk/admin/release -name '*.apk' | head -n1)
+          mkdir -p dist
+          staff_out="dist/Stagepulse-Personel-v${version}.apk"
+          admin_out="dist/Stagepulse-Admin-v${version}.apk"
+          cp "$staff_src" "$staff_out"
+          cp "$admin_src" "$admin_out"
+          staff_sha=$(sha256sum "$staff_out" | cut -d' ' -f1)
+          admin_sha=$(sha256sum "$admin_out" | cut -d' ' -f1)
+          {
+            echo "staff_path=$staff_out"
+            echo "admin_path=$admin_out"
+            echo "staff_sha=$staff_sha"
+            echo "admin_sha=$admin_sha"
+            echo "tag=v${version}-build.${{ github.run_number }}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release with both APKs
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.artifacts.outputs.tag }}
+          name: Stagepulse v${{ inputs.version_name }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.artifacts.outputs.staff_path }}
+            ${{ steps.artifacts.outputs.admin_path }}
+
+      - name: Update latest.json
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version_name }}"
+          version_code="${{ inputs.version_code }}"
+          if [ -z "$version_code" ]; then
+            IFS='.' read -r major minor patch <<< "$version"
+            version_code=$((major * 1000000 + minor * 1000 + patch))
+          fi
+          python3 - "$version" "$version_code" "${{ steps.artifacts.outputs.tag }}" \
+            "${{ steps.artifacts.outputs.staff_sha }}" "${{ steps.artifacts.outputs.admin_sha }}" <<'PY'
+          import json, sys, datetime
+          version, version_code, tag, staff_sha, admin_sha = sys.argv[1:6]
+          repo = "ibrahimFOH/Stagepulse.hatay"
+          def apk_url(name):
+              return f"https://github.com/{repo}/releases/download/{tag}/{name}"
+          data = {
+              "release": tag,
+              "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "staff": {
+                  "platform": "staff",
+                  "apk_version": int(version_code),
+                  "web_version": version,
+                  "minimum_version": int(version_code),
+                  "apk_url": apk_url(f"Stagepulse-Personel-v{version}.apk"),
+                  "apk_sha256": staff_sha,
+              },
+              "admin": {
+                  "platform": "admin",
+                  "apk_version": int(version_code),
+                  "web_version": version,
+                  "minimum_version": int(version_code),
+                  "apk_url": apk_url(f"Stagepulse-Admin-v{version}.apk"),
+                  "apk_sha256": admin_sha,
+              },
+          }
+          with open("latest.json", "w", encoding="utf-8") as fh:
+              json.dump(data, fh)
+          PY
+
+      - name: Commit latest.json
+        env:
+          GIT_AUTHOR_NAME: stagepulse-release-bot
+          GIT_AUTHOR_EMAIL: actions@users.noreply.github.com
+          GIT_COMMITTER_NAME: stagepulse-release-bot
+          GIT_COMMITTER_EMAIL: actions@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          git add latest.json
+          if git diff --cached --quiet; then
+            echo "latest.json already up to date."
+            exit 0
+          fi
+          git commit -m "chore(release): publish ${{ steps.artifacts.outputs.tag }} [skip ci]"
+          git push
