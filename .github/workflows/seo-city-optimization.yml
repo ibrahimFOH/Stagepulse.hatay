@@ -1,0 +1,29 @@
+name: SEO City Validation
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'adana/**'
+      - 'antalya/**'
+      - 'gaziantep/**'
+      - 'hatay/**'
+      - 'mersin/**'
+      - 'sanliurfa/**'
+      - 'sitemap.xml'
+      - 'robots.txt'
+      - '.github/workflows/seo-city-optimization.yml'
+permissions:
+  contents: read
+jobs:
+  seo-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate city pages
+        run: |
+          for d in adana antalya gaziantep hatay mersin sanliurfa; do
+            test -d "$d"
+            test -f "$d/index.html"
+          done
+          test -f sitemap.xml
+          test -f robots.txt
