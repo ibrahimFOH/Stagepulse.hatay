@@ -271,6 +271,13 @@ class AppUpdater(private val activity: MainActivity) {
     }
 
     private fun packageInstall(file: File, version: Int) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !activity.packageManager.canRequestPackageInstalls()
+        ) {
+            openUnknownSources()
+            return
+        }
         try {
             val pi = activity.packageManager.packageInstaller
             val p = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
@@ -288,7 +295,11 @@ class AppUpdater(private val activity: MainActivity) {
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
             s.commit(PendingIntent.getBroadcast(activity, id, intent, flags).intentSender)
             s.close()
-        } catch (_: Exception) { fallbackInstall(file) }
+        } catch (_: SecurityException) {
+            openUnknownSources()
+        } catch (_: Exception) {
+            fallbackInstall(file)
+        }
     }
 
     private fun fallbackInstall(file: File) {
@@ -302,7 +313,11 @@ class AppUpdater(private val activity: MainActivity) {
     }
 
     private fun openUnknownSources() {
-        activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")))
+        try {
+            activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")))
+        } catch (_: SecurityException) {
+            android.util.Log.w("StagepulseUpdater", "Bilinmeyen kaynak izni ekranı açılamadı")
+        }
     }
 }
 
@@ -313,7 +328,14 @@ class AppUpdateReceiver : BroadcastReceiver() {
         val p = c.getSharedPreferences("stagepulse", Context.MODE_PRIVATE)
         if (s == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             val pendingIntent = if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java) else @Suppress("DEPRECATION") i.getParcelableExtra(Intent.EXTRA_INTENT)
-            pendingIntent?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); c.startActivity(this) }
+            pendingIntent?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try {
+                    c.startActivity(this)
+                } catch (_: SecurityException) {
+                    android.util.Log.w("StagepulseUpdater", "Paket yükleyici onay ekranı açılamadı")
+                }
+            }
         } else if (s == PackageInstaller.STATUS_SUCCESS) {
             p.edit().putLong("apk_last_successful_install_version", v.toLong()).remove("apk_pending_version").remove("apk_pending_url").remove("apk_pending_sha256").remove("apk_installing_version").apply()
             i.getStringExtra(AppUpdater.INSTALL_APK_PATH)?.let { File(it).delete() }
