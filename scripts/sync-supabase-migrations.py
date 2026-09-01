@@ -14,17 +14,6 @@ TOKEN = os.environ.get("SUPABASE_ACCESS_TOKEN", "").strip()
 PROJECT_REF = os.environ.get("SUPABASE_PROJECT_REF", "").strip()
 APPLY_MISSING_INPUT = os.environ.get("APPLY_MISSING", "false").strip().lower()
 
-if APPLY_MISSING_INPUT not in {"true", "false"}:
-    raise SystemExit("APPLY_MISSING must be exactly true or false")
-APPLY_MISSING = APPLY_MISSING_INPUT == "true"
-
-if not TOKEN or not PROJECT_REF:
-    raise SystemExit("SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF are required")
-if not re.fullmatch(r"[a-z0-9]{20}", PROJECT_REF):
-    raise SystemExit("SUPABASE_PROJECT_REF is invalid")
-
-API_URL = f"https://api.supabase.com/v1/projects/{PROJECT_REF}/database/query"
-
 
 def github_annotation(level: str, title: str, message: str):
     escaped = (
@@ -42,6 +31,24 @@ def github_summary(message: str):
             summary.write(message.rstrip() + "\n")
 
 
+def abort(message: str):
+    github_annotation("error", "Migration synchronization failed", message)
+    github_summary(f"## Migration synchronization failed\n\n{message}")
+    raise SystemExit(message)
+
+
+if APPLY_MISSING_INPUT not in {"true", "false"}:
+    abort("APPLY_MISSING must be exactly true or false")
+APPLY_MISSING = APPLY_MISSING_INPUT == "true"
+
+if not TOKEN or not PROJECT_REF:
+    abort("SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF are required")
+if not re.fullmatch(r"[a-z0-9]{20}", PROJECT_REF):
+    abort("SUPABASE_PROJECT_REF is invalid")
+
+API_URL = f"https://api.supabase.com/v1/projects/{PROJECT_REF}/database/query"
+
+
 def query(sql: str, *, read_only: bool):
     request = urllib.request.Request(
         API_URL,
@@ -57,7 +64,7 @@ def query(sql: str, *, read_only: bool):
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
         body = error.read().decode("utf-8", "replace")
-        raise SystemExit(f"Supabase database query failed with HTTP {error.code}: {body[:500]}") from None
+        abort(f"Supabase database query failed with HTTP {error.code}: {body[:500]}")
 
 
 def rows(payload):
@@ -69,10 +76,10 @@ def rows(payload):
         elif "data" in payload:
             value = payload["data"]
         else:
-            raise SystemExit("Supabase database query returned no result rows")
+            abort("Supabase database query returned no result rows")
         if isinstance(value, list):
             return value
-    raise SystemExit("Supabase database query returned an unexpected response")
+    abort("Supabase database query returned an unexpected response")
 
 
 def remote_versions():
@@ -83,10 +90,10 @@ def remote_versions():
     versions = []
     for row in rows(payload):
         if not isinstance(row, dict) or not re.fullmatch(r"\d{14}", str(row.get("version", ""))):
-            raise SystemExit("Production migration history contains an invalid version")
+            abort("Production migration history contains an invalid version")
         versions.append(str(row["version"]))
     if versions != sorted(versions) or len(versions) != len(set(versions)):
-        raise SystemExit("Production migration versions must be unique and strictly ordered")
+        abort("Production migration versions must be unique and strictly ordered")
     return versions
 
 
@@ -102,7 +109,7 @@ def require_exact_prefix(remote, local_versions):
         print(detail)
         github_summary(f"## Migration audit blocked\n\n{detail}")
         github_annotation("error", "Migration history drift", detail)
-        raise SystemExit(
+        abort(
             "Production migration history is not an exact repository prefix; automatic apply is blocked"
         )
 
@@ -120,7 +127,7 @@ local = []
 for path in sorted(MIGRATIONS.glob("*.sql")):
     match = re.fullmatch(r"(\d{14})_([A-Za-z0-9_]+)\.sql", path.name)
     if not match:
-        raise SystemExit(f"Invalid local migration: {path.name}")
+        abort(f"Invalid local migration: {path.name}")
     local.append((match.group(1), match.group(2), path))
 
 local_versions = [version for version, _, _ in local]
@@ -138,12 +145,12 @@ github_summary(f"## Migration audit\n\n{audit_detail}")
 github_annotation("notice", "Migration audit", audit_detail)
 if len(missing) > 10:
     github_annotation("error", "Migration apply blocked", audit_detail)
-    raise SystemExit(
+    abort(
         "More than 10 migrations are missing; automatic apply is blocked for manual history reconciliation"
     )
 if missing and not APPLY_MISSING:
     github_annotation("warning", "Unapplied migrations", audit_detail)
-    raise SystemExit("Production has unapplied repository migrations")
+    abort("Production has unapplied repository migrations")
 
 for version, name, path in missing:
     # Re-read before every write. This blocks a stale run if another operator
@@ -151,7 +158,7 @@ for version, name, path in missing:
     current = remote_versions()
     expected = local_versions[: local_versions.index(version)]
     if current != expected:
-        raise SystemExit(
+        abort(
             "Production migration history changed during synchronization; automatic apply is blocked"
         )
     print(f"Applying migration {version}_{name}")
@@ -167,13 +174,13 @@ for version, name, path in missing:
     )
     recorded = remote_versions()
     if recorded != expected + [version]:
-        raise SystemExit(
+        abort(
             f"Production ledger readback failed after applying {version}; further apply is blocked"
         )
 
 verified = remote_versions()
 if verified != local_versions:
-    raise SystemExit(
+    abort(
         f"Migration verification failed after apply: local={len(local_versions)} remote={len(verified)}"
     )
 print(f"Production migration ledger synchronized: {len(verified)} migrations")
