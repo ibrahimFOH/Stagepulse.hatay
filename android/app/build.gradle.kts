@@ -6,9 +6,27 @@ plugins {
 
 val googleServicesFile = file("google-services.json")
 if (googleServicesFile.isFile) {
+    val suppliedFirebaseConfig = googleServicesFile.readText().trim()
+    val firebaseConfigJson = if (suppliedFirebaseConfig.startsWith("{")) {
+        suppliedFirebaseConfig
+    } else {
+        runCatching {
+            String(java.util.Base64.getDecoder().decode(suppliedFirebaseConfig), Charsets.UTF_8).trim()
+        }.getOrElse {
+            println("::error title=Firebase Android configuration::FIREBASE_ANDROID_JSON must contain raw or Base64-encoded JSON")
+            error("FIREBASE_ANDROID_JSON must contain raw or Base64-encoded JSON")
+        }
+    }
+    if (!firebaseConfigJson.startsWith("{")) {
+        println("::error title=Firebase Android configuration::Decoded FIREBASE_ANDROID_JSON is not a JSON object")
+        error("Decoded FIREBASE_ANDROID_JSON is not a JSON object")
+    }
+    if (firebaseConfigJson != suppliedFirebaseConfig) {
+        googleServicesFile.writeText(firebaseConfigJson)
+    }
     val requiredFirebasePackages = setOf("tr.com.stagepulse.app", "tr.com.stagepulse.admin")
     val configuredFirebasePackages = Regex(""""package_name"\s*:\s*"([^"]+)"""")
-        .findAll(googleServicesFile.readText())
+        .findAll(firebaseConfigJson)
         .map { it.groupValues[1] }
         .toSet()
     val missingFirebasePackages = requiredFirebasePackages - configuredFirebasePackages
