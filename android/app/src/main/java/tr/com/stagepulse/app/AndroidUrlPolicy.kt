@@ -106,9 +106,8 @@ internal object AndroidUrlPolicy {
     }
 
     private fun isSafeQuery(rawQuery: String?): Boolean {
-        if (rawQuery == null) return true
-        if (rawQuery.length > 4096) return false
-        var decoded = rawQuery
+        var decoded: String = rawQuery ?: return true
+        if (decoded.length > 4096) return false
         repeat(3) {
             decoded = try {
                 URLDecoder.decode(decoded, StandardCharsets.UTF_8.name())
