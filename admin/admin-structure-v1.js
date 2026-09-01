@@ -17,7 +17,7 @@
     const logout=button('logout','Çıkış','nav-logout');logout.id='logoutBtn';n.appendChild(logout);
     if(!document.getElementById('sp-unified-nav-style')){const s=document.createElement('style');s.id='sp-unified-nav-style';s.textContent='#sideNav .nav-label{margin-top:18px}#sideNav .nav-label:first-child{margin-top:4px}#sideNav button[data-view="command-center"]{font-weight:800;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.055)}#sideNav button[data-view="command-center"].active{background:rgba(255,255,255,.12)}.sp-quick-actions{margin:12px 0 16px}.sp-quick-title{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px}.sp-quick-title span{opacity:.5;font-size:12px}.sp-quick-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.sp-quick-grid button{border:1px solid rgba(127,127,127,.16);background:transparent;color:inherit;border-radius:10px;padding:10px 8px;cursor:pointer}@media(max-width:760px){.sp-quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}';document.head.appendChild(s)}
     n.querySelectorAll('button[data-view]').forEach(b=>{b.addEventListener('click',()=>{if(b.dataset.view==='command-center'){window.openStagepulseCommandCenter?.('overview');return;}window.loadView?.(b.dataset.view);});});
-    logout.addEventListener('click',async()=>{try{const c=window.supabase?.createClient?.('https://mtjcqqrogjqaxkagwkti.supabase.co','sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6');await c?.auth.signOut();}finally{location.reload();}});
+    logout.addEventListener('click',async()=>{try{const c=window.StagepulseAdminSupabase?.getClient?.()||window.__stagepulseAdminClient;await c?.auth.signOut();}finally{location.reload();}});
   }
 
   function quickActions(){
