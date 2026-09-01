@@ -147,7 +147,107 @@ def emit_remote_inventory(remote):
         )
 
 
-def require_exact_prefix(remote, local_versions):
+def extract_touched_objects(local_only):
+    patterns = {
+        "relation": (
+            r"\b(?:create\s+(?:or\s+replace\s+)?view|create\s+table"
+            r"(?:\s+if\s+not\s+exists)?|alter\s+table|drop\s+(?:table|view)"
+            r"(?:\s+if\s+exists)?)\s+(?:only\s+)?(?:public\.|private\.)?"
+            r'"?([a-z_][a-z0-9_]*)'
+        ),
+        "routine": (
+            r"\b(?:create\s+(?:or\s+replace\s+)?function|alter\s+function|"
+            r"drop\s+function(?:\s+if\s+exists)?)\s+"
+            r"(?:public\.|private\.)?\"?([a-z_][a-z0-9_]*)"
+        ),
+        "policy": r'\b(?:create|alter|drop)\s+policy\s+(?:if\s+exists\s+)?["\']?([a-z_][a-z0-9_]*)',
+        "trigger": r'\b(?:create|drop)\s+trigger\s+(?:if\s+exists\s+)?["\']?([a-z_][a-z0-9_]*)',
+        "index": (
+            r'\b(?:create\s+(?:unique\s+)?index(?:\s+if\s+not\s+exists)?|'
+            r'drop\s+index(?:\s+if\s+exists)?)\s+["\']?([a-z_][a-z0-9_]*)'
+        ),
+    }
+    touched = {kind: set() for kind in patterns}
+    for _, _, path in local_only:
+        sql = path.read_text(encoding="utf-8").lower()
+        for kind, pattern in patterns.items():
+            touched[kind].update(re.findall(pattern, sql))
+    return touched
+
+
+def sql_text_list(values):
+    return ",".join("'" + value.replace("'", "''") + "'" for value in sorted(values))
+
+
+def emit_production_state_inventory(local_only):
+    touched = extract_touched_objects(local_only)
+    selects = []
+    if touched["relation"]:
+        values = sql_text_list(touched["relation"])
+        selects.append(
+            "select 'relation' as kind, n.nspname||'.'||c.relname as identity, "
+            "md5(coalesce(pg_get_viewdef(c.oid, true), '')||'|'||c.relkind::text) as definition_hash "
+            "from pg_class c join pg_namespace n on n.oid=c.relnamespace "
+            f"where n.nspname in ('public','private') and c.relname in ({values})"
+        )
+    if touched["routine"]:
+        values = sql_text_list(touched["routine"])
+        selects.append(
+            "select 'routine' as kind, n.nspname||'.'||p.proname||'('||"
+            "pg_get_function_identity_arguments(p.oid)||')' as identity, "
+            "md5(pg_get_functiondef(p.oid)) as definition_hash "
+            "from pg_proc p join pg_namespace n on n.oid=p.pronamespace "
+            f"where n.nspname in ('public','private') and p.proname in ({values})"
+        )
+    if touched["policy"]:
+        values = sql_text_list(touched["policy"])
+        selects.append(
+            "select 'policy' as kind, schemaname||'.'||tablename||'.'||policyname as identity, "
+            "md5(coalesce(cmd,'')||'|'||coalesce(qual,'')||'|'||coalesce(with_check,'')||"
+            "'|'||coalesce(array_to_string(roles,','),'')) as definition_hash "
+            f"from pg_policies where policyname in ({values})"
+        )
+    if touched["trigger"]:
+        values = sql_text_list(touched["trigger"])
+        selects.append(
+            "select 'trigger' as kind, n.nspname||'.'||c.relname||'.'||t.tgname as identity, "
+            "md5(pg_get_triggerdef(t.oid, true)) as definition_hash "
+            "from pg_trigger t join pg_class c on c.oid=t.tgrelid "
+            "join pg_namespace n on n.oid=c.relnamespace "
+            f"where not t.tgisinternal and t.tgname in ({values})"
+        )
+    if touched["index"]:
+        values = sql_text_list(touched["index"])
+        selects.append(
+            "select 'index' as kind, n.nspname||'.'||c.relname as identity, "
+            "md5(pg_get_indexdef(c.oid)) as definition_hash "
+            "from pg_class c join pg_namespace n on n.oid=c.relnamespace "
+            f"where c.relkind='i' and c.relname in ({values})"
+        )
+    if not selects:
+        return
+    payload = query(
+        "select kind, identity, definition_hash from ("
+        + " union all ".join(selects)
+        + ") inventory order by kind, identity",
+        read_only=True,
+    )
+    entries = [
+        f"{row['kind']}|{row['identity']}|{row['definition_hash']}"
+        for row in rows(payload)
+    ]
+    chunk_size = 40
+    chunk_count = (len(entries) + chunk_size - 1) // chunk_size
+    for index in range(0, len(entries), chunk_size):
+        github_annotation(
+            "warning",
+            f"Production schema state {index // chunk_size + 1}/{chunk_count}",
+            ",".join(entries[index : index + chunk_size]),
+        )
+
+
+def require_exact_prefix(remote, local):
+    local_versions = [version for version, _, _ in local]
     remote_versions = [migration["version"] for migration in remote]
     if (
         len(remote_versions) > len(local_versions)
@@ -162,6 +262,10 @@ def require_exact_prefix(remote, local_versions):
         )
         print(detail)
         emit_remote_inventory(remote)
+        local_only_migrations = [
+            migration for migration in local if migration[0] not in set(remote_versions)
+        ]
+        emit_production_state_inventory(local_only_migrations)
         github_summary(f"## Migration audit blocked\n\n{detail}")
         github_annotation("error", "Migration history drift", detail)
         abort(
@@ -188,7 +292,7 @@ for path in sorted(MIGRATIONS.glob("*.sql")):
 local_versions = [version for version, _, _ in local]
 remote_inventory = remote_migrations()
 remote = [migration["version"] for migration in remote_inventory]
-require_exact_prefix(remote_inventory, local_versions)
+require_exact_prefix(remote_inventory, local)
 
 missing = local[len(remote) :]
 missing_versions = [version for version, _, _ in missing]
