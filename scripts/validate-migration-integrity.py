@@ -58,6 +58,15 @@ for path in files:
     if not match:
         raise SystemExit(f"Invalid migration filename: {path.name}")
     versions.append(match.group(1))
+    if match.group(1) > baseline["cutoff_version"]:
+        sql = path.read_text(encoding="utf-8")
+        if re.search(
+            r"(?im)^\s*(begin|commit|rollback)\s*;|create\s+index\s+concurrently",
+            sql,
+        ):
+            raise SystemExit(
+                f"Active migration cannot run in the required atomic wrapper: {path.name}"
+            )
     tree.update(path.name.encode("utf-8"))
     tree.update(b"\0")
     tree.update(path.read_bytes())

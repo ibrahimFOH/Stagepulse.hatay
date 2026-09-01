@@ -9,8 +9,8 @@ The production ledger is now the sealed canonical baseline:
 - Shared version numbers: **100**
 - Production-only versions: **249**
 - Repository-only versions: **111**
-- Canonical production ledger fingerprint:
-  `db04f83e8c3d6d414d8b5e11a2f634f957b9777297a77411545406ac37d17744`
+- Canonical production ledger fingerprint: regenerated from canonical JSON of
+  each recorded statement array with SHA-256 (see the sealed manifest)
 - Last production version: `20260831195655`
 - Baseline cutoff: `20260901003000`
 
@@ -57,8 +57,8 @@ the divergent branch wholesale would not be data-safe.
 ## Applied reconciliation plan
 
 1. Read production with `read_only: true`.
-2. Verify each remote version and migration name; hash recorded statements
-   without publishing SQL bodies.
+2. Verify each remote version and migration name; hash canonical JSON of each
+   recorded statement array with SHA-256 without publishing SQL bodies.
 3. Audit only repository-touched production objects by catalog name and
    definition hash.
 4. Seal the production ledger count and fingerprint in
@@ -76,7 +76,9 @@ The prefix/drift guards remain enabled:
 - Any post-cutoff non-prefix history blocks the workflow.
 - More than 10 missing active migrations blocks automatic apply.
 - Every migration write is preceded by a fresh baseline and prefix read.
-- Every write is followed by ledger readback.
+- Migration SQL and its ledger insert are atomic under advisory and exclusive
+  ledger locks, with an in-transaction prefix recheck.
+- Every committed write is followed by ledger readback.
 
 This makes production and the repository show the same canonical history:
 the sealed 349-row baseline plus an initially empty post-cutoff active ledger.

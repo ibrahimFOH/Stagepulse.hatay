@@ -101,7 +101,7 @@ def rows(payload):
 def remote_migrations():
     payload = query(
         "select version, coalesce(name, '') as name, "
-        "coalesce(md5(array_to_string(statements, E'\\n')), '') as statement_hash "
+        "coalesce(statements, array[]::text[]) as statements "
         "from supabase_migrations.schema_migrations order by version",
         read_only=True,
     )
@@ -110,11 +110,20 @@ def remote_migrations():
         if not isinstance(row, dict) or not re.fullmatch(r"\d{14}", str(row.get("version", ""))):
             abort("Production migration history contains an invalid version")
         name = str(row.get("name", ""))
-        statement_hash = str(row.get("statement_hash", ""))
+        statements = row.get("statements", [])
         if not re.fullmatch(r"[A-Za-z0-9_]*", name):
             abort("Production migration history contains an invalid name")
-        if statement_hash and not re.fullmatch(r"[0-9a-f]{32}", statement_hash):
-            abort("Production migration history contains an invalid statement hash")
+        if not isinstance(statements, list) or not all(
+            isinstance(statement, str) for statement in statements
+        ):
+            abort("Production migration history contains invalid statements")
+        statement_hash = hashlib.sha256(
+            json.dumps(
+                statements,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
         migrations.append(
             {
                 "version": str(row["version"]),
@@ -256,8 +265,9 @@ if missing and not APPLY_MISSING:
     abort("Production has unapplied repository migrations")
 
 for version, name, path in missing:
-    # Re-read before every write. This blocks a stale run if another operator
-    # changes production after the initial audit.
+    # Re-read before every write. The same expected state is checked again after
+    # taking an advisory lock and an exclusive ledger-table lock in the atomic
+    # transaction below.
     current_inventory = remote_migrations()
     require_sealed_baseline(current_inventory, baseline)
     current = [
@@ -271,14 +281,43 @@ for version, name, path in missing:
             "Production migration history changed during synchronization; automatic apply is blocked"
         )
     print(f"Applying migration {version}_{name}")
-    query(path.read_text(encoding="utf-8"), read_only=False)
+    migration_sql = path.read_text(encoding="utf-8")
+    if re.search(r"(?im)^\s*(begin|commit|rollback)\s*;|create\s+index\s+concurrently", migration_sql):
+        abort(
+            f"Migration {version} cannot be wrapped in the required atomic transaction"
+        )
     version_sql = version.replace("'", "''")
     name_sql = name.replace("'", "''")
+    cutoff_sql = baseline["cutoff_version"].replace("'", "''")
+    expected_sql = ",".join(f"'{item}'" for item in expected)
     query(
-        "insert into supabase_migrations.schema_migrations(version,name,statements) "
-        f"select '{version_sql}','{name_sql}',array[]::text[] "
-        "where not exists (select 1 from supabase_migrations.schema_migrations "
-        f"where version='{version_sql}')",
+        "begin;\n"
+        "select pg_advisory_xact_lock(hashtextextended("
+        "'stagepulse-production-migration-ledger', 0));\n"
+        "lock table supabase_migrations.schema_migrations in exclusive mode;\n"
+        "do $migration_guard$\n"
+        "declare\n"
+        "  actual text[];\n"
+        "begin\n"
+        "  select coalesce(array_agg(version::text order by version), array[]::text[])\n"
+        "    into actual\n"
+        "    from supabase_migrations.schema_migrations\n"
+        f"   where version > '{cutoff_sql}';\n"
+        f"  if actual is distinct from array[{expected_sql}]::text[] then\n"
+        "    raise exception 'post-cutoff migration history changed before atomic apply';\n"
+        "  end if;\n"
+        "  if exists (\n"
+        "    select 1 from supabase_migrations.schema_migrations\n"
+        f"     where version = '{version_sql}'\n"
+        "  ) then\n"
+        "    raise exception 'migration version already recorded before atomic apply';\n"
+        "  end if;\n"
+        "end\n"
+        "$migration_guard$;\n"
+        f"{migration_sql.rstrip()}\n"
+        "insert into supabase_migrations.schema_migrations(version,name,statements)\n"
+        f"values ('{version_sql}','{name_sql}',array[]::text[]);\n"
+        "commit;",
         read_only=False,
     )
     recorded_inventory = remote_migrations()
