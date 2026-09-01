@@ -30,32 +30,40 @@
   function toast(msg,ok=true){let t=$('#adminToast');if(!t){t=document.createElement('div');t.id='adminToast';t.className='admin-toast';document.body.appendChild(t)}t.textContent=msg;t.className=`admin-toast ${ok?'ok':'err'} show`;setTimeout(()=>t.classList.remove('show'),2800)}
   window.toast = window.toast || toast;
   const authUrlKeys=['code','type','token','token_hash','access_token','refresh_token','expires_at','expires_in','provider_token','provider_refresh_token','error','error_code','error_description','password','passwd','pass','pwd'];
-  function cleanAuthUrl(url){
-    authUrlKeys.forEach(key=>url.searchParams.delete(key));
-    let hash=url.hash;
-    if(/^#[^#]*=/.test(hash)){
-      const params=new URLSearchParams(hash.slice(1));
-      authUrlKeys.forEach(key=>params.delete(key));
-      hash=params.toString()?`#${params}`:'';
+  function parseParams(value){
+    const params=new Map();
+    for(const part of String(value||'').replace(/^[?#]/,'').split('&')){
+      if(!part)continue;
+      const split=part.indexOf('='),rawKey=split<0?part:part.slice(0,split),rawValue=split<0?'':part.slice(split+1);
+      try{params.set(decodeURIComponent(rawKey.replace(/\+/g,' ')),decodeURIComponent(rawValue.replace(/\+/g,' ')))}catch{continue}
     }
-    history.replaceState(null,document.title,url.pathname+(url.searchParams.toString()?`?${url.searchParams}`:'')+hash);
+    return params;
+  }
+  function encodeParams(params){
+    return [...params].map(([key,value])=>`${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&');
+  }
+  function cleanAuthUrl(query,hash){
+    authUrlKeys.forEach(key=>query.delete(key));
+    authUrlKeys.forEach(key=>hash.delete(key));
+    const cleanQuery=encodeParams(query),cleanHash=encodeParams(hash);
+    history.replaceState(null,document.title,location.pathname+(cleanQuery?`?${cleanQuery}`:'')+(cleanHash?`#${cleanHash}`:''));
   }
   async function recoverAdminSessionFromUrl(){
-    const url=new window.URL(location.href),hash=new URLSearchParams(/^#[^#]*=/.test(url.hash)?url.hash.slice(1):'');
-    const code=url.searchParams.get('code');
+    const query=parseParams(location.search),hash=/^#[^#]*=/.test(location.hash)?parseParams(location.hash):new Map();
+    const code=query.get('code');
     const accessToken=hash.get('access_token');
     const refreshToken=hash.get('refresh_token');
-    const type=url.searchParams.get('type')||hash.get('type');
-    const hasAuthUrl=authUrlKeys.some(key=>url.searchParams.has(key)||hash.has(key));
+    const type=query.get('type')||hash.get('type');
+    const hasAuthUrl=authUrlKeys.some(key=>query.has(key)||hash.has(key));
     if(!hasAuthUrl)return false;
     try{
-      if(url.searchParams.get('error'))throw new Error(url.searchParams.get('error_description')||'Kimlik doğrulama bağlantısı geçersiz.');
+      if(query.get('error'))throw new Error(query.get('error_description')||'Kimlik doğrulama bağlantısı geçersiz.');
       if(code){const {error}=await client.auth.exchangeCodeForSession(code);if(error)throw error;}
       else if(accessToken&&refreshToken){const {error}=await client.auth.setSession({access_token:accessToken,refresh_token:refreshToken});if(error)throw error;}
       else throw new Error('Kimlik doğrulama bağlantısı eksik veya geçersiz.');
       window.__stagepulseAdminRecovery=type==='recovery';
       return true;
-    }finally{cleanAuthUrl(url);}
+    }finally{cleanAuthUrl(query,hash);}
   }
   function closeMobileNav(){const s=$('#sidebar'),o=$('#mobileOverlay');s?.classList.remove('open');if(o){o.hidden=true;o.classList.remove('open')}}
   function routeView(v){if((location.hash||'').slice(1)!==v)history.replaceState(null,'','#'+v)}
