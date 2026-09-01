@@ -1,0 +1,45 @@
+name: Stagepulse Security Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for obvious committed secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIn --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=vendor \
+            -E '(service_role|SUPABASE_SERVICE_ROLE_KEY|BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,})' .; then
+            echo 'Potential secret found in repository contents.'
+            exit 1
+          fi
+
+      - name: Check protected auth configuration references
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/config.toml
+          grep -q '^\[functions.admin-login\]' supabase/config.toml
+          grep -q '^\[functions.admin-password-reset\]' supabase/config.toml
+          grep -q '^\[functions.portal-login\]' supabase/config.toml
+
+      - name: Check migration security markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIn --include='*.sql' -E 'grant all on schema public to anon|grant all on .* to anon' supabase/migrations; then
+            echo 'Overbroad anonymous grant detected.'
+            exit 1
+          fi
