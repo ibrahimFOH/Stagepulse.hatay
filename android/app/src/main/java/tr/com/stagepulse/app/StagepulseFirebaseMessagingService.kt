@@ -1,12 +1,15 @@
 package tr.com.stagepulse.app
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import java.net.HttpURLConnection
@@ -56,6 +59,13 @@ class StagepulseFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            android.util.Log.w("StagepulseFCM", "Bildirim izni verilmediği için bildirim gösterilmedi")
+            return
+        }
         val title = message.notification?.title ?: message.data["title"] ?: "Stagepulse"
         val body = message.notification?.body ?: message.data["body"] ?: "Yeni Stagepulse bildirimi"
         val url = message.data["url"] ?: BuildConfig.PORTAL_PATH
@@ -74,7 +84,11 @@ class StagepulseFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setContentIntent(pending)
             .build()
-        NotificationManagerCompat.from(this).notify(ids.incrementAndGet(), notification)
+        try {
+            NotificationManagerCompat.from(this).notify(ids.incrementAndGet(), notification)
+        } catch (e: SecurityException) {
+            android.util.Log.w("StagepulseFCM", "Bildirim gösterme izni reddedildi", e)
+        }
     }
 
     private fun createChannel() {
