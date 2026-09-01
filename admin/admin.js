@@ -2,13 +2,13 @@
 (() => {
   'use strict';
   const R = window.STAGEPULSE_RUNTIME || {};
-  const URL = R.supabaseUrl || '';
+  const SUPABASE_URL = R.supabaseUrl || '';
   const KEY = R.supabasePublishableKey || '';
-  if (!window.supabase || !URL || !KEY) {
+  if (!window.supabase || !SUPABASE_URL || !KEY) {
     document.body.innerHTML = '<div style="padding:40px;font-family:system-ui;color:#fff;background:#090909;min-height:100vh">Supabase yapılandırması yüklenemedi.</div>';
     return;
   }
-  const client = window.__stagepulseAdminClient || window.supabase.createClient(URL, KEY, {
+  const client = window.__stagepulseAdminClient || window.supabase.createClient(SUPABASE_URL, KEY, {
     auth:{
       persistSession:true,
       autoRefreshToken:true,
@@ -60,7 +60,7 @@
   function closeMobileNav(){const s=$('#sidebar'),o=$('#mobileOverlay');s?.classList.remove('open');if(o){o.hidden=true;o.classList.remove('open')}}
   function routeView(v){if((location.hash||'').slice(1)!==v)history.replaceState(null,'','#'+v)}
   async function guard(session){
-    const r=await fetch(`${URL}/functions/v1/org-admin-control`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({action:'my_context'}),cache:'no-store'});
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/org-admin-control`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({action:'my_context'}),cache:'no-store'});
     const j=await r.json().catch(()=>({}));
     if(!r.ok||!j.membership||j.membership.active!==true||j.is_admin!==true){await client.auth.signOut();showLogin();$('#loginError').textContent='Bu hesap için aktif yönetim yetkisi bulunmuyor.';return false}
     window.__stagepulseAdminContext=j;showApp();const p=j.profile||{};$('#adminUser').textContent='@'+(p.username||session.user?.email?.split('@')[0]||'admin');$('#sideAdminName').textContent=p.display_name||p.username||'Yönetici';window.dispatchEvent(new CustomEvent('stagepulse:logged-in',{detail:{portal:'admin'}}));return true;
