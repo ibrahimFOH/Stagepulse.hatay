@@ -41,25 +41,24 @@ async function fcmAccessToken(){
 async function requireAdmin(req:Request){const h=req.headers.get('authorization')||'';if(!h.toLowerCase().startsWith('bearer '))throw new Error('UNAUTHENTICATED');const {data,error}=await admin.auth.getUser(h.slice(7).trim());if(error||!data.user)throw new Error('UNAUTHENTICATED');const {data:m,error:me}=await admin.from('org_memberships').select('active,role:role_id(code,is_admin_role)').eq('user_id',data.user.id).eq('active',true).maybeSingle();const role=Array.isArray((m as any)?.role)?(m as any).role[0]:(m as any)?.role;if(me||!m?.active||role?.is_admin_role!==true)throw new Error('FORBIDDEN');return data.user;}
 function safePath(value:unknown){const raw=typeof value==='string'?value:'/portal/';try{const u=new URL(raw,'https://stagepulse.com.tr');if(!['https://stagepulse.com.tr','https://www.stagepulse.com.tr'].includes(u.origin))return'/portal/';return`${u.pathname}${u.search}${u.hash}`;}catch{return'/portal/';}}
 async function notificationPath(notification:{recipient_user_id:string;offer_id?:string|null},id:number){const {data:m}=await admin.from('org_memberships').select('role:role_id(is_admin_role)').eq('user_id',notification.recipient_user_id).eq('active',true).maybeSingle();const role=Array.isArray((m as any)?.role)?(m as any).role[0]:(m as any)?.role;const base=role?.is_admin_role===true?'/admin/':'/portal/';const q=new URLSearchParams({notification:String(id)});if(notification.offer_id)q.set('offer',notification.offer_id);return`${base}?${q}`;}
-async function dispatch(userIds:string[],title:string,text:string,kind:string,path:string){const {data:devices,error}=await admin.from('notification_devices').select('id,token,push_type,active').in('user_id',userIds).eq('active',true).eq('push_type','fcm');if(error)throw error;const ctx=await fcmAccessToken();let sent=0,stale=0,failed=0;const errors:unknown[]=[];for(const d of devices||[]){if(!d.token){failed++;errors.push({device_id:d.id,message:'FCM_TOKEN_MISSING'});continue;}try{const message={message:{token:d.token,notification:{title,body:text},data:{url:path,kind},android:{priority:'high',notification:{channel_id:'stagepulse_default',sound:'default'}},webpush:{headers:{Urgency:'high',TTL:'86400'},notification:{title,body:text,icon:'https://stagepulse.com.tr/favicon-32.png',badge:'https://stagepulse.com.tr/favicon-32.png',tag:`stagepulse-${kind}`,renotify:true,requireInteraction:true},fcm_options:{link:`https://stagepulse.com.tr${path}`}}}};const r=await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(ctx.project)}/messages:send`,{method:'POST',headers:{authorization:`Bearer ${ctx.accessToken}`,'content-type':'application/json'},body:JSON.stringify(message)});if(r.ok){sent++;continue;}const detail=await r.text();if(r.status===404||r.status===410||/UNREGISTERED|NOT_FOUND/i.test(detail)){stale++;await admin.from('notification_devices').update({active:false,updated_at:new Date().toISOString()}).eq('id',d.id);}else{failed++;errors.push({device_id:d.id,status:r.status,body:detail});}}catch(e){failed++;errors.push({device_id:d.id,message:e instanceof Error?e.message:String(e)});}}return{ok:failed===0,sent,stale,failed,total:(devices||[]).length,errors};}
+async function dispatch(userIds:string[],title:string,text:string,kind:string,path:string){const {data:devices,error}=await admin.from('notification_devices').select('id,token,push_type,active').in('user_id',userIds).eq('active',true).eq('push_type','fcm');if(error)throw error;if(!devices?.length)return{ok:true,sent:0,stale:0,failed:0,total:0,errors:[]};const ctx=await fcmAccessToken();let sent=0,stale=0,failed=0;const errors:unknown[]=[];for(const d of devices){if(!d.token){failed++;errors.push({device_id:d.id,message:'FCM_TOKEN_MISSING'});continue;}try{const message={message:{token:d.token,notification:{title,body:text},data:{url:path,kind},android:{priority:'high',notification:{channel_id:'stagepulse_default',sound:'default'}},webpush:{headers:{Urgency:'high',TTL:'86400'},notification:{title,body:text,icon:'https://stagepulse.com.tr/favicon-32.png',badge:'https://stagepulse.com.tr/favicon-32.png',tag:`stagepulse-${kind}`,renotify:true,requireInteraction:true},fcm_options:{link:`https://stagepulse.com.tr${path}`}}}};const r=await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(ctx.project)}/messages:send`,{method:'POST',headers:{authorization:`Bearer ${ctx.accessToken}`,'content-type':'application/json'},body:JSON.stringify(message)});if(r.ok){sent++;continue;}const detail=await r.text();if(r.status===404||r.status===410||/UNREGISTERED|NOT_FOUND/i.test(detail)){stale++;await admin.from('notification_devices').update({active:false,updated_at:new Date().toISOString()}).eq('id',d.id);}else{failed++;errors.push({device_id:d.id,status:r.status,body:detail});}}catch(e){failed++;errors.push({device_id:d.id,message:e instanceof Error?e.message:String(e)});}}return{ok:failed===0,sent,stale,failed,total:devices.length,errors};}
 Deno.serve(async req=>{
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors(req)});
   if(req.method!=='POST')return out(req,{error:'Method Not Allowed'},405);
-  let claimed:{id:number;token:string;at:string}|null=null;
+  let claimed:{id:number;token:string;claimToken:string}|null=null;
   try{
     const b=await req.json().catch(()=>({}));
     let ids:string[]=[],title='Stagepulse',text='',kind='system',path='/portal/';
     if(b.dispatch_token){
       const id=Number(b.notification_id),token=String(b.dispatch_token);
       if(!Number.isSafeInteger(id)||id<1||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(token))return out(req,{ok:false,error:'INVALID_OR_USED_TOKEN'},409);
-      const {data:n,error}=await admin.from('notifications').select('id,recipient_user_id,title,body,kind,offer_id').eq('id',id).eq('push_dispatch_token',token).is('push_dispatched_at',null).maybeSingle();
-      if(error)throw error;
-      if(!n)return out(req,{ok:false,error:'INVALID_OR_USED_TOKEN'},409);
       const at=new Date().toISOString();
-      const {data:c,error:ce}=await admin.from('notifications').update({push_dispatched_at:at}).eq('id',id).eq('push_dispatch_token',token).is('push_dispatched_at',null).select('id').maybeSingle();
+      const staleAt=new Date(Date.now()-5*60*1000).toISOString();
+      const claimToken=crypto.randomUUID();
+      const {data:n,error:ce}=await admin.from('notifications').update({push_claim_token:claimToken,push_claimed_at:at}).eq('id',id).eq('push_dispatch_token',token).is('push_dispatched_at',null).or(`push_claimed_at.is.null,push_claimed_at.lt.${staleAt}`).select('id,recipient_user_id,title,body,kind,offer_id').maybeSingle();
       if(ce)throw ce;
-      if(!c)return out(req,{ok:false,error:'ALREADY_DISPATCHED'},409);
-      claimed={id,token,at};
+      if(!n)return out(req,{ok:false,error:'INVALID_USED_OR_CLAIMED_TOKEN'},409);
+      claimed={id,token,claimToken};
       ids=n.recipient_user_id?[n.recipient_user_id]:[];
       title=n.title||title;
       text=n.body||'';
@@ -75,13 +74,17 @@ Deno.serve(async req=>{
       if(!ids.length||!text)return out(req,{error:'user_ids ve body gerekli.'},400);
     }
     const result=await dispatch(ids,title,text,kind,path);
-    if(claimed&&result.failed>0){
-      await admin.from('notifications').update({push_dispatched_at:null}).eq('id',claimed.id).eq('push_dispatch_token',claimed.token).eq('push_dispatched_at',claimed.at);
+    if(claimed){
+      const update=result.failed>0
+        ?{push_claim_token:null,push_claimed_at:null,push_last_error:JSON.stringify(result.errors).slice(0,2000)}
+        :{push_dispatched_at:new Date().toISOString(),push_claim_token:null,push_claimed_at:null,push_last_error:null};
+      const {error}=await admin.from('notifications').update(update).eq('id',claimed.id).eq('push_dispatch_token',claimed.token).eq('push_claim_token',claimed.claimToken).is('push_dispatched_at',null);
+      if(error)throw error;
     }
     return out(req,result,result.failed>0?502:200);
   }catch(e){
     if(claimed){
-      await admin.from('notifications').update({push_dispatched_at:null}).eq('id',claimed.id).eq('push_dispatch_token',claimed.token).eq('push_dispatched_at',claimed.at);
+      await admin.from('notifications').update({push_claim_token:null,push_claimed_at:null,push_last_error:(e instanceof Error?e.message:String(e)).slice(0,2000)}).eq('id',claimed.id).eq('push_dispatch_token',claimed.token).eq('push_claim_token',claimed.claimToken).is('push_dispatched_at',null);
     }
     const m=e instanceof Error?e.message:String(e);
     const s=m==='UNAUTHENTICATED'?401:m==='FORBIDDEN'?403:m==='FCM_NOT_CONFIGURED'?503:500;
