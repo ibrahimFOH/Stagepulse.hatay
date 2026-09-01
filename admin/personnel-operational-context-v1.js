@@ -7,7 +7,7 @@
   let client = null;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const q=s=>document.querySelector(s);
-  function sb(){ if(client)return client; if(window.sb?.from)return client=window.sb; if(window.supabase?.createClient&&URL&&KEY)return client=window.supabase.createClient(URL,KEY); return null; }
+  function sb(){ if(client)return client; const canonical=window.StagepulseAdminSupabase?.getClient?.()||window.__stagepulseAdminClient||window.sb||window.supabaseClient; if(canonical?.from)return client=canonical; return null; }
   async function count(table){ const c=sb(); if(!c)return 0; const r=await c.from(table).select('*',{count:'exact',head:true}); return r.error?0:(r.count||0); }
   async function load(){
     const c=sb(); if(!c)return;
