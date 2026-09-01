@@ -32,6 +32,7 @@
       auth: {
         ...auth,
         storageKey,
+        storage: window.sessionStorage,
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: false

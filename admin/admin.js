@@ -13,7 +13,8 @@
       persistSession:true,
       autoRefreshToken:true,
       detectSessionInUrl:false,
-      storageKey:'stagepulse-admin-auth-v2'
+      storageKey:'stagepulse-admin-auth-v2',
+      storage:window.sessionStorage
     }
   });
   window.__stagepulseAdminClient = client;

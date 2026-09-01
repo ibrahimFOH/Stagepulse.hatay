@@ -25,11 +25,11 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS = "stagepulse"
         private const val FCM_TOKEN = "fcm_token"
         private const val FCM_PENDING_TOKEN = "fcm_pending_token"
-        private const val ACCESS_TOKEN = "access_token"
     }
 
     private lateinit var webView: WebView
     private lateinit var appUpdater: AppUpdater
+    private lateinit var secureTokenStore: SecureTokenStore
     private val supabaseUrl = "https://mtjcqqrogjqaxkagwkti.supabase.co"
     private var fcmToken: String? = null
     private var accessToken: String? = null
@@ -47,11 +47,12 @@ class MainActivity : AppCompatActivity() {
         webView = WebView(this)
         setContentView(webView)
         appUpdater = AppUpdater(this)
+        secureTokenStore = SecureTokenStore(this)
         configureWebView()
         requestNotificationPermission()
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         fcmToken = prefs.getString(FCM_PENDING_TOKEN, null) ?: prefs.getString(FCM_TOKEN, null)
-        accessToken = prefs.getString(ACCESS_TOKEN, null)
+        accessToken = secureTokenStore.load()
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 val previous = prefs.getString(FCM_TOKEN, null)
@@ -75,15 +76,7 @@ class MainActivity : AppCompatActivity() {
     private fun notificationUrl(source: Intent?): String {
         val raw = source?.getStringExtra("notification_url")?.trim().orEmpty()
         if (raw.isBlank()) return expectedUrl()
-        return try {
-            val parsed = Uri.parse(raw)
-            val path = parsed.path ?: return expectedUrl()
-            if (!path.startsWith(portalPath)) return expectedUrl()
-            Uri.Builder().scheme("https").authority("stagepulse.com.tr").path(path)
-                .encodedQuery(parsed.encodedQuery).fragment(parsed.fragment).build().toString()
-        } catch (_: Exception) {
-            expectedUrl()
-        }
+        return AndroidUrlPolicy.canonicalNotificationUrl(raw, portalPath) ?: expectedUrl()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -176,12 +169,12 @@ class MainActivity : AppCompatActivity() {
             (function(){try{for(const store of [localStorage,sessionStorage])for(let i=0;i<store.length;i++){const k=store.key(i)||'';if(k.startsWith('sb-')&&k.endsWith('-auth-token')){const v=JSON.parse(store.getItem(k)||'{}');if(v.access_token)return v.access_token;}}}catch(e){}return '';})();
         """.trimIndent()) { value ->
             val token = value.trim('"').replace("\\\"", "\"")
-            if (token.isNotBlank()) {
-                if (token != accessToken) {
-                    accessToken = token
-                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACCESS_TOKEN, token).apply()
-                }
+            if (token.isNotBlank() && secureTokenStore.isUsable(token)) {
+                if (token != accessToken && secureTokenStore.save(token)) accessToken = token
                 registerDeviceIfReady()
+            } else {
+                accessToken = null
+                secureTokenStore.clear()
             }
         }
     }
@@ -189,7 +182,11 @@ class MainActivity : AppCompatActivity() {
     private fun registerDeviceIfReady() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val token = prefs.getString(FCM_PENDING_TOKEN, null) ?: fcmToken ?: return
-        val auth = accessToken?.takeIf { it.isNotBlank() } ?: return
+        val auth = accessToken?.takeIf { secureTokenStore.isUsable(it) } ?: run {
+            accessToken = null
+            secureTokenStore.clear()
+            return
+        }
         thread {
             var c: java.net.HttpURLConnection? = null
             try {
@@ -204,6 +201,10 @@ class MainActivity : AppCompatActivity() {
                 if (status in 200..299) {
                     if (prefs.getString(FCM_PENDING_TOKEN, null) == token) prefs.edit().remove(FCM_PENDING_TOKEN).apply()
                 } else {
+                    if (status == java.net.HttpURLConnection.HTTP_UNAUTHORIZED) {
+                        accessToken = null
+                        secureTokenStore.clear()
+                    }
                     Log.w("StagepulseFCM", "register failed: HTTP $status")
                 }
             } catch (e: Exception) { Log.w("StagepulseFCM", "register failed: ${e.message}") }
@@ -217,7 +218,13 @@ class MainActivity : AppCompatActivity() {
 
     inner class AndroidBridge {
         @JavascriptInterface fun refreshSession() { runOnUiThread { if (isBridgeAllowed()) readSupabaseSession() } }
-        @JavascriptInterface fun setAccessToken(token: String?) { runOnUiThread { if (isBridgeAllowed()) { accessToken = token; getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(ACCESS_TOKEN, token.orEmpty()).apply(); registerDeviceIfReady() } } }
+        @JavascriptInterface fun setAccessToken(token: String?) {
+            runOnUiThread {
+                if (!isBridgeAllowed()) return@runOnUiThread
+                accessToken = if (secureTokenStore.save(token)) token else null
+                if (accessToken != null) registerDeviceIfReady()
+            }
+        }
     }
 
     @Deprecated("Deprecated in Android API")

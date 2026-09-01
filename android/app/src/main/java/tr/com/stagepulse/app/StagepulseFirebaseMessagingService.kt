@@ -27,7 +27,7 @@ class StagepulseFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         val prefs = getSharedPreferences("stagepulse", MODE_PRIVATE)
         prefs.edit().putString("fcm_token", token).putString(FCM_PENDING_TOKEN, token).apply()
-        registerTokenInBackground(token, prefs.getString("access_token", null))
+        registerTokenInBackground(token, SecureTokenStore(this).load())
     }
 
     private fun registerTokenInBackground(token: String, accessToken: String?) {
@@ -53,6 +53,7 @@ class StagepulseFirebaseMessagingService : FirebaseMessagingService() {
                     }
                     android.util.Log.i("StagepulseFCM", "FCM token yenilendi ve Android cihaz kaydı güncellendi")
                 } else {
+                    if (status == HttpURLConnection.HTTP_UNAUTHORIZED) SecureTokenStore(this).clear()
                     android.util.Log.e("StagepulseFCM", "Token yenileme kaydı başarısız: HTTP $status")
                 }
                 conn.disconnect()

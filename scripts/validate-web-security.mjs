@@ -15,6 +15,8 @@ const controller = read('script-controller.js');
 const core = read('core.js');
 const quoteFunction = read('supabase/functions/public-quote/index.ts');
 const serviceWorker = read('sw.js');
+const consentScript = read('consent.js');
+const conversionScript = read('conversion.js');
 const rootHeaders = read('_headers');
 const adminHeaders = read('admin/_headers');
 const portalHeaders = read('portal/_headers');
@@ -27,6 +29,9 @@ const adminBridge = read('admin/admin-supabase-bridge-v1.js');
 const portalIsolation = read('portal/session-isolation.js');
 const portalPermissions = read('portal/portal-permissions.js');
 const portalCrud = read('portal/portal-crud.js');
+const portalInventory = read('portal/inventory-ui-v3.js');
+const adminOfferFields = read('admin/admin-offer-final-fields-v1.js');
+const adminCss = read('admin/admin.css');
 const quoteView = read('teklif-view.html');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
@@ -35,6 +40,18 @@ requireMatch(publicScript.includes('/script-controller.js'), 'script.js must loa
 requireMatch(!publicScript.includes('cdn.jsdelivr.net/gh/ibrahimFOH'), 'Public controller must not fall back to a remote repository.');
 requireMatch(controller.includes('/core.js'), 'script-controller.js must load the local core controller.');
 requireMatch(/\bphone\b[\s\S]*turnstile_token:turnstileToken/.test(core), 'Public quote payload must include phone and the Turnstile token.');
+requireMatch(core.includes("payload.ok!==true||!payload.quote?.id"), 'Public quote UI must require a server-confirmed receipt.');
+requireMatch(core.includes("sessionStorage.setItem(receiptKey") && core.includes("form.dataset.submitting==='1'"), 'Public quote UI must prevent in-flight and repeated duplicate submissions.');
+requireMatch(!core.includes('window.location.assign(waUrl)'), 'WhatsApp must remain an optional action, not the quote success mechanism.');
+requireMatch(conversionScript.includes("submit.type='submit'"), 'Offer enhancement must preserve native form submission.');
+
+requireMatch(consentScript.includes("analytics_storage: 'denied'"), 'Consent defaults must deny analytics storage.');
+requireMatch(consentScript.includes("state === 'accepted') loadAnalytics()"), 'Analytics must load only after explicit opt-in.');
+requireMatch(consentScript.includes('cookie-preferences-reset'), 'Public consent UI must expose a preference reset control.');
+for (const name of readdirSync(root).filter(name => name.endsWith('.html'))) {
+  const html = read(name);
+  requireMatch(!html.includes('googletagmanager.com/gtag/js'), `${name} must not load Google Analytics before consent.`);
+}
 
 requireMatch(quoteFunction.includes('Deno.env.get("TURNSTILE_SECRET_KEY")'), 'public-quote must require TURNSTILE_SECRET_KEY.');
 requireMatch(quoteFunction.includes('turnstile/v0/siteverify'), 'public-quote must call Turnstile siteverify.');
@@ -45,6 +62,13 @@ requireMatch(!quoteFunction.includes("select('id,quote_number,status,event_date"
 requireMatch(serviceWorker.includes("url.pathname==='/admin'"), 'Service worker must recognize the admin root as authenticated.');
 requireMatch(serviceWorker.includes("url.pathname==='/portal'"), 'Service worker must recognize the portal root as authenticated.');
 requireMatch(/if\(isAuthenticatedPath\)\{event\.respondWith\(fetch\(request,\{cache:'no-store'\}\)\);return\}/.test(serviceWorker), 'Authenticated paths must bypass all service-worker caches.');
+requireMatch(serviceWorker.includes("'/index.html'") && serviceWorker.includes('Promise.allSettled'), 'Service worker install must build a resilient offline shell.');
+requireMatch(serviceWorker.includes("status:503"), 'Service worker must return an explicit offline failure response when no shell exists.');
+
+for (const city of ['adana', 'antalya', 'gaziantep', 'hatay', 'mersin', 'sanliurfa']) {
+  const html = read(`${city}/index.html`);
+  requireMatch(html.includes('property="og:title"') && html.includes('"@type":"Service"'), `${city} regional page must include supported OG and Service metadata.`);
+}
 
 for (const [path, headers] of [['_headers', rootHeaders], ['admin/_headers', adminHeaders], ['portal/_headers', portalHeaders]]) {
   for (const header of ['Content-Security-Policy:', 'X-Frame-Options: DENY', 'X-Content-Type-Options: nosniff', 'Referrer-Policy:', 'Permissions-Policy:']) {
@@ -70,6 +94,16 @@ requireMatch(adminBridge.includes('detectSessionInUrl: false'), 'Admin bridge mu
 requireMatch(adminShell.includes('cleanAuthUrl') && adminShell.includes('exchangeCodeForSession'), 'Admin must exchange callbacks and remove auth credentials from its URL.');
 requireMatch(portalPermissions.includes('exchangeCodeForSession') && portalPermissions.includes('history.replaceState'), 'Portal must exchange callbacks and remove auth credentials from its URL.');
 requireMatch(portalIsolation.includes("const role = location.pathname.startsWith('/admin/') ? 'admin' : 'staff'"), 'Supabase client creation must isolate admin and staff storage.');
+requireMatch(adminShell.includes('storage:window.sessionStorage'), 'Admin auth must persist only in sessionStorage.');
+requireMatch(adminBridge.includes('storage: window.sessionStorage'), 'Admin bridge must persist only in sessionStorage.');
+requireMatch(portalIsolation.includes('storage: window.sessionStorage'), 'Portal auth clients must persist only in sessionStorage.');
+requireMatch(adminRuntime.includes('navigator.onLine') && adminRuntime.includes('adminBootRetry') && adminRuntime.includes('aria-live="assertive"'), 'Admin boot failure must distinguish offline state and expose an accessible retry.');
+requireMatch(portalRuntime.includes('navigator.onLine') && portalRuntime.includes('portalBootRetry') && portalRuntime.includes('aria-live="assertive"'), 'Portal boot failure must distinguish offline state and expose an accessible retry.');
+requireMatch(!portalRuntime.includes("'inventory-ui-v3.js','inventory-ui-v4.js'"), 'Portal runtime must not load the superseded inventory boot-hook generation.');
+requireMatch(portalInventory.includes('role="dialog"') && portalInventory.includes('aria-labelledby="spPInvTitle"') && portalInventory.includes('modalReturnFocus'), 'Inventory dialog must be named and restore focus.');
+requireMatch(portalPermissions.includes('aria-labelledby="spPortalResetTitle"') && portalPermissions.includes("$('#spPortalPass1')?.focus()"), 'Password recovery dialog must be named and receive initial focus.');
+requireMatch(adminOfferFields.includes("label.insertAdjacentElement('afterend',b)") && !adminOfferFields.includes('label.appendChild(b)'), 'Crew save control must not be nested inside its field label.');
+requireMatch(adminCss.includes('@media(max-width:700px){.sp-offer-price-grid'), 'Offer inventory controls must reflow on narrow screens.');
 requireMatch(!portalPermissions.includes('sp_staff_meta') && !portalCrud.includes('sp_staff_meta'), 'Staff PII and permissions must not be duplicated in localStorage.');
 
 const adminCreateClientFiles = [

@@ -21,6 +21,26 @@
     'admin-routing-repair-v1.js','admin-completion-guard-v1.js','admin-rbac-control-center-v1.js','admin-menu-final.js',
     '../shared/notification-deeplink.js'
   ];
+  const renderBootFailure = () => {
+    const content = document.getElementById('content');
+    if (!content) return;
+    const login = document.getElementById('loginView');
+    const app = document.getElementById('appView');
+    if (login) { login.hidden = true; login.classList.add('is-hidden'); }
+    if (app) { app.hidden = false; app.classList.remove('is-hidden'); }
+    const offline = navigator.onLine === false;
+    content.innerHTML = `<div class="panel" id="adminBootFailure" role="alert" aria-live="assertive" tabindex="-1"><h2>Yönetim paneli yüklenemedi</h2><p>${offline ? 'İnternet bağlantınız çevrimdışı görünüyor. Bağlantı geri geldiğinde yeniden deneyin.' : 'Gerekli modüller yüklenemedi. Lütfen yeniden deneyin.'}</p><button class="btn btn-primary" id="adminBootRetry" type="button"${offline ? ' disabled' : ''}>Yeniden dene</button></div>`;
+    const panel = document.getElementById('adminBootFailure');
+    const retry = document.getElementById('adminBootRetry');
+    retry?.addEventListener('click', () => location.reload());
+    panel?.focus();
+    if (offline) window.addEventListener('online', () => {
+      const message = panel?.querySelector('p');
+      if (message) message.textContent = 'Bağlantı geri geldi. Paneli yeniden yüklemeyi deneyebilirsiniz.';
+      if (retry) retry.disabled = false;
+      retry?.focus();
+    }, { once: true });
+  };
   let chain = Promise.resolve();
   for (const path of scripts) chain = chain.then(() => new Promise((resolve, reject) => {
     const tag = document.createElement('script');
@@ -35,7 +55,6 @@
     window.dispatchEvent(new CustomEvent('stagepulse:admin-ready'));
   }).catch((error) => {
     console.error(error);
-    const content = document.getElementById('content');
-    if (content) content.innerHTML = '<div class="panel"><h2>Yönetim paneli yüklenemedi</h2><p>Lütfen sayfayı yenileyin.</p></div>';
+    renderBootFailure();
   });
 })();

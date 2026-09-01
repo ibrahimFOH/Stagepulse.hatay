@@ -16,6 +16,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -28,6 +29,7 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
         private const val CHANNEL_ID = "stagepulse_updates"
         private const val NOTIFIED_VERSION = "apk_notified_version"
         private const val MANIFEST = "https://raw.githubusercontent.com/ibrahimFOH/Stagepulse.hatay/main/latest.json"
+        private const val SUPABASE_MANIFEST = "https://mtjcqqrogjqaxkagwkti.supabase.co/rest/v1/app_versions?platform=eq.%s&select=platform,web_version,apk_version,minimum_version,apk_url,apk_sha256,notes&limit=1"
         private val SHA256 = Regex("^[0-9a-f]{64}$")
 
         fun schedule(context: Context) {
@@ -47,14 +49,28 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
 
     override suspend fun doWork(): Result {
         return try {
-            val root = fetchManifest() ?: return Result.retry()
+            val root = fetchJson(MANIFEST) as? JSONObject ?: return Result.retry()
             if (root.optString("status") != "verified") return Result.success()
             val key = if (BuildConfig.APP_VARIANT.equals("admin", true)) "admin" else "staff"
             val item = root.optJSONObject(key) ?: return Result.retry()
+            val supabase = fetchJson(String.format(SUPABASE_MANIFEST, BuildConfig.APP_VARIANT), true) as? JSONArray
+                ?: return Result.retry()
+            val databaseItem = supabase.optJSONObject(0) ?: return Result.retry()
             val remoteVersion = item.optLong("apk_version", 0L).toInt()
             val apkUrl = item.optString("apk_url").trim()
             val apkSha256 = item.optString("apk_sha256").trim().lowercase(Locale.US)
-            if (!AndroidUrlPolicy.isTrustedReleaseUrl(apkUrl) || !SHA256.matches(apkSha256)) return Result.success()
+            val records = listOfNotNull(
+                manifestRecord("public", item),
+                manifestRecord("supabase", databaseItem)
+            )
+            val agreement = UpdateManifestPolicy.agreed(records) ?: return Result.success()
+            if (
+                agreement.version != remoteVersion ||
+                agreement.url != apkUrl ||
+                agreement.sha256 != apkSha256 ||
+                !AndroidUrlPolicy.isTrustedReleaseUrl(apkUrl) ||
+                !SHA256.matches(apkSha256)
+            ) return Result.success()
             val currentVersion = currentVersionCode()
             if (remoteVersion <= currentVersion) return Result.success()
 
@@ -75,21 +91,37 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
         }
     }
 
-    private fun fetchManifest(): JSONObject? {
-        val c = (URL("$MANIFEST?t=${System.currentTimeMillis()}").openConnection() as HttpURLConnection).apply {
+    private fun fetchJson(url: String, authenticated: Boolean = false): Any? {
+        val separator = if (url.contains('?')) "&" else "?"
+        val c = (URL("$url${separator}t=${System.currentTimeMillis()}").openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             setRequestProperty("Cache-Control", "no-cache, no-store, max-age=0")
             setRequestProperty("Accept", "application/json")
+            if (authenticated) {
+                setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
+                setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            }
             connectTimeout = 8000
             readTimeout = 12000
             useCaches = false
         }
         return try {
             if (c.responseCode !in 200..299) return null
-            c.inputStream.bufferedReader().use { JSONObject(it.readText()) }
+            val body = c.inputStream.bufferedReader().use { it.readText() }
+            if (authenticated) JSONArray(body) else JSONObject(body)
         } finally {
             c.disconnect()
         }
+    }
+
+    private fun manifestRecord(source: String, item: JSONObject): UpdateManifestRecord? {
+        val version = item.optLong("apk_version", 0L).toInt()
+        val minimum = item.optLong("minimum_version", 0L).toInt()
+        val url = item.optString("apk_url").trim()
+        val sha = item.optString("apk_sha256").trim().lowercase(Locale.US)
+        return if (version > 0 && minimum >= 0 && AndroidUrlPolicy.isTrustedReleaseUrl(url) && SHA256.matches(sha)) {
+            UpdateManifestRecord(source, version, minimum, url, sha)
+        } else null
     }
 
     private fun currentVersionCode(): Int {

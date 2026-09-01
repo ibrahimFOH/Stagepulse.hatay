@@ -38,5 +38,42 @@ class AndroidUrlPolicyTest {
         assertFalse(AndroidUrlPolicy.isCanonicalPortalUrl("https://stagepulse.com.tr/portal/%2e./offers", "/portal/"))
         assertFalse(AndroidUrlPolicy.isCanonicalPortalUrl("https://stagepulse.com.tr/portal/.%2e/offers", "/portal/"))
         assertFalse(AndroidUrlPolicy.isCanonicalPortalUrl("https://stagepulse.com.tr/portal/%2E%2e/offers", "/portal/"))
+        assertFalse(AndroidUrlPolicy.isCanonicalPortalUrl("https://stagepulse.com.tr/portal//offers", "/portal/"))
+        assertFalse(AndroidUrlPolicy.isCanonicalPortalUrl("https://stagepulse.com.tr/portal/offers#fragment", "/portal/"))
+        assertFalse(AndroidUrlPolicy.isCanonicalPortalUrl("https://stagepulse.com.tr/portal/?next=%250d%250aHeader", "/portal/"))
+    }
+
+    @Test
+    fun notificationDeepLinksAreValidatedRatherThanRewritten() {
+        assertTrue(
+            AndroidUrlPolicy.canonicalNotificationUrl(
+                "https://stagepulse.com.tr/portal/offers?id=42&tab=open",
+                "/portal/"
+            ) == "https://stagepulse.com.tr/portal/offers?id=42&tab=open"
+        )
+        assertTrue(
+            AndroidUrlPolicy.canonicalNotificationUrl(
+                "https://stagepulse.com.tr/admin/",
+                "/admin/"
+            ) == "https://stagepulse.com.tr/admin/"
+        )
+        assertTrue(AndroidUrlPolicy.canonicalNotificationUrl("https://evil.example/portal/offers?id=42", "/portal/") == null)
+        assertTrue(AndroidUrlPolicy.canonicalNotificationUrl("http://stagepulse.com.tr/portal/", "/portal/") == null)
+        assertTrue(AndroidUrlPolicy.canonicalNotificationUrl("https://stagepulse.com.tr/portal/%2e%2e/admin", "/portal/") == null)
+        assertTrue(AndroidUrlPolicy.canonicalNotificationUrl("https://stagepulse.com.tr/portal/?x=%0d%0aInjected", "/portal/") == null)
+        assertTrue(AndroidUrlPolicy.canonicalNotificationUrl("https://stagepulse.com.tr/portal/#session", "/portal/") == null)
+    }
+
+    @Test
+    fun validatesEveryAllowedApkRedirectHop() {
+        val release = "https://github.com/ibrahimFOH/Stagepulse.hatay/releases/download/v2.3.1-build.10/Stagepulse-Personel-v2.3.1.apk"
+        val asset = "https://release-assets.githubusercontent.com/github-production-release-asset/123/abcdef?sp=r&sig=a%2Fb%3D"
+        assertTrue(AndroidUrlPolicy.isTrustedApkDownloadHop(release))
+        assertTrue(AndroidUrlPolicy.isTrustedApkDownloadHop(asset))
+        assertTrue(AndroidUrlPolicy.isAllowedApkRedirect(release, asset))
+        assertFalse(AndroidUrlPolicy.isAllowedApkRedirect(release, "https://objects.githubusercontent.com/asset.apk"))
+        assertFalse(AndroidUrlPolicy.isAllowedApkRedirect(release, "https://release-assets.githubusercontent.com.evil.example/github-production-release-asset/123/a"))
+        assertFalse(AndroidUrlPolicy.isAllowedApkRedirect(release, "https://release-assets.githubusercontent.com/github-production-release-asset/123/%2e%2e"))
+        assertFalse(AndroidUrlPolicy.isAllowedApkRedirect(release, "https://release-assets.githubusercontent.com/github-production-release-asset/123/a?x=%0d%0aHeader"))
     }
 }

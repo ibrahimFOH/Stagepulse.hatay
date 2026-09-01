@@ -1,3 +1,5 @@
+.sp-offer-price-grid{display:grid;grid-template-columns:90px 120px minmax(100px,130px) 100px;gap:8px;align-items:end}
+@media(max-width:700px){.sp-offer-price-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.sp-offer-price-grid .btn{width:100%}}
 /* Stagepulse Admin — bağımsız, sade, hamburger menü */
 :root {
   --bg: #080808;

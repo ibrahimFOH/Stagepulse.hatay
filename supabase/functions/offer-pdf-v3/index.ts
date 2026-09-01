@@ -33,6 +33,12 @@ function text(value: unknown, max = 240) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+async function identifierDigest(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function publicOffer(row: any, pdf: any = null) {
   const expires = row.validity_until ?? row.valid_until ?? null;
   const visible = row.pdf_customer_visible !== false && pdf?.customer_visible !== false;
@@ -102,6 +108,13 @@ Deno.serve(async (req) => {
     }
     const body = await req.json().catch(() => ({}));
     const action = text(body?.action, 40);
+    const identifier = text(body?.code, 120) || text(body?.token, 240);
+    if (identifier) {
+      const digest = await identifierDigest(identifier);
+      if (await isDistributedRateLimited(db, `public-offer-id:${digest}:${getClientIp(req)}`, 10)) {
+        return response(req, { error: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." }, 429);
+      }
+    }
     const offer = await findOffer(db, body);
 
     if (action === "customer_quote") {

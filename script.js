@@ -1,4 +1,11 @@
 /* Stagepulse public script — dokumanlar.html bolgeler.html */
+(function loadConsentBeforePublicControllers() {
+  if (window.StagepulseConsent || document.querySelector('script[src$="/consent.js"],script[src="consent.js"]')) return;
+  var consent = document.createElement('script');
+  consent.src = '/consent.js';
+  consent.async = false;
+  document.head.appendChild(consent);
+})();
 function ensureCoreNavigationLinks() {
   var nav = document.getElementById('navLinks');
   if (!nav) return;

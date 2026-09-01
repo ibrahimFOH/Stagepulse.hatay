@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const [fcm, adminLogin, portalLogin, publicQuote, registration, githubMedia, offerPdf, offerPdfV3, orgAdmin] = await Promise.all([
+const [fcm, adminLogin, portalLogin, publicQuote, registration, githubMedia, offerPdf, offerPdfV3, orgAdmin, staffSession, publicCodeMigration] = await Promise.all([
   read("supabase/functions/send-fcm-notification/index.ts"),
   read("supabase/functions/admin-login/index.ts"),
   read("supabase/functions/portal-login/index.ts"),
@@ -12,6 +12,8 @@ const [fcm, adminLogin, portalLogin, publicQuote, registration, githubMedia, off
   read("supabase/functions/offer-pdf/index.ts"),
   read("supabase/functions/offer-pdf-v3/index.ts"),
   read("supabase/functions/org-admin-control/index.ts"),
+  read("supabase/functions/staff-session/index.ts"),
+  read("supabase/migrations/20260901003500_strengthen_future_offer_public_codes.sql"),
 ]);
 
 assert.match(fcm, /else\{\s*await requireAdmin\(req\)/, "Direct push dispatch must require an admin session");
@@ -37,5 +39,11 @@ assert.match(offerPdfV3, /\.eq\("is_current", true\)[\s\S]*\.eq\("mime_type", "a
 assert.doesNotMatch(offerPdfV3, /offer\.pdf_storage_path/, "Legacy offer storage paths must not be signed");
 assert.match(offerPdfV3, /\.in\("status", \["new", "reviewing", "preparing", "sent"\]\)/, "Offer responses must update conditionally");
 assert.doesNotMatch(orgAdmin, /üyeliği okunamadı: "\+me\.message/, "Organization API must not expose database errors");
+assert.match(staffSession, /e instanceof PublicError\?out\(req,\{error:e\.message\},e\.status\)/, "Staff session must expose only explicitly tagged public errors");
+assert.doesNotMatch(staffSession, /me\.message|error:e instanceof Error\?e\.message/, "Staff session must not expose database or provider errors");
+assert.match(offerPdfV3, /public-offer-id:\$\{digest\}:\$\{getClientIp\(req\)\}/, "Offer codes and tokens must have a per-identifier rate limit");
+assert.match(offerPdfV3, /crypto\.subtle\.digest\("SHA-256"/, "Rate-limit keys must not store raw public credentials");
+assert.match(publicCodeMigration, /gen_random_bytes\(16\)/, "Future public codes must carry 128 bits of entropy");
+assert.match(publicCodeMigration, /if v_code is not null and v_code <> '' then[\s\S]*return v_code/, "Existing public links must remain unchanged");
 
-console.log("Edge security validation passed (23 assertions).");
+console.log("Edge security validation passed (29 assertions).");

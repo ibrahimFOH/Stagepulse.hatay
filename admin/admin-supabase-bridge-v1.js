@@ -5,7 +5,7 @@
   const create = () => {
     if (!window.supabase || !runtime.supabaseUrl || !runtime.supabasePublishableKey) return null;
     return window.supabase.createClient(runtime.supabaseUrl, runtime.supabasePublishableKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'stagepulse-admin-auth-v2' }
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'stagepulse-admin-auth-v2', storage: window.sessionStorage }
     });
   };
   try {
