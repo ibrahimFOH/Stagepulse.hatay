@@ -2,6 +2,7 @@
 (() => {
   const PAGE_SIZE=50;
   let page=0,total=0,rows=[],q='';
+  const $=s=>document.querySelector(s);
   const esc=s=>String(s??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
   const n=v=>Math.max(0,Number(v)||0);
   const healthy=e=>Math.max(0,n(e.quantity)-n(e.faulty_quantity)-n(e.maintenance_quantity));
