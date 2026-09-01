@@ -1,5 +1,3 @@
-begin;
-
 create or replace function public.set_offer_public_code()
 returns trigger
 language plpgsql
@@ -63,5 +61,3 @@ $$;
 revoke all on function public.set_offer_public_code() from public, anon, authenticated;
 revoke all on function public.ensure_quote_public_code(uuid) from public, anon, authenticated;
 grant execute on function public.ensure_quote_public_code(uuid) to authenticated;
-
-commit;
