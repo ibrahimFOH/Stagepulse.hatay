@@ -128,77 +128,6 @@ def require_exact_prefix(remote, local_versions):
         )
 
 
-def repair_staff_permission_acl():
-    query(
-        """
-        begin;
-        do $$
-        begin
-          if to_regprocedure('public.staff_has_perm(text)') is null
-            or to_regprocedure('public.staff_has_perm(text[])') is null
-            or to_regprocedure('public.staff_has_exact_perm(text)') is null
-          then
-            raise exception 'Required canonical staff permission helpers are missing';
-          end if;
-        end;
-        $$;
-        revoke all on function public.staff_has_perm(text) from public, anon;
-        revoke all on function public.staff_has_perm(text[]) from public, anon;
-        revoke all on function public.staff_has_exact_perm(text) from public, anon;
-        grant execute on function public.staff_has_perm(text) to authenticated;
-        grant execute on function public.staff_has_perm(text[]) to authenticated;
-        grant execute on function public.staff_has_exact_perm(text) to authenticated;
-        notify pgrst, 'reload schema';
-        commit;
-        """,
-        read_only=False,
-    )
-    result = rows(
-        query(
-            """
-            select
-              has_function_privilege(
-                'authenticated', 'public.staff_has_perm(text)', 'EXECUTE'
-              ) as authenticated_text,
-              has_function_privilege(
-                'authenticated', 'public.staff_has_perm(text[])', 'EXECUTE'
-              ) as authenticated_array,
-              has_function_privilege(
-                'authenticated', 'public.staff_has_exact_perm(text)', 'EXECUTE'
-              ) as authenticated_exact,
-              has_function_privilege(
-                'anon', 'public.staff_has_perm(text)', 'EXECUTE'
-              ) as anon_text,
-              has_function_privilege(
-                'anon', 'public.staff_has_perm(text[])', 'EXECUTE'
-              ) as anon_array,
-              has_function_privilege(
-                'anon', 'public.staff_has_exact_perm(text)', 'EXECUTE'
-              ) as anon_exact
-            """,
-            read_only=True,
-        )
-    )
-    if len(result) != 1:
-        abort("Staff permission ACL readback returned an unexpected row count")
-    acl = result[0]
-    if not (
-        acl.get("authenticated_text") is True
-        and acl.get("authenticated_array") is True
-        and acl.get("authenticated_exact") is True
-        and acl.get("anon_text") is False
-        and acl.get("anon_array") is False
-        and acl.get("anon_exact") is False
-    ):
-        abort("Staff permission ACL readback did not match the secure target state")
-    message = (
-        "Authenticated staff permission EXECUTE grants restored; "
-        "anonymous execution remains revoked"
-    )
-    github_annotation("warning", "Emergency staff ACL repair applied", message)
-    github_summary(f"## Emergency staff ACL repair\n\n{message}")
-
-
 # Do not trust this script's filename scan alone: the committed checksum ledger makes
 # edits to any already-reviewed migration visible before production is contacted.
 subprocess.run(
@@ -217,11 +146,6 @@ for path in sorted(MIGRATIONS.glob("*.sql")):
 
 local_versions = [version for version, _, _ in local]
 remote = remote_versions()
-if APPLY_MISSING:
-    # Incident recovery is intentionally independent of migration-ledger alignment.
-    # The same idempotent ACL target is also committed as a repository migration;
-    # divergent migration history still blocks every normal migration below.
-    repair_staff_permission_acl()
 require_exact_prefix(remote, local_versions)
 
 missing = local[len(remote) :]
