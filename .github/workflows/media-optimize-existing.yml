@@ -1,0 +1,21 @@
+name: Media Optimization Check
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'images/**'
+      - 'scripts/process_media.py'
+      - 'generate_media_json.py'
+      - '.github/workflows/media-optimize-existing.yml'
+permissions:
+  contents: read
+jobs:
+  media-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate media tooling
+        run: |
+          test -f scripts/process_media.py
+          test -f generate_media_json.py
+          python3 -m py_compile scripts/process_media.py generate_media_json.py
