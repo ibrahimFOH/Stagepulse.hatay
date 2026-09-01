@@ -1,0 +1,55 @@
+/* Stagepulse Admin — restored visual system: color + component parity */
+:root{--admin-color-text:#f2f2f2;--admin-color-muted:#a8a8a8;--admin-color-gold:#ffb000;--admin-color-amber:#ffd166;--admin-color-purple:#7c4dff;--admin-color-cyan:#00c2ff;--admin-color-teal:#00d68f;--admin-color-green:#69df91;--admin-color-red:#ff7373;--admin-line:#2a2a2a;--admin-panel:#111214}
+.admin-body{color:var(--admin-color-text)!important;background:#080808!important}
+.admin-body h1,.admin-body h2,.admin-body h3,.admin-body h4,.admin-body h5,.admin-body h6{color:var(--admin-color-text)!important}
+.admin-body .page-head h1{color:var(--admin-color-text)!important}
+.admin-body p,.admin-body label,.admin-body .muted{color:var(--admin-color-muted)!important}
+.admin-body a{color:var(--admin-color-amber)!important}
+.admin-body .topbar{background:rgba(8,8,8,.94)!important;border-bottom-color:var(--admin-line)!important}
+.admin-body .sidebar{background:#0b0b0b!important;border-right-color:var(--admin-line)!important}
+.admin-body .nav-label{color:#696969!important}
+.admin-body .nav button{color:#b8b8b8!important;border:1px solid transparent!important}
+.admin-body .nav button:hover{color:#fff!important;background:linear-gradient(90deg,rgba(124,77,255,.18),rgba(0,194,255,.08))!important;border-color:rgba(124,77,255,.20)!important}
+.admin-body .nav button.active{color:#fff!important;background:linear-gradient(90deg,rgba(124,77,255,.26),rgba(0,194,255,.10))!important;border-color:rgba(124,77,255,.42)!important;box-shadow:inset 3px 0 0 var(--admin-color-purple)!important}
+.admin-body .nav-logout{color:#ff8b8b!important}
+.admin-body .avatar,.admin-body .brand-dot,.admin-body .auth-mark{background:linear-gradient(135deg,#7c4dff,#00c2ff)!important;color:#fff!important}
+.admin-body .site-link{color:#a8a8a8!important}
+.admin-body .icon-btn{background:#15171b!important;border-color:#30333a!important;color:#ececec!important}
+.admin-body .icon-btn:hover{border-color:#555c68!important}
+.admin-body .content{color:var(--admin-color-text)!important}
+.admin-body .card,.admin-body .panel{border-color:rgba(255,255,255,.10)!important;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025))!important;box-shadow:0 12px 35px rgba(0,0,0,.16)!important}
+.admin-body .card:before{background:linear-gradient(90deg,var(--admin-color-purple),var(--admin-color-cyan))!important}
+.admin-body .card:nth-child(4n+2):before{background:linear-gradient(90deg,var(--admin-color-cyan),var(--admin-color-teal))!important}
+.admin-body .card:nth-child(4n+3):before{background:linear-gradient(90deg,var(--admin-color-teal),#b7f34a)!important}
+.admin-body .card:nth-child(4n):before{background:linear-gradient(90deg,var(--admin-color-gold),var(--admin-color-red))!important}
+.admin-body .metric{color:#fff!important}
+.admin-body .kpi-accent{border-color:rgba(109,93,252,.42)!important;background:linear-gradient(135deg,rgba(109,93,252,.16),rgba(0,194,255,.05))!important}
+.admin-body .btn{color:#eee!important;background:#1a1c20!important;border-color:#343842!important}
+.admin-body .btn:hover{color:#fff!important;background:#22252b!important;border-color:#555c68!important}
+.admin-body .btn-primary{color:#fff!important;background:linear-gradient(135deg,#7c4dff,#5d5fef)!important;border-color:transparent!important;box-shadow:0 8px 22px rgba(124,77,255,.25)!important}
+.admin-body .btn-danger{color:#ff9b9b!important;border-color:#653030!important;background:#1d1010!important}
+.admin-body input,.admin-body select,.admin-body textarea,.admin-body .table-search{color:#f2f2f2!important;background:#0d0f13!important;border-color:#30343d!important}
+.admin-body input::placeholder,.admin-body textarea::placeholder{color:#6f7682!important}
+.admin-body input:focus,.admin-body select:focus,.admin-body textarea:focus,.admin-body .table-search:focus{border-color:#7c4dff!important;box-shadow:0 0 0 3px rgba(124,77,255,.12)!important;outline:none!important}
+.admin-body .data-table th{color:#b8c2d1!important;background:rgba(124,77,255,.08)!important}
+.admin-body .data-table td{color:#e7eaf0!important;border-bottom-color:#22252b!important}
+.admin-body .data-table tbody tr:hover{background:rgba(124,77,255,.07)!important}
+.admin-body .status{background:rgba(0,194,255,.10)!important;border-color:rgba(0,194,255,.18)!important;color:#8fdfff!important}
+.admin-body .status.new{color:#ffd166!important;background:rgba(255,176,0,.10)!important;border-color:rgba(255,176,0,.25)!important}
+.admin-body .status.sent,.admin-body .status.preparing{color:#bdaeff!important;background:rgba(124,77,255,.10)!important;border-color:rgba(124,77,255,.25)!important}
+.admin-body .status.accepted{color:#69df91!important;background:rgba(0,214,143,.09)!important;border-color:rgba(0,214,143,.25)!important}
+.admin-body .status.rejected,.admin-body .status.cancelled{color:#ff8f8f!important;background:rgba(255,92,122,.09)!important;border-color:rgba(255,92,122,.25)!important}
+.admin-body .notice{background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018))!important;border-color:rgba(255,255,255,.10)!important}
+.admin-body .modal{background:rgba(0,0,0,.78)!important}
+.admin-body .modal-card{background:#101216!important;border-color:#343842!important}
+.admin-body .close{color:#89909b!important}
+.admin-body .close:hover{color:#fff!important}
+.admin-body .modal-actions{border-top-color:#252a31!important}
+.admin-body .auth-card{background:#111214!important;border-color:#2d3138!important}
+.admin-body .auth-card input{background:#0c0e12!important;border-color:#30343d!important}
+.admin-body .auth-card input:focus{border-color:#7c4dff!important;box-shadow:0 0 0 3px rgba(124,77,255,.12)!important}
+.admin-body .auth-forgot{color:#bdaeff!important;background:transparent!important;border-color:transparent!important}
+.admin-body .auth-forgot:hover,.admin-body .auth-forgot:focus{color:#fff!important;background:rgba(124,77,255,.08)!important;border-color:rgba(124,77,255,.18)!important}
+.admin-body .form-error{color:#ff8f8f!important}
+.admin-body .admin-toast.ok{border-color:rgba(0,214,143,.35)!important}
+.admin-body .admin-toast.err{border-color:rgba(255,92,122,.35)!important}

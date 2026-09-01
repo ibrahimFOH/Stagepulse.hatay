@@ -1,0 +1,111 @@
+/* Stagepulse Admin — Tablet / dashboard visual system v2
+   Visual-only layer. No data, permission or API behavior changes. */
+:root{
+  --admin-surface:#12141a;
+  --admin-surface-2:#171a22;
+  --admin-surface-3:#1b1f29;
+  --admin-border:#292e39;
+  --admin-border-soft:#222733;
+  --admin-blue:#5d8cff;
+  --admin-cyan:#45c7d9;
+  --admin-green:#55d69a;
+  --admin-purple:#9b7cff;
+  --admin-gold:#e9b84a;
+  --admin-red:#ef747d;
+}
+
+.admin-body{background:radial-gradient(circle at 72% -10%,rgba(93,140,255,.075),transparent 32%),radial-gradient(circle at 15% 35%,rgba(155,124,255,.035),transparent 28%),#080a0e!important}
+.admin-body .sidebar{background:linear-gradient(180deg,#0d1016,#0b0d12)!important;border-right-color:#252a34!important}
+.admin-body .sidebar-top{border-bottom-color:#252a34!important;padding:17px 14px!important}
+.admin-body .brand-dot{background:linear-gradient(135deg,#e9b84a,#c98d28)!important;box-shadow:0 5px 18px rgba(233,184,74,.12)}
+.admin-body .nav{padding:12px 10px 16px!important;gap:4px!important}
+.admin-body .nav-label{color:#687081!important;font-weight:700!important;padding:14px 10px 7px!important}
+.admin-body .nav button{min-height:42px!important;border:1px solid transparent!important;color:#aeb6c5!important;border-radius:11px!important}
+.admin-body .nav button:hover{background:#151922!important;color:#f2f5fa!important;border-color:#232936!important}
+.admin-body .nav button.active{background:linear-gradient(100deg,rgba(93,140,255,.14),rgba(93,140,255,.045))!important;border-color:rgba(93,140,255,.27)!important;color:#dce7ff!important;box-shadow:inset 3px 0 0 var(--admin-blue)!important}
+.admin-body .nav button.active em{background:var(--admin-blue)!important;color:#07101f!important}
+.admin-body .sidebar-user{border-top-color:#252a34!important;background:rgba(255,255,255,.012)}
+.admin-body .avatar{background:#171b24!important;color:#9bb8ff!important;border:1px solid #2a3140}
+
+.admin-body .topbar{height:66px!important;background:rgba(8,10,14,.88)!important;border-bottom-color:#252a34!important}
+.admin-body .topbar-title h1{font-size:17px!important;letter-spacing:-.01em}
+.admin-body .topbar-title p{color:#737d8e!important}
+.admin-body .icon-btn{background:#141821!important;border-color:#29303c!important}
+.admin-body .site-link{border-color:#252b36!important;background:#11141a!important;padding:8px 11px!important}
+.admin-body .content{max-width:none!important;padding:22px 24px 52px!important}
+.admin-body .page-head{margin-bottom:16px!important}
+.admin-body .page-head h1{font-size:24px!important}
+
+/* Dashboard / analytics as a calm visual system */
+.admin-body .cards{gap:12px!important;margin-bottom:16px!important}
+.admin-body .card{background:linear-gradient(145deg,#151922,#10131a)!important;border-color:#292f3b!important;border-radius:15px!important;padding:16px 17px!important;box-shadow:0 12px 30px rgba(0,0,0,.16)!important}
+.admin-body .card::before{height:2px!important;opacity:.72!important}
+.admin-body .card:nth-child(1)::before{background:var(--admin-blue)!important}
+.admin-body .card:nth-child(2)::before{background:var(--admin-cyan)!important}
+.admin-body .card:nth-child(3)::before{background:var(--admin-green)!important}
+.admin-body .card:nth-child(4)::before{background:var(--admin-gold)!important}
+.admin-body .card:nth-child(5)::before{background:var(--admin-purple)!important}
+.admin-body .card-label{color:#8791a2!important}
+.admin-body .metric{font-size:25px!important;letter-spacing:-.03em!important}
+.admin-body .kpi-accent{background:linear-gradient(145deg,#19170f,#12130f)!important;border-color:#4a3b1c!important}
+.admin-body .panel{background:linear-gradient(145deg,#14171e,#101218)!important;border-color:#292f3b!important;border-radius:15px!important;box-shadow:0 12px 32px rgba(0,0,0,.13)!important}
+.admin-body .panel h3{color:#e7ebf2!important}
+.admin-body .notice{background:#141820!important;border-color:#2b3340!important}
+.admin-body .settle-kpi>div{background:#11151c!important;border-color:#29303b!important}
+.admin-body .settle-preview{background:#11151c!important;border-color:#3d3420!important}
+.admin-body .chart{background:linear-gradient(180deg,rgba(93,140,255,.075),rgba(69,199,217,.018))!important;border-color:#29303b!important}
+
+/* Tables */
+.admin-body .table-wrap{border-radius:12px}
+.admin-body .data-table th,.admin-body .settle-table th{color:#778195!important;background:#11141a!important}
+.admin-body .data-table td,.admin-body .settle-table td{border-bottom-color:#232935!important}
+.admin-body .data-table tbody tr:hover td,.admin-body .settle-table tbody tr:hover td{background:rgba(93,140,255,.035)!important}
+.admin-body .status{background:#171b23!important;border-color:#303744!important}
+.admin-body .status.new{background:rgba(233,184,74,.08)!important;border-color:rgba(233,184,74,.32)!important}
+.admin-body .status.sent,.admin-body .status.preparing{background:rgba(93,140,255,.08)!important;border-color:rgba(93,140,255,.3)!important}
+.admin-body .status.accepted{background:rgba(85,214,154,.08)!important;border-color:rgba(85,214,154,.3)!important}
+
+/* Forms / modals */
+.admin-body input,.admin-body select,.admin-body textarea,.admin-body .table-search{background:#0e1117!important;border-color:#2a303b!important;color:#edf1f7!important}
+.admin-body input:focus,.admin-body select:focus,.admin-body textarea:focus,.admin-body .table-search:focus{border-color:rgba(93,140,255,.75)!important;box-shadow:0 0 0 3px rgba(93,140,255,.10)!important;outline:none!important}
+.admin-body .btn{border-color:#303642!important;background:#181c24!important}
+.admin-body .btn:hover{background:#202530!important;border-color:#3c4554!important}
+.admin-body .btn-primary{background:linear-gradient(135deg,#5d8cff,#4b74df)!important;border-color:#668fff!important;color:#08101e!important;box-shadow:0 8px 22px rgba(93,140,255,.14)!important}
+.admin-body .btn-danger{border-color:#5a3035!important;color:#ff9aa1!important;background:#1b1215!important}
+.admin-body .modal{background:rgba(2,4,7,.78)!important}
+.admin-body .modal-card{background:linear-gradient(145deg,#151820,#101218)!important;border-color:#303744!important;box-shadow:0 24px 70px rgba(0,0,0,.4)!important}
+
+/* Personnel permission controls: true switch, never a checkbox */
+.admin-body .sp-toggle{background:#141820!important;border-color:#2b323e!important;border-radius:12px!important;min-height:50px!important;padding:10px 11px!important}
+.admin-body .sp-toggle:hover{background:#191e27!important;border-color:#3a4352!important}
+.admin-body .sp-toggle-track{width:44px!important;height:24px!important;background:#3a414d!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.035)}
+.admin-body .sp-toggle-knob{width:18px!important;height:18px!important;top:3px!important;left:3px!important;background:#c1c8d2!important;box-shadow:0 2px 5px rgba(0,0,0,.35)}
+.admin-body .sp-toggle.is-on{background:rgba(93,140,255,.075)!important;border-color:rgba(93,140,255,.32)!important}
+.admin-body .sp-toggle.is-on .sp-toggle-track{background:var(--admin-blue)!important}
+.admin-body .sp-toggle.is-on .sp-toggle-knob{left:23px!important;background:#fff!important}
+.admin-body .sp-toggle-copy b{color:#e8ecf3!important}
+.admin-body .sp-toggle-copy small{color:#7f899a!important}
+.admin-body .sp-toggle.is-on .sp-toggle-copy small{color:#9bb8ff!important}
+
+/* Tablet: designed around 9.7–11 inch landscape use */
+@media (min-width:861px) and (max-width:1199px){
+  .admin-body .content{padding:18px 18px 44px!important}
+  .admin-body .cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .admin-body .card{min-height:100px!important}
+  .admin-body .metric{font-size:24px!important}
+  .admin-body .grid2{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+  .admin-body .page-head h1{font-size:22px!important}
+  .admin-body .panel{padding:14px!important}
+  .admin-body .data-table,.admin-body .settle-table{font-size:12px!important}
+  .admin-body .data-table th,.admin-body .data-table td,.admin-body .settle-table th,.admin-body .settle-table td{padding:9px 7px!important}
+  .admin-body .modal-card{width:min(900px,calc(100vw - 36px))!important;max-height:90svh!important}
+  .admin-body .sp-permissions-shell{grid-template-columns:repeat(2,minmax(0,1fr))!important;max-height:47vh!important}
+}
+
+@media (max-width:860px){
+  .admin-body .content{padding:15px 14px 38px!important}
+  .admin-body .cards{gap:9px!important}
+  .admin-body .card{padding:13px!important}
+}
+
+@media (prefers-reduced-motion:reduce){.admin-body *{scroll-behavior:auto!important;transition:none!important}}
