@@ -7,8 +7,9 @@
   document.head.appendChild(consent);
 })();
 function ensureCoreNavigationLinks() {
-  var nav = document.getElementById('navLinks');
+  var nav = document.getElementById('navLinks') || document.querySelector('nav .nav-links');
   if (!nav) return;
+  if (!nav.id) nav.id = 'navLinks';
   function ensure(href, label, beforeHref) {
     var sel = 'a[href="' + href + '"], a[href="../' + href + '"]';
     if (nav.querySelector(sel)) return;
@@ -27,8 +28,14 @@ ensureCoreNavigationLinks();
 
 /* Public TR/EN switcher — bütün bölge sayfalarında tek tip görünüm */
 function ensureLanguageSwitcher() {
-  var nr = document.querySelector('.nav-right');
-  if (!nr) return;
+  var navInner = document.querySelector('nav .nav-inner');
+  if (!navInner) return;
+  var nr = navInner.querySelector('.nav-right');
+  if (!nr) {
+    nr = document.createElement('div');
+    nr.className = 'nav-right';
+    navInner.appendChild(nr);
+  }
   var ls = nr.querySelector('.lang-switch');
   if (!ls) {
     ls = document.createElement('div');
