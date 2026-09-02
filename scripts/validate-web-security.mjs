@@ -100,8 +100,8 @@ requireMatch(portalIsolation.includes("const role = location.pathname.startsWith
 requireMatch(adminShell.includes('storage:window.sessionStorage'), 'Admin auth must persist only in sessionStorage.');
 requireMatch(adminBridge.includes('storage: window.sessionStorage'), 'Admin bridge must persist only in sessionStorage.');
 requireMatch(portalIsolation.includes('storage: window.sessionStorage'), 'Portal auth clients must persist only in sessionStorage.');
-requireMatch(adminRuntime.includes('navigator.onLine') && adminRuntime.includes('adminBootRetry') && adminRuntime.includes('aria-live="assertive"'), 'Admin boot failure must distinguish offline state and expose an accessible retry.');
-requireMatch(portalRuntime.includes('navigator.onLine') && portalRuntime.includes('portalBootRetry') && portalRuntime.includes('aria-live="assertive"'), 'Portal boot failure must distinguish offline state and expose an accessible retry.');
+requireMatch(adminRuntime.includes('navigator.onLine') && adminRuntime.includes('adminBootRetry') && /aria-live=["']assertive["']|role=["']alert["']/.test(adminRuntime), 'Admin boot failure must distinguish offline state and expose an accessible retry.');
+requireMatch(portalRuntime.includes('navigator.onLine') && portalRuntime.includes('portalBootRetry') && /aria-live=["']assertive["']|role=["']alert["']/.test(portalRuntime), 'Portal boot failure must distinguish offline state and expose an accessible retry.');
 requireMatch(!portalRuntime.includes("'inventory-ui-v3.js','inventory-ui-v4.js'"), 'Portal runtime must not load the superseded inventory boot-hook generation.');
 requireMatch(portalInventory.includes('role="dialog"') && portalInventory.includes('aria-labelledby="spPInvTitle"') && portalInventory.includes('modalReturnFocus'), 'Inventory dialog must be named and restore focus.');
 requireMatch(portalPermissions.includes('aria-labelledby="spPortalResetTitle"') && portalPermissions.includes("$('#spPortalPass1')?.focus()"), 'Password recovery dialog must be named and receive initial focus.');
