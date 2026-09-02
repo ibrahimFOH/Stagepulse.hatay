@@ -1803,22 +1803,9 @@ window.addEventListener('stagepulse-admin-ready',()=>{window.openWhatsApp=openWh
     }
   };
 
-  const loadAdminUi = () => {
-    if (document.querySelector('script[data-sp-admin-core-ui],script[src*="admin-core-ui-v1.js"]')) return;
-    const script = document.createElement('script');
-    script.src = '/admin/admin-core-ui-v1.js?v=20260827-01';
-    script.defer = true;
-    script.dataset.spAdminCoreUi = '1';
-    document.head.appendChild(script);
-  };
-
-  const loadModuleRegistry = () => {
-    if (document.querySelector('script[data-sp-admin-module-registry],script[src*="admin-module-renderers-v2.js"]')) return;
-    const script = document.createElement('script');
-    script.src = '/admin/admin-module-renderers-v2.js?v=20260831-232';
-    script.dataset.spAdminModuleRegistry = '1';
-    document.head.appendChild(script);
-  };
+  // Canonical bundle already contains the admin UI and module registry.
+  const loadAdminUi = () => {};
+  const loadModuleRegistry = () => {};
 
   const bind = () => {
     const menu = document.getElementById('menuBtn');

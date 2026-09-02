@@ -275,3 +275,27 @@ code{font-size:12px;color:#aaa}
 @media (max-width:700px){#spCanonicalOfferMedia .sp-media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-body #content button{min-height:42px}}
 
 /* ===== END admin/admin-theme-final-v1.css ===== */
+
+
+/* Stagepulse canonical mobile offer inventory fix 2026-09-02 */
+#spFinalOfferInventory{min-width:0;overflow:hidden;}
+#spFinalOfferInventory .price-row{min-width:0;max-width:100%;overflow:hidden;}
+#spFinalOfferInventory .sp-offer-price-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(110px,.8fr) auto;gap:8px;align-items:end;min-width:0;}
+#spFinalOfferInventory .sp-offer-price-grid>*{min-width:0;}
+#spFinalOfferInventory .sp-inline-form{min-width:0;max-width:100%;flex-wrap:wrap;}
+#spFinalOfferInventory .sp-inline-form label{min-width:0;}
+#spFinalOfferInventory input,#spFinalOfferInventory select,#spFinalOfferInventory textarea{max-width:100%;box-sizing:border-box;}
+@media(max-width:760px){
+  #spFinalOfferInventory .sp-offer-price-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  #spFinalOfferInventory .sp-offer-price-grid>[data-sp-total]{grid-column:1/-1;padding:4px 0;}
+  #spFinalOfferInventory .sp-offer-price-grid>[data-sp-price-save]{grid-column:1/-1;width:100%;}
+  #spFinalOfferInventory .sp-inline-form{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px!important;align-items:end!important;}
+  #spFinalOfferInventory .sp-inline-form label{grid-column:1/-1;}
+  #spFinalOfferInventory .sp-inline-form [data-sp-reserve-save],#spFinalOfferInventory .sp-inline-form [data-sp-remove]{width:100%;}
+}
+@media(max-width:430px){
+  #spFinalOfferInventory .sp-offer-price-grid{grid-template-columns:1fr;}
+  #spFinalOfferInventory .sp-offer-price-grid>*{grid-column:1!important;}
+  #spFinalOfferInventory .sp-inline-form{grid-template-columns:1fr;}
+  #spFinalOfferInventory .sp-inline-form label,#spFinalOfferInventory .sp-inline-form button{grid-column:1!important;width:100%;}
+}
