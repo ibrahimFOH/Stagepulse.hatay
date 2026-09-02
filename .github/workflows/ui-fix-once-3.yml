@@ -1,0 +1,84 @@
+name: UI fix once 3
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[ui-fixed-3]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair canonical UI and validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/repair.py <<'PY'
+          from pathlib import Path
+          bundle=Path('admin/admin-bundle.js')
+          s=bundle.read_text(encoding='utf-8')
+          marker='/* ===== Stagepulse canonical admin UX repairs 2026-09-02 v3 ===== */'
+          if marker not in s:
+              s += r'''
+
+          /* ===== Stagepulse canonical admin UX repairs 2026-09-02 v3 ===== */
+          (() => {
+            'use strict';
+            const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            const money=v=>new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:0}).format(Number(v)||0);
+            const fmtDate=v=>v?new Date(v).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'}):'—';
+            const db=()=>window.__stagepulseAdminClient||window.sb||window.supabaseClient;
+            const table=(title,sub,headers,body)=>{const c=document.getElementById('content');if(!c)return;c.innerHTML=`<div class="page-head"><div><h1>${esc(title)}</h1><p class="muted">${esc(sub)}</p></div></div><div class="panel"><div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body||'<tr><td colspan="99" class="muted">Kayıt bulunamadı.</td></tr>'}</tbody></table></div></div>`};
+            window.financeView=async()=>{const c=db();if(!c)return;try{const {data:payments,error}=await c.from('payments').select('id,offer_id,description,amount,due_date,paid_at,status,created_at').order('created_at',{ascending:false}).limit(500);if(error)throw error;const ids=[...new Set((payments||[]).map(x=>x.offer_id).filter(Boolean))];let offers=[];if(ids.length){const r=await c.from('teklifler').select('id,quote_number,name,company,location').in('id',ids);if(r.error)throw r.error;offers=r.data||[]}const byId=Object.fromEntries(offers.map(x=>[x.id,x]));const body=(payments||[]).map(p=>{const o=byId[p.offer_id]||{};const name=o.name||o.company||'İş kaydı';return `<tr><td><strong>${esc(name)}</strong>${o.quote_number?`<div class="muted">${esc(o.quote_number)}</div>`:''}</td><td>${esc(p.description||'—')}</td><td><strong>${money(p.amount)}</strong></td><td>${esc(p.status||'pending')}</td><td>${p.due_date?esc(new Date(p.due_date).toLocaleDateString('tr-TR')):'—'}</td><td>${fmtDate(p.paid_at)}</td></tr>`}).join('');table('Ödemeler','Tahsilat kayıtları',['İş','Açıklama','Tutar','Durum','Vade','Ödeme'],body)}catch(e){console.error(e);window.toast?.(e.message||'Ödemeler yüklenemedi.',false)}};
+            window.calendarView=async()=>{const c=db();if(!c)return;try{const {data:jobs,error}=await c.from('jobs').select('id,offer_id,title,setup_at,event_at,teardown_at,location,status').order('event_at',{ascending:true}).limit(500);if(error)throw error;const ids=[...new Set((jobs||[]).map(x=>x.offer_id).filter(Boolean))];let offers=[];if(ids.length){const r=await c.from('teklifler').select('id,quote_number,name').in('id',ids);if(r.error)throw r.error;offers=r.data||[]}const byId=Object.fromEntries(offers.map(x=>[x.id,x]));const body=(jobs||[]).map(j=>{const o=byId[j.offer_id]||{};const title=j.title||o.name||o.quote_number||'İş';return `<tr><td><strong>${esc(title)}</strong>${o.quote_number&&j.title?`<div class="muted">${esc(o.quote_number)}</div>`:''}</td><td>${esc(j.location||'—')}</td><td>${fmtDate(j.setup_at)}</td><td>${fmtDate(j.event_at)}</td><td>${fmtDate(j.teardown_at)}</td><td>${esc(j.status||'planned')}</td></tr>`}).join('');table('İşler · Takvim','Kurulum ve etkinlik',['İş','Konum','Kurulum','Etkinlik','Söküm','Durum'],body)}catch(e){console.error(e);window.toast?.(e.message||'Takvim yüklenemedi.',false)}};
+          })();
+          '''
+              bundle.write_text(s,encoding='utf-8')
+          css=Path('admin/admin-bundle.css')
+          c=css.read_text(encoding='utf-8')
+          marker='/* Stagepulse canonical mobile offer editor repair 2026-09-02 v3 */'
+          if marker not in c:
+              c += r'''
+
+          /* Stagepulse canonical mobile offer editor repair 2026-09-02 v3 */
+          .modal,.modal-card,.modal-card *{min-width:0;max-width:100%;box-sizing:border-box}.modal{overflow:auto;overflow-x:hidden;padding:8px}.modal-card{width:min(760px,calc(100vw - 16px));max-width:calc(100vw - 16px);max-height:94svh;overflow-x:hidden;overflow-y:auto}.sp-offer-price-grid,.price-row{min-width:0;max-width:100%}.sp-offer-price-grid>*{min-width:0;max-width:100%}.sp-offer-price-grid input,.sp-offer-price-grid select,.sp-offer-price-grid textarea{width:100%;max-width:100%}
+          @media(max-width:760px){.modal{align-items:flex-start}.modal-card{padding:14px}.price-row{display:flex!important;flex-wrap:wrap!important;align-items:flex-end!important;gap:8px!important;overflow:visible!important}.price-row>div:first-child{flex:1 1 100%!important;width:100%!important}.price-row>.sp-offer-price-grid{flex:1 1 100%!important;width:100%!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:8px!important}.price-row>.sp-inline-form{flex:1 1 100%!important;width:100%!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:8px!important;align-items:end!important}.price-row>.sp-inline-form>label{min-width:0!important;width:auto!important;grid-column:1!important}.price-row>.sp-inline-form>[data-sp-reserve-save]{grid-column:2!important;width:100%!important;white-space:normal!important}.price-row>.sp-inline-form>[data-sp-remove]{grid-column:1/-1!important;width:100%!important}.price-row>.sp-offer-price-grid>[data-sp-price-save]{grid-column:1/-1!important;width:100%!important}.modal-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important}.modal-actions>*{width:100%!important;min-width:0!important}}
+          @media(max-width:430px){.modal-card{padding:11px}.price-row>.sp-offer-price-grid,.price-row>.sp-inline-form{grid-template-columns:1fr!important}.price-row>.sp-inline-form>label,.price-row>.sp-inline-form>[data-sp-reserve-save],.price-row>.sp-inline-form>[data-sp-remove],.price-row>.sp-offer-price-grid>[data-sp-price-save]{grid-column:1!important;width:100%!important}.modal-actions{grid-template-columns:1fr!important}}
+          '''
+              css.write_text(c,encoding='utf-8')
+
+          v=Path('scripts/validate-web-security.mjs')
+          x=v.read_text(encoding='utf-8')
+          replacements={
+            "const adminBridge = read('admin/admin-supabase-bridge-v1.js');":"const adminBundle = read('admin/admin-bundle.js');\nconst adminBridge = adminBundle;",
+            "const portalIsolation = read('portal/session-isolation.js');":"const portalBundle = read('portal/portal-bundle.js');\nconst portalIsolation = portalBundle;",
+            "const portalPermissions = read('portal/portal-permissions.js');":"const portalPermissions = portalBundle;",
+            "const portalCrud = read('portal/portal-crud.js');":"const portalCrud = portalBundle;",
+            "const portalInventory = read('portal/inventory-ui-v3.js');":"const portalInventory = portalBundle;",
+            "const adminOfferFields = read('admin/admin-offer-final-fields-v1.js');":"const adminOfferFields = adminBundle;",
+            "const adminCss = read('admin/admin.css');":"const adminCss = read('admin/admin-bundle.css');"
+          }
+          for a,b in replacements.items(): x=x.replace(a,b)
+          x=x.replace("const adminCreateClientFiles = [\n  'admin/admin.js',\n  'admin/admin-supabase-bridge-v1.js'\n];\nfor (const path of adminCreateClientFiles) {\n  requireMatch(read(path).includes('stagepulse-admin-auth-v2'), `${path} must use the canonical admin storage key.`);\n}", "const adminCreateClientFiles = ['admin/admin.js'];\nrequireMatch(adminShell.includes('stagepulse-admin-auth-v2'), 'admin/admin.js must use the canonical admin storage key.');")
+          x=x.replace("if (!adminCreateClientFiles.includes(path)) {", "if (!adminCreateClientFiles.includes(path) && path !== 'admin/admin-bundle.js') {")
+          v.write_text(x,encoding='utf-8')
+          PY
+          python3 /tmp/repair.py
+          rm -f /tmp/repair.py
+          node --check admin/admin-bundle.js
+          node --check scripts/validate-web-security.mjs
+          git config user.name 'Stagepulse.hatay'
+          git config user.email 'ibrahimkavasoglu7@gmail.com'
+          git add admin/admin-bundle.js admin/admin-bundle.css scripts/validate-web-security.mjs
+          git commit -m 'Fix offer editor mobile layout and canonical validation [ui-fixed-3]'
+          git push
+      - name: Remove one-shot workflow
+        if: success()
+        run: |
+          set -euo pipefail
+          git config user.name 'Stagepulse.hatay'
+          git config user.email 'ibrahimkavasoglu7@gmail.com'
+          git rm -f .github/workflows/ui-fix-once-3.yml
+          git commit -m 'Remove temporary UI fix workflow 3 [ui-fixed-3] [skip ci]'
+          git push
