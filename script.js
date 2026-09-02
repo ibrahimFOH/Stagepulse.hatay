@@ -84,4 +84,4 @@ ensureLanguageSwitcher();
 })();
 
 /* Public visual/media resilience — canonical LFS-safe hero/gallery loader. */
-(function(){if(document.getElementById('sp-public-visual-loader'))return;var s=document.createElement('script');s.id='sp-public-visual-loader';s.src='/public-visual-fix-v1.js?v=20260902-lfs1';s.async=true;document.head.appendChild(s)})();
+(function(){if(document.getElementById('sp-public-visual-loader'))return;var s=document.createElement('script');s.id='sp-public-visual-loader';s.src='/public-visual-fix-v1.js?v=20260902-lfs3';s.async=true;document.head.appendChild(s)})();
