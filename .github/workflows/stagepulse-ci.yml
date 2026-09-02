@@ -21,17 +21,13 @@ on:
     - cron: '05 21 * * *'
     - cron: '30 03 * * 0'
     - cron: '00 06 * * *'
-
 permissions:
   contents: read
-
 concurrency:
   group: stagepulse-ci-${{ github.ref }}
   cancel-in-progress: true
-
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   validate:
     name: Static / Security / Supabase Gate
@@ -120,7 +116,7 @@ jobs:
           import re
           from pathlib import Path
           sitemap=Path('sitemap.xml').read_text(encoding='utf-8')
-          urls=re.findall(r'<loc>(https://stagepulse\\.com\\.tr/[^<]*)</loc>',sitemap)
+          urls=re.findall(r'<loc>(https://stagepulse\.com\.tr/[^<]*)</loc>',sitemap)
           assert urls and len(urls)==len(set(urls)), 'Invalid or duplicate sitemap URLs'
           for url in urls:
               p=url.removeprefix('https://stagepulse.com.tr/')
