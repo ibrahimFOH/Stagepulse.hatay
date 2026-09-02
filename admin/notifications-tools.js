@@ -42,10 +42,13 @@
     ['cancelled','İptal edildi'],['Cancelled','İptal edildi'],['active','Aktif'],['Active','Aktif'],['inactive','Pasif'],['Inactive','Pasif'],['paid','Ödendi'],['Paid','Ödendi'],
     ['reviewing','İnceleniyor'],['Reviewing','İnceleniyor'],['preparing','Hazırlanıyor'],['Preparing','Hazırlanıyor'],['sent','Gönderildi'],['Sent','Gönderildi'],
     ['new','Yeni'],['New','Yeni'],['offer_change','Teklif değişikliği'],['offer_update','Teklif güncellendi'],['staff_deleted','Personel silindi'],['staff_updated','Personel güncellendi'],
-    ['staff_permissions_updated','Personel yetkileri güncellendi'],['system','Sistem'],['Optimize','Optimize Et'],['Add','Ekle'],['Delete','Sil'],['Edit','Düzenle'],
-    ['Save','Kaydet'],['Cancel','Vazgeç'],['Open','Aç'],['Rename','Adlandır'],['Details','Detay'],['Status','Durum'],['Date','Tarih'],['Description','Açıklama'],['Amount','Tutar'],['Payment','Ödeme'],['Due Date','Vade'],['Role','Rol'],['Position','Pozisyon'],['Department','Departman'],['Region','Bölge'],['Permissions','Yetkiler'],['Actions','İşlem']
+    ['staff_permissions_updated','Personel yetkileri güncellendi'],['system','Sistem'],['Optimize','Optimize Et'],['OPTIMIZE','OPTİMİZE ET'],['Add','Ekle'],['Delete','Sil'],['Edit','Düzenle'],
+    ['Save','Kaydet'],['Cancel','Vazgeç'],['Open','Aç'],['Rename','Adlandır'],['Close','Kapat'],['Details','Detay'],['Status','Durum'],['Date','Tarih'],['Description','Açıklama'],
+    ['Amount','Tutar'],['Payment','Ödeme'],['Due Date','Vade'],['Role','Rol'],['Position','Pozisyon'],['Department','Departman'],['Region','Bölge'],['Permissions','Yetkiler'],['Actions','İşlem'],
+    ['Owner','Sahip'],['Patron / Owner','Patron / Sahip'],['Super Admin','Süper Admin'],['Upper Admin','Üst Admin'],['Regional Manager','Bölge Sorumlusu'],['Department Manager','Departman Yöneticisi'],['Employee','Çalışan'],['Management','Yönetim'],['System','Sistem']
   ]);
   const statusClasses = {yeni:'new',new:'new',bekliyor:'new',pending:'new',incelemede:'reviewing',reviewing:'reviewing',inceleniyor:'reviewing',hazırlanıyor:'preparing',preparing:'preparing',gönderildi:'sent',sent:'sent',kabul:'accepted','kabul edildi':'accepted',accepted:'accepted',aktif:'accepted',active:'accepted',ödendi:'accepted',paid:'accepted',red:'rejected','reddedildi':'rejected',rejected:'rejected',iptal:'cancelled','iptal edildi':'cancelled',cancelled:'cancelled',pasif:'rejected',inactive:'rejected'};
+
   function refreshAdminUi(){
     syncMenu();
     const root = $('#content'); if(!root) return;
@@ -67,7 +70,11 @@
     const hash=(location.hash||'#dashboard').slice(1).split('?')[0].toLowerCase();
     const aliases={permissions:'rbac',permission:'rbac','role-permission':'rbac','role-permissions':'rbac','company-organization':'organization','management-scope':'scope','admin-accounts':'accounts'};
     const view=aliases[hash]||hash||'dashboard';
-    $$('#sideNav button[data-view]').forEach(b=>b.classList.toggle('active',(b.dataset.view||'').toLowerCase()===view));
+    const textMap={'komuta merkezi':'command-center','genel bakış':'dashboard','analitik':'analytics','müşteriler':'customers','teklifler':'offers','fiyatlandırma':'pricing','gelir · gider':'settlements','işler · takvim':'calendar','ekipman':'equipment','personel':'personnel','ödemeler':'finance','bildirimler':'notifications','aktivite':'activity','medya':'media','ayarlar':'settings','yönetim kapsamım':'scope','şirket organizasyonu':'organization','rol · yetki merkezi':'rbac','yönetici hesapları':'accounts','çıkış':'logout'};
+    $$('#sideNav button[data-view],#sideNav button:not([data-view])').forEach(b=>{
+      const key=(b.dataset.view||textMap[(b.textContent||'').trim().toLowerCase()]||'').toLowerCase();
+      b.classList.toggle('active',key===view);
+    });
   }
   const deletable={customers:'customers',offers:'teklifler',pricing:'services',settlements:'settlements',calendar:'jobs',finance:'payments',personnel:'staff',equipment:'equipment'};
   function addCrudActions(root){
@@ -79,17 +86,17 @@
       if(cell.querySelector('.sp-admin-crud')) return;
       cell.classList.add('sp-runtime-actions');
       const wrap=document.createElement('span'); wrap.className='sp-admin-crud';
-      const edit=cell.querySelector('.btn-primary,.edit-btn,.btn-edit');
-      if(edit) wrap.appendChild(edit); else {const b=document.createElement('button');b.type='button';b.className='btn btn-primary';b.textContent='Düzenle';b.onclick=()=>{const fn=window.openOfferEditable||window.openOffer||window.openEditor;if(typeof fn==='function')fn(id);};wrap.appendChild(b);}
+      const edit=cell.querySelector('.btn-primary,.edit-btn,.btn-edit,.sp-runtime-edit');
+      if(edit) wrap.appendChild(edit);
       if(!cell.querySelector('.sp-admin-delete')){const d=document.createElement('button');d.type='button';d.className='sp-admin-delete';d.textContent='Sil';d.onclick=async()=>{if(!confirm('Bu kaydı silmek istediğinize emin misiniz?'))return;d.disabled=true;const {error}=await sb.from(table).delete().eq('id',id);if(error){d.disabled=false;toast(error.message||'Kayıt silinemedi.',false);return;}tr.remove();toast('Kayıt silindi.',true);};wrap.appendChild(d);}
-      cell.replaceChildren(wrap);
+      if(wrap.children.length) cell.replaceChildren(wrap);
     });
   }
   const css=document.createElement('style'); css.textContent=`
     .admin-body .sp-admin-crud{display:inline-flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.admin-body .sp-admin-delete{display:inline-flex;align-items:center;justify-content:center;min-width:64px;padding:9px 12px;border-radius:10px;background:#211419;color:#ff8a9b;border:1px solid #6a3040;font-weight:900;cursor:pointer}.admin-body .sp-admin-delete:hover{background:#ff5c7a;color:#21070c;border-color:#ff5c7a}.admin-body .sp-admin-delete:disabled{opacity:.55;cursor:wait}.admin-body .sp-runtime-actions{white-space:nowrap}.admin-body .admin-table tbody tr:hover td{background:rgba(255,176,0,.055)!important}.admin-body .status{border-radius:999px;padding:4px 9px;font-weight:800}
     @media(max-width:760px){.admin-body .sp-admin-crud{width:100%;justify-content:stretch}.admin-body .sp-admin-crud>*{flex:1}.admin-body .sp-admin-delete{min-width:0}}
   `; document.head.appendChild(css);
-  const timer=setInterval(refreshAdminUi,1200);
+  setInterval(refreshAdminUi,1200);
   window.addEventListener('hashchange',()=>setTimeout(refreshAdminUi,50));
   window.addEventListener('stagepulse:admin-ready',()=>setTimeout(refreshAdminUi,100));
   window.addEventListener('stagepulse-admin-ready',()=>setTimeout(refreshAdminUi,100));
