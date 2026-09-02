@@ -1,0 +1,24 @@
+name: Restore APK legacy appearance once
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  restore:
+    if: ${{ !contains(github.event.head_commit.message, 'chore: restore APK legacy appearance') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Restore legacy APK stylesheet from known-good snapshot
+        run: |
+          set -euo pipefail
+          git show 5fd9c504487a129ff2f3fb9a4c104b7b80777076:portal/portal-bundle.css > portal/apk-legacy.css
+          test -s portal/apk-legacy.css
+          git config user.name 'Stagepulse.hatay'
+          git config user.email 'ibrahimkavasoglu7@gmail.com'
+          git add portal/apk-legacy.css
+          git commit -m 'chore: restore APK legacy appearance'
+          git push origin HEAD:main
