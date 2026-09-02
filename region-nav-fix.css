@@ -5,11 +5,8 @@
 .nav-right .lang-switch .lang-btn:hover,.nav-right .lang-switch .lang-btn.active{border-color:#ffb000!important;color:#ffb000!important}
 .nav-right .lang-switch .lang-btn .flag-icon{display:block!important;position:static!important;visibility:visible!important;opacity:1!important;flex:0 0 22px!important;width:22px!important;min-width:22px!important;max-width:22px!important;height:14px!important;min-height:14px!important;max-height:14px!important;margin:0!important;padding:0!important;border:0!important;border-radius:2px!important;overflow:hidden!important;object-fit:fill!important;vertical-align:middle!important}
 .nav-right .lang-switch .lang-btn span{display:inline-block!important;flex:0 0 auto!important;line-height:1!important;margin:0!important;padding:0!important}
-
-/* Text-only fallback for pages/cache that still contain old TR/EN buttons. */
 .nav-right .lang-switch .lang-btn#btn-tr:not(:has(.flag-icon))::before{content:"";display:block;width:22px;height:14px;flex:0 0 22px;border-radius:2px;background:#e30a17;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .nav-right .lang-switch .lang-btn#btn-en:not(:has(.flag-icon))::before{content:"";display:block;width:22px;height:14px;flex:0 0 22px;border-radius:2px;background:linear-gradient(90deg,transparent 42%,#fff 42%,#fff 58%,transparent 58%),linear-gradient(0deg,transparent 36%,#fff 36%,#fff 64%,transparent 64%),#012169;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
-
 body.page-region nav{position:fixed!important;top:0;left:0;right:0;z-index:10050!important;background:rgba(7,7,7,.96)!important;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.06)}
 body.page-region .nav-inner{min-height:60px;display:flex!important;align-items:center;gap:10px;width:100%}
 body.page-region .nav-right{margin-left:auto!important;display:flex!important;align-items:center;gap:8px!important;flex-shrink:0;z-index:10051}
@@ -27,6 +24,18 @@ body.page-region .seo-city-links{position:relative!important;top:auto!important;
 body.page-region .seo-city-links .section-title{font-size:clamp(20px,5vw,28px)!important;margin-bottom:10px!important}
 body.page-region .seo-city-nav{display:flex!important;flex-wrap:wrap!important;gap:10px!important;margin-top:16px!important;position:relative!important;z-index:1!important}
 body.page-region .seo-city-nav a{display:inline-flex!important;align-items:center;padding:10px 14px!important;border:1px solid rgba(255,176,0,.28)!important;border-radius:10px!important;background:rgba(255,176,0,.06)!important;color:#ffb000!important;text-decoration:none!important;font-weight:600!important;font-size:14px!important;line-height:1.35!important;white-space:normal!important;max-width:100%}
-body.page-region main{padding-top:0!important;display:block!important}body.page-region main>section{position:relative!important;z-index:1!important}
+
+/* Region page icon system: city cards + all section subheadings use visible Font Awesome icons. */
+body.page-region .region-grid .region-card{position:relative!important}
+body.page-region .region-grid .region-card>i:first-child{display:block!important;visibility:visible!important;opacity:1!important;width:28px!important;height:28px!important;margin:0 0 10px!important;color:#ffb000!important;font-size:26px!important;line-height:28px!important}
+body.page-region .region-grid .region-card h3{display:flex!important;align-items:center!important;gap:8px!important;font-size:16px!important;line-height:1.35!important}
+body.page-region .region-grid .region-card h3 i{display:inline-block!important;visibility:visible!important;opacity:1!important;color:#ffb000!important;font-size:14px!important;line-height:1!important;width:14px!important;flex:0 0 14px!important;margin:0!important}
+body.page-region .section-title{display:flex!important;align-items:center!important;gap:10px!important}
+body.page-region .section-title>i{display:inline-block!important;visibility:visible!important;opacity:1!important;color:#ffb000!important;font-size:20px!important;line-height:1!important;width:22px!important;flex:0 0 22px!important}
+body.page-region .highlight-box h2{display:flex!important;align-items:center!important;gap:10px!important}
+body.page-region .highlight-box h2>i{display:inline-block!important;visibility:visible!important;opacity:1!important;color:#ffb000!important;font-size:20px!important;line-height:1!important;flex:0 0 22px!important}
+body.page-region main>section p a{color:#ffb000!important}
+body.page-region main>section{position:relative!important;z-index:1!important}
+body.page-region main{padding-top:0!important;display:block!important}
 @media(min-width:900px){body.page-region .hero-cta{flex-direction:row!important;flex-wrap:wrap!important}body.page-region .hero-cta .btn{width:auto!important;min-width:180px}body.page-region .region-hero,body.page-region .hero{padding:120px 0 48px!important}}
-@media(max-width:899px){.nav-right .lang-switch .lang-btn{width:52px!important;min-width:52px!important;max-width:52px!important;height:36px!important;min-height:36px!important;padding:5px 6px!important}.nav-right .lang-switch .lang-btn .flag-icon,.nav-right .lang-switch .lang-btn#btn-tr:not(:has(.flag-icon))::before,.nav-right .lang-switch .lang-btn#btn-en:not(:has(.flag-icon))::before{width:20px!important;min-width:20px!important;max-width:20px!important;height:13px!important;flex-basis:20px!important}body.page-region .hamburger,body.page-region #hamburger{display:flex!important;visibility:visible!important;width:40px!important;height:40px!important;align-items:center;justify-content:center;flex-shrink:0;z-index:10052}}
+@media(max-width:899px){.nav-right .lang-switch .lang-btn{width:52px!important;min-width:52px!important;max-width:52px!important;height:36px!important;min-height:36px!important;padding:5px 6px!important}.nav-right .lang-switch .lang-btn .flag-icon,.nav-right .lang-switch .lang-btn#btn-tr:not(:has(.flag-icon))::before,.nav-right .lang-switch .lang-btn#btn-en:not(:has(.flag-icon))::before{width:20px!important;min-width:20px!important;max-width:20px!important;height:13px!important;flex-basis:20px!important}body.page-region .hamburger,body.page-region #hamburger{display:flex!important;visibility:visible!important;width:40px!important;height:40px!important;align-items:center;justify-content:center;flex-shrink:0;z-index:10052!important;pointer-events:auto!important;cursor:pointer!important}}
