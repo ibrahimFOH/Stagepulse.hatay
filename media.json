@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-09-02T08:00:00+00:00",
+  "generated_at": "2026-09-02T11:00:00+03:00",
   "gallery": [
-    {"name":"0EAAE007-14C6-468D-80CB-6C5275CB6827.webp","path":"images/gallery/0EAAE007-14C6-468D-80CB-6C5275CB6827.webp","file":"images/gallery/0EAAE007-14C6-468D-80CB-6C5275CB6827.webp","size":156942,"size_human":"153.3 KB","type":"gallery","optimized":false},
-    {"name":"1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp","path":"images/gallery/1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp","file":"images/gallery/1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp","size":251580,"size_human":"245.7 KB","type":"gallery","optimized":false},
-    {"name":"11AD6679-02D7-4ADC-87AA-92059E510189.webp","path":"images/gallery/11AD6679-02D7-4ADC-87AA-92059E510189.webp","file":"images/gallery/11AD6679-02D7-4ADC-87AA-92059E510189.webp","size":77468,"size_human":"75.7 KB","type":"gallery","optimized":false},
-    {"name":"2025-12-10_22-07-22.webp","path":"images/gallery/2025-12-10_22-07-22.webp","file":"images/gallery/2025-12-10_22-07-22.webp","size":89712,"size_human":"87.6 KB","type":"gallery","optimized":false},
-    {"name":"2025-12-10_22-07-22_1.webp","path":"images/gallery/2025-12-10_22-07-22_1.webp","file":"images/gallery/2025-12-10_22-07-22_1.webp","size":89712,"size_human":"87.6 KB","type":"gallery","optimized":false},
-    {"name":"35E63E2A-949E-4AD5-AE11-E607E868C697.webp","path":"images/gallery/35E63E2A-949E-4AD5-AE11-E607E868C697.webp","file":"images/gallery/35E63E2A-949E-4AD5-AE11-E607E868C697.webp","size":122152,"size_human":"119.3 KB","type":"gallery","optimized":false},
-    {"name":"BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp","path":"images/gallery/BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp","file":"images/gallery/BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp","size":79348,"size_human":"77.5 KB","type":"gallery","optimized":false},
-    {"name":"DE228FEA-36C1-4CCD-9185-0E03014CD491.webp","path":"images/gallery/DE228FEA-36C1-4CCD-9185-0E03014CD491.webp","file":"images/gallery/DE228FEA-36C1-4CCD-9185-0E03014CD491.webp","size":111698,"size_human":"109.1 KB","type":"gallery","optimized":false}
+    {"name":"0EAAE007-14C6-468D-80CB-6C5275CB6827.webp","path":"images/gallery/0EAAE007-14C6-468D-80CB-6C5275CB6827.webp","file":"images/gallery/0EAAE007-14C6-468D-80CB-6C5275CB6827.webp","size":164522,"size_human":"160.7 KB","type":"gallery","optimized":true},
+    {"name":"1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp","path":"images/gallery/1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp","file":"images/gallery/1028BA7C-0A7F-49DF-B2DE-896109D700EC.webp","size":263632,"size_human":"257.5 KB","type":"gallery","optimized":true},
+    {"name":"11AD6679-02D7-4ADC-87AA-92059E510189.webp","path":"images/gallery/11AD6679-02D7-4ADC-87AA-92059E510189.webp","file":"images/gallery/11AD6679-02D7-4ADC-87AA-92059E510189.webp","size":97350,"size_human":"95.1 KB","type":"gallery","optimized":true},
+    {"name":"2025-12-10_22-07-22.webp","path":"images/gallery/2025-12-10_22-07-22.webp","file":"images/gallery/2025-12-10_22-07-22.webp","size":164826,"size_human":"161.0 KB","type":"gallery","optimized":true},
+    {"name":"2025-12-10_22-07-22_1.webp","path":"images/gallery/2025-12-10_22-07-22_1.webp","file":"images/gallery/2025-12-10_22-07-22_1.webp","size":164826,"size_human":"161.0 KB","type":"gallery","optimized":true},
+    {"name":"35E63E2A-949E-4AD5-AE11-E607E868C697.webp","path":"images/gallery/35E63E2A-949E-4AD5-AE11-E607E868C697.webp","file":"images/gallery/35E63E2A-949E-4AD5-AE11-E607E868C697.webp","size":132424,"size_human":"129.3 KB","type":"gallery","optimized":true},
+    {"name":"BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp","path":"images/gallery/BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp","file":"images/gallery/BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp","size":96308,"size_human":"94.1 KB","type":"gallery","optimized":true},
+    {"name":"DE228FEA-36C1-4CCD-9185-0E03014CD491.webp","path":"images/gallery/DE228FEA-36C1-4CCD-9185-0E03014CD491.webp","file":"images/gallery/DE228FEA-36C1-4CCD-9185-0E03014CD491.webp","size":119182,"size_human":"116.4 KB","type":"gallery","optimized":true}
   ],
   "videos": [],
   "documents": [
