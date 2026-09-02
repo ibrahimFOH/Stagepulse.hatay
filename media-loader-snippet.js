@@ -6,18 +6,20 @@
 (function () {
   'use strict';
 
+  const MEDIA_CDN = 'https://media.githubusercontent.com/media/ibrahimFOH/Stagepulse.hatay/main/';
+
   function safeMediaUrl(path) {
     if (!path) return '';
     if (/^https?:\/\//i.test(path)) return path;
-    return String(path).split('/').map(segment => encodeURIComponent(segment)).join('/');
+    const clean = String(path).replace(/^\.\//, '').replace(/^\//, '');
+    /* Public GitHub Pages cannot render Git-LFS pointer files directly. */
+    if (/^images\//i.test(clean)) return MEDIA_CDN + clean.split('/').map(encodeURIComponent).join('/');
+    return clean.split('/').map(encodeURIComponent).join('/');
   }
 
   async function loadMediaJson() {
     try {
-      const res = await fetch('/media.json?_=' + Date.now(), {
-        cache: 'no-store',
-        credentials: 'same-origin'
-      });
+      const res = await fetch('/media.json?_=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' });
       if (!res.ok) throw new Error('media.json HTTP ' + res.status);
       const data = await res.json();
       return {
@@ -42,7 +44,7 @@
     box.innerHTML = '<button class="lightbox-close" type="button" aria-label="Kapat">×</button><img alt="">';
     document.body.appendChild(box);
     const close = () => { box.classList.remove('open'); document.body.style.overflow = ''; };
-    box.querySelector('.lightbox-close').addEventListener('click', close);
+    box.querySelector('.lightbox-close')?.addEventListener('click', close);
     box.addEventListener('click', event => { if (event.target === box) close(); });
     document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
     return box;
@@ -52,6 +54,7 @@
     if (!src) return;
     const box = ensureLightbox();
     const image = box.querySelector('img');
+    if (!image) return;
     image.src = src;
     image.alt = alt || 'Stagepulse galeri görseli';
     box.classList.add('open');
@@ -59,14 +62,14 @@
   }
 
   function createGalleryItem(item) {
-    const src = item.webp ? safeMediaUrl(item.webp) : safeMediaUrl(item.path);
+    const src = safeMediaUrl(item.webp || item.path);
     const fallback = safeMediaUrl(item.path);
     const alt = String(item.name || '').replace(/\.[^/.]+$/, '');
     const figure = document.createElement('figure');
     figure.className = 'gallery-item';
     const img = document.createElement('img');
     img.src = src || fallback;
-    img.dataset.full = fallback || src;
+    img.dataset.full = src || fallback;
     img.alt = alt || 'Stagepulse galeri görseli';
     img.loading = 'lazy';
     img.decoding = 'async';
@@ -110,17 +113,17 @@
   async function initMediaSections() {
     const data = await loadMediaJson();
     const galleryContainer = document.getElementById('gallery') || document.getElementById('gallery-grid') || document.querySelector('.gallery-grid');
-    if (galleryContainer) {
+    if (galleryContainer && data.gallery.length) {
       galleryContainer.innerHTML = '';
       data.gallery.forEach(item => galleryContainer.appendChild(createGalleryItem(item)));
     }
     const videoContainer = document.getElementById('videos') || document.getElementById('video-grid') || document.querySelector('.video-grid');
-    if (videoContainer) {
+    if (videoContainer && data.videos.length) {
       videoContainer.innerHTML = '';
       data.videos.forEach(item => videoContainer.appendChild(createVideoItem(item)));
     }
     const docContainer = document.getElementById('docs-list') || document.querySelector('.docs-list');
-    if (docContainer) {
+    if (docContainer && data.documents.length) {
       docContainer.innerHTML = '';
       data.documents.forEach(item => docContainer.appendChild(createDocItem(item)));
     }
