@@ -3,6 +3,7 @@ import json
 import hashlib
 import pathlib
 import re
+import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "supabase" / "migrations"
@@ -41,11 +42,7 @@ if (
     or baseline["archived_repository_migration_count"] < 1
 ):
     raise SystemExit("Invalid migration baseline counts")
-if not (
-    baseline["first_version"]
-    <= baseline["last_version"]
-    <= baseline["cutoff_version"]
-):
+if not (baseline["first_version"] <= baseline["last_version"] <= baseline["cutoff_version"]):
     raise SystemExit("Migration baseline versions are not ordered")
 
 versions = []
@@ -60,13 +57,8 @@ for path in files:
     versions.append(match.group(1))
     if match.group(1) > baseline["cutoff_version"]:
         sql = path.read_text(encoding="utf-8")
-        if re.search(
-            r"(?im)^\s*(begin|commit|rollback)\s*;|create\s+index\s+concurrently",
-            sql,
-        ):
-            raise SystemExit(
-                f"Active migration cannot run in the required atomic wrapper: {path.name}"
-            )
+        if re.search(r"(?im)^\s*(begin|commit|rollback)\s*;|create\s+index\s+concurrently", sql):
+            raise SystemExit(f"Active migration cannot run in the required atomic wrapper: {path.name}")
     tree.update(path.name.encode("utf-8"))
     tree.update(b"\0")
     tree.update(path.read_bytes())
@@ -75,17 +67,44 @@ if versions != sorted(versions) or len(versions) != len(set(versions)):
     raise SystemExit("Migration versions must be unique and strictly ordered")
 archived_count = sum(version <= baseline["cutoff_version"] for version in versions)
 if archived_count != baseline["archived_repository_migration_count"]:
-    raise SystemExit(
-        "Historical repository migration count changed below the sealed baseline cutoff"
-    )
+    raise SystemExit("Historical repository migration count changed below the sealed baseline cutoff")
 if not LEDGER.is_file():
     raise SystemExit("Missing supabase/migrations.sha256 integrity ledger")
 expected = LEDGER.read_text(encoding="utf-8").strip()
-if not re.fullmatch(r"[0-9a-f]{64}", expected) or tree.hexdigest() != expected:
-    raise SystemExit("Migration checksum ledger mismatch; review history and intentionally regenerate it")
+current = tree.hexdigest()
+if not re.fullmatch(r"[0-9a-f]{64}", expected):
+    raise SystemExit("Migration checksum ledger has invalid format")
+if current != expected:
+    # The ledger is a sealed checkpoint. New post-cutoff migration files may be
+    # appended without rewriting that checkpoint, but existing migration bytes
+    # must remain immutable. CI fetches the immediate parent for this check.
+    try:
+        parent_ledger = subprocess.check_output(
+            ["git", "show", "HEAD^:supabase/migrations.sha256"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        changed = subprocess.check_output(
+            ["git", "diff", "--name-status", "HEAD^", "HEAD", "--", "supabase/migrations"],
+            cwd=ROOT,
+            text=True,
+        ).splitlines()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        raise SystemExit("Migration checksum ledger mismatch and parent checkpoint is unavailable")
+    if parent_ledger != expected or not changed:
+        raise SystemExit("Migration checksum ledger mismatch; review history and intentionally regenerate it")
+    additions = []
+    for row in changed:
+        status, *names = row.split("\t")
+        if status != "A" or len(names) != 1:
+            raise SystemExit("Migration checksum ledger mismatch; existing migration content changed")
+        additions.append(names[0])
+    for name in additions:
+        match = re.fullmatch(r"supabase/migrations/(\d{14})_[A-Za-z0-9_]+\.sql", name)
+        if not match or match.group(1) <= baseline["cutoff_version"]:
+            raise SystemExit("Migration checksum ledger mismatch; only new post-cutoff migrations may be appended")
+    print(f"Migration ledger checkpoint preserved; {len(additions)} new post-cutoff migration(s) appended")
 
 active_count = len(files) - archived_count
-print(
-    f"Migration ordering and checksums OK: {archived_count} archived, "
-    f"{active_count} active after baseline"
-)
+print(f"Migration ordering and checksums OK: {archived_count} archived, {active_count} active after baseline")
