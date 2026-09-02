@@ -49,6 +49,7 @@ jobs:
           python3 scripts/validate-update-manifests.py
           python3 scripts/validate-workflow-safety.py
           node scripts/validate-web-security.mjs
+          node scripts/validate-edge-security.mjs
       - name: Check JavaScript syntax
         run: |
           set -euo pipefail
