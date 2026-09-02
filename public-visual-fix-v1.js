@@ -14,33 +14,35 @@
       var path=src.slice(marker).split(/[?#]/)[0];
       if(gallery.indexOf(path)<0)return;
       var fallback=media(path);
-      if(img.src!==fallback && img.dataset.spMediaSrc!==fallback){
-        img.dataset.spMediaSrc=fallback;
-        img.src=fallback;
-      }
-      if(!img.dataset.spErrorBound){
-        img.dataset.spErrorBound='1';
-        img.addEventListener('error',function(){img.dataset.spMediaFailed='1';});
-      }
+      if(img.src!==fallback && img.dataset.spMediaSrc!==fallback){img.dataset.spMediaSrc=fallback;img.src=fallback;}
+      if(!img.dataset.spErrorBound){img.dataset.spErrorBound='1';img.addEventListener('error',function(){img.dataset.spMediaFailed='1';});}
     });
   }
   function repairDocs(){document.querySelectorAll('.doc-item').forEach(function(a){var span=a.querySelector('span');if(!span)return;var path=(a.getAttribute('href')||'').split('/').pop();var title=documentTitles[path]||(a.dataset.title||'').trim();if(title)span.textContent=title;else{var n=(span.textContent||'').replace(/\.pdf$/i,'').replace(/^\d+[-_][a-z0-9]+[-_]/i,'').replace(/[-_]+/g,' ');if(n)span.textContent=n}})}
   function heroFlow(){
     var bg=document.getElementById('heroBg');
-    if(!bg)return;
-    var urls=gallery.map(media),i=0,timer=null;
+    if(!bg || bg.dataset.spHeroReady==='1')return;
+    var urls=gallery.map(media),i=0,timer=null,activeUrl='';
+    function paint(u){activeUrl=u;bg.style.backgroundImage='linear-gradient(110deg,rgba(0,0,0,.88),rgba(0,0,0,.45)),url("'+u+'")';}
     function next(){
       var u=urls[i%urls.length],pre=new Image();
-      pre.onload=function(){bg.style.backgroundImage='linear-gradient(110deg,rgba(0,0,0,.88),rgba(0,0,0,.45)),url("'+u+'")';i++};
+      pre.onload=function(){paint(u);i++;};
       pre.onerror=function(){i++;};
       pre.src=u;
     }
     next();
     timer=setInterval(next,7000);
+    /* core.js also has a legacy 5.5s hero timer. Keep the canonical CDN slideshow authoritative. */
+    new MutationObserver(function(){
+      if(!activeUrl)return;
+      var current=bg.style.backgroundImage||'';
+      if(current.indexOf(activeUrl)<0)paint(activeUrl);
+    }).observe(bg,{attributes:true,attributeFilter:['style']});
     bg.dataset.spHeroReady='1';
+    bg.dataset.spHeroController='cdn-slideshow';
     return timer;
   }
-  function boot(){inject();repairGallery();repairDocs();heroFlow()}
+  function boot(){inject();repairGallery();repairDocs();heroFlow();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-  new MutationObserver(function(){repairGallery();repairDocs()}).observe(document.documentElement,{childList:true,subtree:true});
+  new MutationObserver(function(){repairGallery();repairDocs();}).observe(document.documentElement,{childList:true,subtree:true});
 })();
