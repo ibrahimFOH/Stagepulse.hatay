@@ -59,6 +59,8 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools build-tools;35.0.0
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           gradle-version: "8.11.1"
@@ -99,25 +101,30 @@ jobs:
         id: files
         run: |
           set -euo pipefail
-          mkdir release
-          build_tools=$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
-          test -x "$build_tools/apksigner"; test -x "$build_tools/aapt"
-          for row in 'personel Stagepulse-Personel tr.com.stagepulse.app' 'admin Stagepulse-Admin tr.com.stagepulse.admin'; do
-            read -r flavor product package <<< "$row"
-            mapfile -t apks < <(find android/app/build/outputs/apk -type f -iname "*${flavor}*release*.apk" ! -name '*unsigned.apk')
-            mapfile -t aabs < <(find android/app/build/outputs/bundle -type f -iname "*${flavor}*release*.aab")
-            test "${#apks[@]}" -eq 1; test "${#aabs[@]}" -eq 1
-            apk="${apks[0]}"; aab="${aabs[0]}"
+          rm -rf release
+          mkdir -p release
+          build_tools="${ANDROID_HOME}/build-tools/35.0.0"
+          test -x "$build_tools/apksigner" || { echo "Missing apksigner: $build_tools/apksigner"; exit 1; }
+          test -x "$build_tools/aapt" || { echo "Missing aapt: $build_tools/aapt"; exit 1; }
+          for row in \
+            'personel Stagepulse-Personel tr.com.stagepulse.app android/app/build/outputs/apk/personel/release/app-personel-release.apk android/app/build/outputs/bundle/personelRelease/app-personel-release.aab' \
+            'admin Stagepulse-Admin tr.com.stagepulse.admin android/app/build/outputs/apk/admin/release/app-admin-release.apk android/app/build/outputs/bundle/adminRelease/app-admin-release.aab'; do
+            read -r flavor product package apk aab <<< "$row"
+            test -f "$apk" || { echo "Missing APK for $flavor: $apk"; exit 1; }
+            test -f "$aab" || { echo "Missing AAB for $flavor: $aab"; exit 1; }
             "$build_tools/apksigner" verify --verbose --print-certs "$apk" > "/tmp/${flavor}-apk-signature.txt"
             cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "/tmp/${flavor}-apk-signature.txt" | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
-            test "$cert" = "$EXPECTED_CERT_SHA256"
+            test -n "$cert" || { echo "Could not read APK signing certificate for $flavor"; cat "/tmp/${flavor}-apk-signature.txt"; exit 1; }
+            test "$cert" = "$EXPECTED_CERT_SHA256" || { echo "APK certificate mismatch for $flavor: $cert"; exit 1; }
             badging=$("$build_tools/aapt" dump badging "$apk")
-            grep -Fq "package: name='$package'" <<< "$badging"
-            grep -Fq "versionCode='$VERSION_CODE'" <<< "$badging"
-            grep -Fq "versionName='$VERSION_NAME'" <<< "$badging"
-            jarsigner -verify -certs "$aab" | grep -Fq 'jar verified.'
+            grep -Fq "package: name='$package'" <<< "$badging" || { echo "Package ID mismatch for $flavor"; echo "$badging"; exit 1; }
+            grep -Fq "versionCode='$VERSION_CODE'" <<< "$badging" || { echo "versionCode mismatch for $flavor"; echo "$badging"; exit 1; }
+            grep -Fq "versionName='$VERSION_NAME'" <<< "$badging" || { echo "versionName mismatch for $flavor"; echo "$badging"; exit 1; }
+            jarsigner -verify -certs "$aab" > "/tmp/${flavor}-aab-jarsigner.txt" 2>&1 || { echo "AAB jarsigner verification failed for $flavor"; cat "/tmp/${flavor}-aab-jarsigner.txt"; exit 1; }
+            grep -Fq 'jar verified.' "/tmp/${flavor}-aab-jarsigner.txt" || { echo "AAB verification did not report jar verified for $flavor"; cat "/tmp/${flavor}-aab-jarsigner.txt"; exit 1; }
             aab_cert=$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
-            test "$aab_cert" = "$EXPECTED_CERT_SHA256"
+            test -n "$aab_cert" || { echo "Could not read AAB signing certificate for $flavor"; exit 1; }
+            test "$aab_cert" = "$EXPECTED_CERT_SHA256" || { echo "AAB certificate mismatch for $flavor: $aab_cert"; exit 1; }
             cp "$apk" "release/${product}-v${VERSION_NAME}.apk"
             cp "$aab" "release/${product}-v${VERSION_NAME}.aab"
           done
