@@ -33,7 +33,7 @@
 
   async function boot() {
     try {
-      await loadScript('admin-bundle.js?v=20260902-offerfix5');
+      await loadScript('admin-bundle.js?v=20260902-webfix6');
       if (typeof window.loadView !== 'function') throw new Error('Canonical admin bundle did not expose loadView');
       await loadScript('notifications-tools.js?v=20260902-notify1');
       window.STAGEPULSE_ADMIN_READY = true;
