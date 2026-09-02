@@ -12,8 +12,6 @@ verify_jwt = false
 verify_jwt = false
 [functions.offer-pdf]
 verify_jwt = false
-[functions.offer-pdf-v3]
-verify_jwt = false
 [functions.org-admin-control]
 verify_jwt = false
 [functions.portal-login]
