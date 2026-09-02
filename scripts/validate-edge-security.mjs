@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const [fcm, adminLogin, portalLogin, publicQuote, registration, githubMedia, offerPdf, offerPdfV3, orgAdmin, staffSession, publicCodeMigration] = await Promise.all([
+const [fcm, adminLogin, portalLogin, publicQuote, registration, githubMedia, offerPdf, orgAdmin, staffSession, publicCodeMigration] = await Promise.all([
   read("supabase/functions/send-fcm-notification/index.ts"),
   read("supabase/functions/admin-login/index.ts"),
   read("supabase/functions/portal-login/index.ts"),
@@ -10,7 +10,6 @@ const [fcm, adminLogin, portalLogin, publicQuote, registration, githubMedia, off
   read("supabase/functions/register-android-device/index.ts"),
   read("supabase/functions/admin-github-media/index.ts"),
   read("supabase/functions/offer-pdf/index.ts"),
-  read("supabase/functions/offer-pdf-v3/index.ts"),
   read("supabase/functions/org-admin-control/index.ts"),
   read("supabase/functions/staff-session/index.ts"),
   read("supabase/migrations/20260901003500_strengthen_future_offer_public_codes.sql"),
@@ -33,16 +32,14 @@ assert.match(publicQuote, /signal:AbortSignal\.timeout\(8_000\)/, "Turnstile req
 assert.match(registration, /return json\(\{ error: "REGISTER_FAILED" \}/, "Registration must not expose database errors");
 assert.match(githubMedia, /signal: AbortSignal\.timeout\(15_000\)/, "GitHub requests must be bounded");
 assert.doesNotMatch(githubMedia, /new Error\(body\?\.message/, "GitHub provider messages must not be returned");
-assert.equal((offerPdf.match(/signal:AbortSignal\.timeout\(10_000\)/g) || []).length, 3, "PDF upstream requests must be bounded");
-assert.match(offerPdfV3, /PUBLIC_ERRORS\.has\(message\)/, "Offer API must allowlist customer-safe errors");
-assert.match(offerPdfV3, /\.eq\("is_current", true\)[\s\S]*\.eq\("mime_type", "application\/pdf"\)/, "Only a current PDF asset may be signed");
-assert.doesNotMatch(offerPdfV3, /offer\.pdf_storage_path/, "Legacy offer storage paths must not be signed");
-assert.match(offerPdfV3, /\.in\("status", \["new", "reviewing", "preparing", "sent"\]\)/, "Offer responses must update conditionally");
+assert.equal((offerPdf.match(/AbortSignal\.timeout\(10_000\)/g) || []).length, 3, "PDF upstream requests must be bounded");
+assert.match(offerPdf, /json\(\{error:"Teklif bulunamadı\."\},404\)/, "PDF endpoint must expose only safe not-found errors");
+assert.match(offerPdf, /json\(\{error:"İşlem başarısız\."\},500\)/, "PDF endpoint must expose only a generic server error");
+assert.doesNotMatch(offerPdf, /return json\(\{error:up\.error\.message\}/, "PDF storage errors must not be returned");
+assert.doesNotMatch(offerPdf, /return json\(\{error:ins\.error\.message\}/, "PDF database errors must not be returned");
 assert.doesNotMatch(orgAdmin, /üyeliği okunamadı: "\+me\.message/, "Organization API must not expose database errors");
 assert.match(staffSession, /e instanceof PublicError\?out\(req,\{error:e\.message\},e\.status\)/, "Staff session must expose only explicitly tagged public errors");
 assert.doesNotMatch(staffSession, /me\.message|error:e instanceof Error\?e\.message/, "Staff session must not expose database or provider errors");
-assert.match(offerPdfV3, /public-offer-id:\$\{digest\}:\$\{getClientIp\(req\)\}/, "Offer codes and tokens must have a per-identifier rate limit");
-assert.match(offerPdfV3, /crypto\.subtle\.digest\("SHA-256"/, "Rate-limit keys must not store raw public credentials");
 assert.match(publicCodeMigration, /gen_random_bytes\(16\)/, "Future public codes must carry 128 bits of entropy");
 assert.match(publicCodeMigration, /if v_code is not null and v_code <> '' then[\s\S]*return v_code/, "Existing public links must remain unchanged");
 
