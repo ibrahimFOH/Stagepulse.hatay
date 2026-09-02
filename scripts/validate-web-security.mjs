@@ -50,10 +50,7 @@ requireMatch(conversionScript.includes("submit.type='submit'"), 'Offer enhanceme
 requireMatch(consentScript.includes("analytics_storage: 'denied'"), 'Consent defaults must deny analytics storage.');
 requireMatch(consentScript.includes("state === 'accepted') loadAnalytics()"), 'Analytics must load only after explicit opt-in.');
 requireMatch(consentScript.includes('cookie-preferences-reset'), 'Public consent UI must expose a preference reset control.');
-requireMatch(
-  consentScript.indexOf("global.gtag('consent', 'update'") < consentScript.indexOf("document.getElementById('sp-google-analytics')"),
-  'Re-consent must restore analytics permission even when the analytics script is already loaded.'
-);
+requireMatch(consentScript.indexOf("global.gtag('consent', 'update'") < consentScript.indexOf("document.getElementById('sp-google-analytics')"), 'Re-consent must restore analytics permission even when the analytics script is already loaded.');
 for (const name of readdirSync(root).filter(name => name.endsWith('.html'))) {
   const html = read(name);
   requireMatch(!html.includes('googletagmanager.com/gtag/js'), `${name} must not load Google Analytics before consent.`);
@@ -103,7 +100,6 @@ requireMatch(portalIsolation.includes("const role = location.pathname.startsWith
 requireMatch(adminShell.includes('storage:window.sessionStorage'), 'Admin auth must persist only in sessionStorage.');
 requireMatch(adminBridge.includes('storage: window.sessionStorage'), 'Admin bridge must persist only in sessionStorage.');
 requireMatch(portalIsolation.includes('storage: window.sessionStorage'), 'Portal auth clients must persist only in sessionStorage.');
-requireMatch(navigator && true, '');
 requireMatch(adminRuntime.includes('navigator.onLine') && adminRuntime.includes('adminBootRetry') && adminRuntime.includes('aria-live="assertive"'), 'Admin boot failure must distinguish offline state and expose an accessible retry.');
 requireMatch(portalRuntime.includes('navigator.onLine') && portalRuntime.includes('portalBootRetry') && portalRuntime.includes('aria-live="assertive"'), 'Portal boot failure must distinguish offline state and expose an accessible retry.');
 requireMatch(!portalRuntime.includes("'inventory-ui-v3.js','inventory-ui-v4.js'"), 'Portal runtime must not load the superseded inventory boot-hook generation.');
@@ -114,9 +110,7 @@ requireMatch(adminCss.includes('@media(max-width:700px){.sp-offer-price-grid'), 
 requireMatch(!portalPermissions.includes('sp_staff_meta') && !portalCrud.includes('sp_staff_meta'), 'Staff PII and permissions must not be duplicated in localStorage.');
 
 requireMatch(adminShell.includes('stagepulse-admin-auth-v2'), 'Canonical admin bundle must use the canonical admin storage key.');
-const adminJsFiles = readdirSync(resolve(root, 'admin'))
-  .filter(name => name.endsWith('.js'))
-  .map(name => `admin/${name}`);
+const adminJsFiles = readdirSync(resolve(root, 'admin')).filter(name => name.endsWith('.js')).map(name => `admin/${name}`);
 for (const path of adminJsFiles) {
   if (path !== 'admin/admin-bundle.js' && path !== 'admin/admin-runtime.js') {
     requireMatch(!read(path).includes('createClient(') && !read(path).includes('createClient?.('), `${path} must use the canonical admin client instead of creating a fallback.`);
