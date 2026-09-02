@@ -1,4 +1,5 @@
 /* Stagepulse Admin — single canonical entrypoint. */
+/* 2026-09-02 repository audit: boot, cache, notification parity and failure recovery. */
 (() => {
   'use strict';
   if (window.STAGEPULSE_ADMIN_BOOTSTRAPPED) return;
