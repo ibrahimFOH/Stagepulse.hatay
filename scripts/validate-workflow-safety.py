@@ -31,11 +31,17 @@ for path in sorted(WORKFLOWS.glob("*.yml")):
                 f"{path.relative_to(ROOT)}:{line_number}: action {match.group(1)} uses an unverified or mismatched commit"
             )
 
-migration = (WORKFLOWS / "supabase-migration-audit.yml").read_text(encoding="utf-8")
-if not re.search(r"apply_missing:.*?\n(?:.*\n){0,6}\s+default:\s+false\b", migration):
-    errors.append("Supabase migration apply must default to false")
-if "environment: production" not in migration:
-    errors.append("Supabase migration apply must retain production environment protection")
+canonical = WORKFLOWS / "stagepulse-ci.yml"
+if not canonical.exists():
+    errors.append("Canonical Stagepulse CI workflow is missing")
+else:
+    ci = canonical.read_text(encoding="utf-8")
+    if not re.search(r"apply_missing:\s*\n\s*description:.*\n\s*required:\s*true\s*\n\s*default:\s*false\b", ci):
+        errors.append("Supabase migration apply must default to false in canonical CI")
+    if "environment: production" not in ci:
+        errors.append("Production Supabase operations must retain environment protection")
+    if "Manual Supabase Migration Audit" not in ci:
+        errors.append("Canonical CI must retain the migration audit gate")
 
 release = (WORKFLOWS / "apk-release.yml").read_text(encoding="utf-8")
 if not re.search(r"publish:.*?\n(?:.*\n){0,6}\s+default:\s+false\b", release):
