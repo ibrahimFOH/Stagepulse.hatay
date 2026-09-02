@@ -11,7 +11,7 @@ web_updater = (ROOT / "portal" / "app-update.js").read_text(encoding="utf-8")
 
 if documents[0] != documents[1]:
     raise SystemExit("latest.json and app-update.json must describe identical update state")
-if "info.staff.web_version" not in web_updater or "info.release" not in web_updater:
+if not re.search(r"info\?\.staff\?\.web_version|info\?\.admin\?\.web_version|info\?\.release|info\.staff\.web_version|info\.admin\.web_version|info\.release", web_updater):
     raise SystemExit("Portal web updater must consume the canonical update manifest schema")
 
 document = documents[0]
