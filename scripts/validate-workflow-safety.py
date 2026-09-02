@@ -16,6 +16,9 @@ known_action_commits = {
     "android-actions/setup-android": {"9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407"},
     "gradle/actions/setup-gradle": {"ed408507eac070d1f99cc633dbcf757c94c7933a"},
     "denoland/setup-deno": {"22d081ff2d3a40755e97629de92e3bcbfa7cf2ed"},
+    "actions/configure-pages": {"983d7736d9b0ae728b81ab479565c72886d7745b"},
+    "actions/upload-pages-artifact": {"56afc609e74202658d3ffba0e8f6dda462b719fa"},
+    "actions/deploy-pages": {"d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e"},
     "softprops/action-gh-release": {"3bb12739c298aeb8a4eeaf626c5b8d85266b0e65"},
 }
 for path in sorted(WORKFLOWS.glob("*.yml")):
