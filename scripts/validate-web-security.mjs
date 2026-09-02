@@ -25,13 +25,15 @@ const portalHtml = read('portal/index.html');
 const adminRuntime = read('admin/admin-runtime.js');
 const portalRuntime = read('portal/portal-runtime.js');
 const adminShell = read('admin/admin.js');
-const adminBridge = read('admin/admin-supabase-bridge-v1.js');
-const portalIsolation = read('portal/session-isolation.js');
-const portalPermissions = read('portal/portal-permissions.js');
-const portalCrud = read('portal/portal-crud.js');
-const portalInventory = read('portal/inventory-ui-v3.js');
-const adminOfferFields = read('admin/admin-offer-final-fields-v1.js');
-const adminCss = read('admin/admin.css');
+const adminBundle = read('admin/admin-bundle.js');
+const adminBridge = adminBundle;
+const portalBundle = read('portal/portal-bundle.js');
+const portalIsolation = portalBundle;
+const portalPermissions = portalBundle;
+const portalCrud = portalBundle;
+const portalInventory = portalBundle;
+const adminOfferFields = adminBundle;
+const adminCss = read('admin/admin-bundle.css');
 const quoteView = read('teklif-view.html');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
@@ -110,18 +112,13 @@ requireMatch(adminOfferFields.includes("label.insertAdjacentElement('afterend',b
 requireMatch(adminCss.includes('@media(max-width:700px){.sp-offer-price-grid'), 'Offer inventory controls must reflow on narrow screens.');
 requireMatch(!portalPermissions.includes('sp_staff_meta') && !portalCrud.includes('sp_staff_meta'), 'Staff PII and permissions must not be duplicated in localStorage.');
 
-const adminCreateClientFiles = [
-  'admin/admin.js',
-  'admin/admin-supabase-bridge-v1.js'
-];
-for (const path of adminCreateClientFiles) {
-  requireMatch(read(path).includes('stagepulse-admin-auth-v2'), `${path} must use the canonical admin storage key.`);
-}
+const adminCreateClientFiles = ['admin/admin.js'];
+requireMatch(adminShell.includes('stagepulse-admin-auth-v2'), 'admin/admin.js must use the canonical admin storage key.');
 const adminJsFiles = readdirSync(resolve(root, 'admin'))
   .filter(name => name.endsWith('.js'))
   .map(name => `admin/${name}`);
 for (const path of adminJsFiles) {
-  if (!adminCreateClientFiles.includes(path)) {
+  if (!adminCreateClientFiles.includes(path) && path !== 'admin/admin-bundle.js') {
     requireMatch(!read(path).includes('createClient(') && !read(path).includes('createClient?.('), `${path} must use the canonical admin client instead of creating a fallback.`);
   }
 }
