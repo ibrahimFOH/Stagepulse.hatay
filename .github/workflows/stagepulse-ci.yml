@@ -35,6 +35,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
@@ -271,42 +273,6 @@ jobs:
             [ "$verify" = false ] && args+=(--no-verify-jwt)
             npx --yes supabase@2.45.5 functions deploy "${args[@]}"
           done
-
-  migration_ledger_repair:
-    name: One-time Migration Ledger Repair
-    if: ${{ github.event_name == 'push' && github.event.head_commit.message != 'chore: regenerate migration ledger' }}
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Rebuild sealed repository migration checksum
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import hashlib
-          from pathlib import Path
-          root=Path('.')
-          baseline=root/'supabase'/'migration-baseline.json'
-          migrations=sorted((root/'supabase'/'migrations').glob('*.sql'))
-          h=hashlib.sha256()
-          h.update(baseline.name.encode('utf-8')); h.update(b'\0'); h.update(baseline.read_bytes())
-          for path in migrations:
-              h.update(path.name.encode('utf-8')); h.update(b'\0'); h.update(path.read_bytes())
-          ledger=root/'supabase'/'migrations.sha256'
-          value=h.hexdigest()+'\n'
-          if ledger.read_text(encoding='utf-8') == value:
-              print('Migration ledger already synchronized')
-          else:
-              ledger.write_text(value,encoding='utf-8')
-              print('Regenerated migration ledger:',h.hexdigest())
-          PY
-          if git diff --quiet -- supabase/migrations.sha256; then exit 0; fi
-          git config user.name 'Stagepulse.hatay'
-          git config user.email 'ibrahimkavasoglu7@gmail.com'
-          git add supabase/migrations.sha256
-          git commit -m 'chore: regenerate migration ledger'
-          git push origin HEAD:main
 
   migration_audit:
     name: Manual Supabase Migration Audit
