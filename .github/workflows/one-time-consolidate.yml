@@ -1,0 +1,65 @@
+name: Stagepulse One-Time Consolidation
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  consolidate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Consolidate canonical runtime assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def bundle(out, files, title):
+              parts=[f"/* {title} — consolidated canonical bundle. */"]
+              for f in files:
+                  p=Path(f)
+                  if not p.exists(): raise SystemExit(f"Missing required source: {f}")
+                  parts.append(f"\n/* ===== BEGIN {f} ===== */\n")
+                  parts.append(p.read_text(encoding='utf-8'))
+                  parts.append(f"\n/* ===== END {f} ===== */\n")
+              Path(out).write_text(''.join(parts), encoding='utf-8')
+
+          admin_js = ['admin/admin-module-renderers-v2.js','admin/admin.js','admin/admin-dashboard-runtime-v1.js','admin/admin-supabase-bridge-v1.js','admin/admin-company-organization-v1.js','admin/admin-org-accounts-v1.js','admin/admin-org-scope-v1.js','admin/auth-layer.js','admin/error-handling.js','admin/event-date-sync.js','admin/live-sync.js','admin/inventory-ui-v4.js','admin/admin-service-bom.js','admin/admin-offer-wa-edit.js','admin/admin-offer-pdf-v1.js','admin/admin-core-ui-v1.js','admin/customer-offer-binding-v1.js','admin/admin-offer-edit-media-fix-v1.js','admin/admin-offer-media-final-v1.js','admin/admin-offer-edit-button-v2.js','admin/admin-offer-crew-count-fix-v1.js','admin/admin-personnel-count-live-v1.js','admin/admin-live-summary-counts-v1.js','admin/admin-apk-input-fix-v1.js','admin/admin-offer-web-apk-final-fix-v1.js','admin/site-media-manager.js','admin/personel-yetki-v2.js','admin/admin-business-flow-v1.js','admin/command-center-single-route.js','admin/command-center-ai-v1.js','admin/whatsapp-message-fix-v1.js','admin/admin-final-hardening-v1.js','admin/admin-offer-final-fields-v1.js','admin/admin-offer-pdf-auto-sync-v2.js','admin/admin-runtime-repair-v1.js','admin/admin-completion-guard-v1.js','admin/admin-rbac-control-center-v1.js','admin/admin-menu-final.js']
+          admin_css = ['admin/admin.css','admin/admin-tablet-v2.css','admin/admin-visual-v1.css','admin/admin-theme-final-v1.css']
+          portal_js = ['portal/session-isolation.js','portal/portal.js','portal/portal-modules.js','portal/portal-permissions.js','portal/admin-parity-v3.js','portal/portal-view-integrity.js','portal/incoming-offers-ui.js','portal/portal-auto-sync.js','portal/portal-pricing-live.js','portal/password-recovery.js','portal/fcm-config.js','portal/fcm-register-v3.js','portal/live-sync.js','portal/inventory-ui-v3.js','portal/portal-shell-parity.js','portal/app-update.js','portal/personnel-v2.js','portal/portal-crud.js','portal/personnel-v121.js','portal/portal-menu-final.js','portal/portal-jobs-fix.js']
+          portal_css = ['portal/portal.css','portal/portal-visual-v1.css','portal/portal-logo.css','portal/portal-permissions.css','portal/portal-mobile-fixes.css','portal/portal-admin-theme.css','portal/admin-parity-v2.css','portal/admin-parity-v3.css','portal/admin-visual-only-v4.css','portal/personnel-v2.css','portal/personnel-v121.css','portal/portal-color-pass.css']
+
+          bundle('admin/admin-bundle.js', admin_js, 'Stagepulse Admin')
+          bundle('admin/admin-bundle.css', admin_css, 'Stagepulse Admin CSS')
+          bundle('portal/portal-bundle.js', portal_js, 'Stagepulse Personnel Portal')
+          bundle('portal/portal-bundle.css', portal_css, 'Stagepulse Personnel Portal CSS')
+
+          Path('admin/admin-runtime.js').write_text('''/* Stagepulse Admin — single canonical entrypoint. */\n(() => {\n  \'use strict\';\n  if (window.STAGEPULSE_ADMIN_BOOTSTRAPPED) return;\n  window.STAGEPULSE_ADMIN_BOOTSTRAPPED = true;\n  const loginForm = document.getElementById(\'loginForm\');\n  loginForm?.addEventListener(\'submit\', (event) => event.preventDefault());\n  function fail(){ const c=document.getElementById(\'content\'); if(!c)return; document.getElementById(\'loginView\')?.classList.add(\'is-hidden\'); const a=document.getElementById(\'appView\'); if(a){a.hidden=false;a.classList.remove(\'is-hidden\');} c.innerHTML=\'<div class="panel" role="alert"><h2>Yönetim paneli yüklenemedi</h2><p>Yönetim çekirdeği başlatılamadı.</p><button class="btn btn-primary" type="button" onclick="location.reload()">Yeniden dene</button></div>\'; }\n  const tag=document.createElement(\'script\'); tag.src=\'admin-bundle.js?v=20260902-canonical\'; tag.async=false; tag.onload=()=>{ if(typeof window.loadView!==\'function\') fail(); else {window.STAGEPULSE_ADMIN_READY=true;window.dispatchEvent(new CustomEvent(\'stagepulse:admin-ready\'));} }; tag.onerror=fail; document.body.appendChild(tag);\n})();\n''', encoding='utf-8')
+          Path('portal/portal-runtime.js').write_text('''/* Stagepulse Portal — single canonical entrypoint. */\n(() => {\n  \'use strict\';\n  if (window.STAGEPULSE_PORTAL_BOOTSTRAPPED) return;\n  window.STAGEPULSE_PORTAL_BOOTSTRAPPED = true;\n  const loginForm = document.getElementById(\'loginForm\');\n  loginForm?.addEventListener(\'submit\', (event) => event.preventDefault());\n  function fail(){ const c=document.getElementById(\'content\'); if(!c)return; document.getElementById(\'loginView\')?.classList.add(\'is-hidden\'); const a=document.getElementById(\'appView\'); if(a){a.hidden=false;a.classList.remove(\'is-hidden\');} c.innerHTML=\'<div class="panel" role="alert"><h2>Portal yüklenemedi</h2><p>Personel çekirdeği başlatılamadı.</p><button class="btn btn-primary" type="button" onclick="location.reload()">Yeniden dene</button></div>\'; }\n  const tag=document.createElement(\'script\'); tag.src=\'portal-bundle.js?v=20260902-canonical\'; tag.async=false; tag.onload=()=>{ if(!window.loadView) fail(); else {window.STAGEPULSE_PORTAL_READY=true;window.dispatchEvent(new CustomEvent(\'stagepulse:portal-ready\'));} }; tag.onerror=fail; document.body.appendChild(tag);\n})();\n''', encoding='utf-8')
+
+          ai=Path('admin/index.html'); s=ai.read_text(encoding='utf-8'); s=re.sub(r'<link rel="stylesheet" href="admin\\.css[^"]*">.*?<link rel="stylesheet" href="admin-theme-final-v1\\.css[^"]*">','<link rel="stylesheet" href="admin-bundle.css?v=20260902-canonical">',s,count=1); ai.write_text(s,encoding='utf-8')
+          pi=Path('portal/index.html'); s=pi.read_text(encoding='utf-8'); s=re.sub(r'<link rel="stylesheet" href="portal\\.css[^"]*">.*?<link rel="stylesheet" href="portal-color-pass\\.css[^"]*">','<link rel="stylesheet" href="portal-bundle.css?v=20260902-canonical">',s,count=1); pi.write_text(s,encoding='utf-8')
+          for f in admin_js+admin_css+portal_js+portal_css: Path(f).unlink()
+          PY
+      - name: Validate
+        run: |
+          test -s admin/admin-bundle.js
+          test -s admin/admin-bundle.css
+          test -s portal/portal-bundle.js
+          test -s portal/portal-bundle.css
+          node --check admin/admin-runtime.js
+          node --check portal/portal-runtime.js
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Consolidate runtime into canonical single modules" || exit 0
+          git push
