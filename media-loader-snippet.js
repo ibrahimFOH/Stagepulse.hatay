@@ -12,8 +12,10 @@
     if (!path) return '';
     if (/^https?:\/\//i.test(path)) return path;
     const clean = String(path).replace(/^\.\//, '').replace(/^\//, '');
-    /* Public GitHub Pages cannot render Git-LFS pointer files directly. */
-    if (/^images\//i.test(clean)) return MEDIA_CDN + clean.split('/').map(encodeURIComponent).join('/');
+    /* GitHub Pages serves Git-LFS pointer text; use the public LFS media CDN. */
+    if (/^(images|documents|videos)\//i.test(clean)) {
+      return MEDIA_CDN + clean.split('/').map(encodeURIComponent).join('/');
+    }
     return clean.split('/').map(encodeURIComponent).join('/');
   }
 
@@ -63,17 +65,19 @@
 
   function createGalleryItem(item) {
     const src = safeMediaUrl(item.webp || item.path);
-    const fallback = safeMediaUrl(item.path);
     const alt = String(item.name || '').replace(/\.[^/.]+$/, '');
     const figure = document.createElement('figure');
     figure.className = 'gallery-item';
     const img = document.createElement('img');
-    img.src = src || fallback;
-    img.dataset.full = src || fallback;
+    img.src = src;
+    img.dataset.full = src;
     img.alt = alt || 'Stagepulse galeri görseli';
     img.loading = 'lazy';
     img.decoding = 'async';
-    img.addEventListener('error', () => { if (fallback && img.src !== fallback) img.src = fallback; });
+    img.addEventListener('error', () => {
+      img.classList.add('media-load-failed');
+      img.alt = (alt || 'Stagepulse galeri görseli') + ' — görsel yüklenemedi';
+    });
     img.addEventListener('click', () => openLightbox(img.dataset.full || img.src, img.alt));
     figure.appendChild(img);
     return figure;
@@ -101,7 +105,7 @@
     link.target = '_blank';
     link.rel = 'noopener';
     link.dataset.title = item.title || '';
-    link.innerHTML = '<i class="fa-solid fa-file"></i>';
+    link.innerHTML = '<i class="fa-solid fa-file-pdf"></i>';
     const name = document.createElement('span');
     name.textContent = item.title || item.name || '';
     const size = document.createElement('small');
