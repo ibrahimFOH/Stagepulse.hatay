@@ -9,7 +9,6 @@
     { "name": "admin-password-reset", "verifyJwt": false },
     { "name": "ai-manage", "verifyJwt": false },
     { "name": "offer-pdf", "verifyJwt": false },
-    { "name": "offer-pdf-v3", "verifyJwt": false },
     { "name": "org-admin-control", "verifyJwt": false },
     { "name": "portal-login", "verifyJwt": false },
     { "name": "public-quote", "verifyJwt": false },
