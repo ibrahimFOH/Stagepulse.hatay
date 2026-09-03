@@ -21,12 +21,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
-    companion object {
-        private const val PREFS = "stagepulse"
-        private const val FCM_TOKEN = "fcm_token"
-        private const val FCM_PENDING_TOKEN = "fcm_pending_token"
-    }
-
+    companion object { private const val PREFS = "stagepulse"; private const val FCM_TOKEN = "fcm_token"; private const val FCM_PENDING_TOKEN = "fcm_pending_token" }
     private lateinit var webView: WebView
     private lateinit var appUpdater: AppUpdater
     private lateinit var secureTokenStore: SecureTokenStore
@@ -121,15 +116,15 @@ class MainActivity : AppCompatActivity() {
                 if (AndroidUrlPolicy.isCanonicalPortalUrl(request.url.toString(), portalPath)) return false
                 bridgeAllowed = false
                 if (request.url.host.equals("stagepulse.com.tr", true)) {
-                    Log.w("StagepulseWebView", "Portal dışı ana-frame URL engellendi: ${request.url}")
-                    view.stopLoading()
-                    view.loadUrl(expectedUrl())
-                } else {
-                    try {
-                        startActivity(Intent(Intent.ACTION_VIEW, request.url))
-                    } catch (e: Exception) {
-                        Log.w("StagepulseWebView", "Harici bağlantı açılamadı", e)
-                    }
+                    // Let same-host redirects complete normally. Never bounce them back
+                    // to expectedUrl(), which can create an endless WebView reload loop.
+                    Log.w("StagepulseWebView", "Portal URL canonical değil; normal navigasyona izin verildi: ${request.url}")
+                    return false
+                }
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, request.url))
+                } catch (e: Exception) {
+                    Log.w("StagepulseWebView", "Harici bağlantı açılamadı", e)
                 }
                 return true
             }
@@ -152,17 +147,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun installMinimalBridge() {
-        if (bridgeInstalled) return
-        webView.addJavascriptInterface(AndroidBridge(), "StagepulseAndroid")
-        bridgeInstalled = true
-    }
-
-    private fun removeMinimalBridge() {
-        if (!bridgeInstalled) return
-        webView.removeJavascriptInterface("StagepulseAndroid")
-        bridgeInstalled = false
-    }
+    private fun installMinimalBridge() { if (bridgeInstalled) return; webView.addJavascriptInterface(AndroidBridge(), "StagepulseAndroid"); bridgeInstalled = true }
+    private fun removeMinimalBridge() { if (!bridgeInstalled) return; webView.removeJavascriptInterface("StagepulseAndroid"); bridgeInstalled = false }
 
     private fun readSupabaseSession() {
         webView.evaluateJavascript("""
@@ -172,21 +158,14 @@ class MainActivity : AppCompatActivity() {
             if (token.isNotBlank() && secureTokenStore.isUsable(token)) {
                 if (token != accessToken && secureTokenStore.save(token)) accessToken = token
                 registerDeviceIfReady()
-            } else {
-                accessToken = null
-                secureTokenStore.clear()
-            }
+            } else { accessToken = null; secureTokenStore.clear() }
         }
     }
 
     private fun registerDeviceIfReady() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val token = prefs.getString(FCM_PENDING_TOKEN, null) ?: fcmToken ?: return
-        val auth = accessToken?.takeIf { secureTokenStore.isUsable(it) } ?: run {
-            accessToken = null
-            secureTokenStore.clear()
-            return
-        }
+        val auth = accessToken?.takeIf { secureTokenStore.isUsable(it) } ?: run { accessToken = null; secureTokenStore.clear(); return }
         thread {
             var c: java.net.HttpURLConnection? = null
             try {
@@ -198,33 +177,17 @@ class MainActivity : AppCompatActivity() {
                 connection.outputStream.use { it.write("{\"token\":\"${token.replace("\\", "\\\\").replace("\"", "\\\"")}\",\"app_variant\":\"$appVariant\"}".toByteArray()) }
                 val status = connection.responseCode
                 (if (status in 200..299) connection.inputStream else connection.errorStream)?.close()
-                if (status in 200..299) {
-                    if (prefs.getString(FCM_PENDING_TOKEN, null) == token) prefs.edit().remove(FCM_PENDING_TOKEN).apply()
-                } else {
-                    if (status == java.net.HttpURLConnection.HTTP_UNAUTHORIZED) {
-                        accessToken = null
-                        secureTokenStore.clear()
-                    }
-                    Log.w("StagepulseFCM", "register failed: HTTP $status")
-                }
+                if (status in 200..299) { if (prefs.getString(FCM_PENDING_TOKEN, null) == token) prefs.edit().remove(FCM_PENDING_TOKEN).apply() }
+                else { if (status == java.net.HttpURLConnection.HTTP_UNAUTHORIZED) { accessToken = null; secureTokenStore.clear() }; Log.w("StagepulseFCM", "register failed: HTTP $status") }
             } catch (e: Exception) { Log.w("StagepulseFCM", "register failed: ${e.message}") }
             finally { c?.disconnect() }
         }
     }
 
-    private fun isBridgeAllowed(): Boolean {
-        return bridgeAllowed
-    }
-
+    private fun isBridgeAllowed(): Boolean = bridgeAllowed
     inner class AndroidBridge {
         @JavascriptInterface fun refreshSession() { runOnUiThread { if (isBridgeAllowed()) readSupabaseSession() } }
-        @JavascriptInterface fun setAccessToken(token: String?) {
-            runOnUiThread {
-                if (!isBridgeAllowed()) return@runOnUiThread
-                accessToken = if (secureTokenStore.save(token)) token else null
-                if (accessToken != null) registerDeviceIfReady()
-            }
-        }
+        @JavascriptInterface fun setAccessToken(token: String?) { runOnUiThread { if (!isBridgeAllowed()) return@runOnUiThread; accessToken = if (secureTokenStore.save(token)) token else null; if (accessToken != null) registerDeviceIfReady() } }
     }
 
     @Deprecated("Deprecated in Android API")
