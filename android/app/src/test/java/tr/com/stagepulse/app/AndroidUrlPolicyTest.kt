@@ -44,6 +44,16 @@ class AndroidUrlPolicyTest {
     }
 
     @Test
+    fun trustedNavigationIsScopedToTheInstalledFlavor() {
+        assertTrue(AndroidUrlPolicy.isTrustedPortalNavigation("https://stagepulse.com.tr/portal/offers?id=42", "/portal/"))
+        assertFalse(AndroidUrlPolicy.isTrustedPortalNavigation("https://stagepulse.com.tr/admin/", "/portal/"))
+        assertTrue(AndroidUrlPolicy.isTrustedPortalNavigation("https://stagepulse.com.tr/admin/", "/admin/"))
+        assertFalse(AndroidUrlPolicy.isTrustedPortalNavigation("https://stagepulse.com.tr/portal/", "/admin/"))
+        assertFalse(AndroidUrlPolicy.isTrustedPortalNavigation("https://tenant.stagepulse.com.tr/admin/", "/admin/"))
+        assertFalse(AndroidUrlPolicy.isTrustedPortalNavigation("https://stagepulse.com.tr/admin/%2e./", "/admin/"))
+    }
+
+    @Test
     fun notificationDeepLinksAreValidatedRatherThanRewritten() {
         assertTrue(
             AndroidUrlPolicy.canonicalNotificationUrl(
