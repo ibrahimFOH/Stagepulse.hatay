@@ -114,7 +114,7 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
                 val url = request.url.toString()
-                if (AndroidUrlPolicy.isTrustedPortalNavigation(url)) return false
+                if (AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath)) return false
                 bridgeAllowed = false
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, request.url))
@@ -125,9 +125,9 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (!AndroidUrlPolicy.isTrustedPortalNavigation(url)) {
+                if (!AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath)) {
                     bridgeAllowed = false
-                    Log.w("StagepulseWebView", "Güvenilmeyen portal navigasyonu; bridge devre dışı: $url")
+                    Log.w("StagepulseWebView", "Güvenilmeyen/yanlış APK portalı; bridge devre dışı: $url")
                     return
                 }
                 bridgeAllowed = true
