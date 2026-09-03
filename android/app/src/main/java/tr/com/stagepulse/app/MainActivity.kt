@@ -118,11 +118,11 @@ class MainActivity : AppCompatActivity() {
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
-                if (AndroidUrlPolicy.isCanonicalPortalUrl(request.url.toString(), portalPath)) {
-                    return false
-                }
+                if (AndroidUrlPolicy.isCanonicalPortalUrl(request.url.toString(), portalPath)) return false
                 bridgeAllowed = false
                 if (request.url.host.equals("stagepulse.com.tr", true)) {
+                    Log.w("StagepulseWebView", "Portal dışı ana-frame URL engellendi: ${request.url}")
+                    view.stopLoading()
                     view.loadUrl(expectedUrl())
                 } else {
                     try {
@@ -137,7 +137,7 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 if (!AndroidUrlPolicy.isCanonicalPortalUrl(url, portalPath)) {
                     bridgeAllowed = false
-                    view.loadUrl(expectedUrl())
+                    Log.w("StagepulseWebView", "Kanonik portal URL değil; yeniden yükleme yapılmadı: $url")
                     return
                 }
                 bridgeAllowed = true
