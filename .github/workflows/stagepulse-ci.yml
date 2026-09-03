@@ -41,6 +41,16 @@ jobs:
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.x
+      - name: Validate canonical operation layout
+        run: |
+          set -euo pipefail
+          test -s admin/command-center.js
+          test ! -e admin/command-center-bridge.js
+          test ! -e admin/command-center-forms.js
+          test ! -e admin/command-center-forms-router.js
+          test ! -e admin/command-center-complete-modules.js
+          grep -q "command-center.js?v=20260904-1" shared/runtime-config.js
+          grep -q "public.is_admin" supabase/migrations/20260904031000_owner_only_is_admin_authority.sql
       - name: Validate static site and manifests
         run: |
           set -euo pipefail
