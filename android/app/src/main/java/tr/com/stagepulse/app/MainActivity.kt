@@ -113,14 +113,9 @@ class MainActivity : AppCompatActivity() {
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
-                if (AndroidUrlPolicy.isCanonicalPortalUrl(request.url.toString(), portalPath)) return false
+                val url = request.url.toString()
+                if (AndroidUrlPolicy.isTrustedPortalNavigation(url)) return false
                 bridgeAllowed = false
-                if (request.url.host.equals("stagepulse.com.tr", true)) {
-                    // Let same-host redirects complete normally. Never bounce them back
-                    // to expectedUrl(), which can create an endless WebView reload loop.
-                    Log.w("StagepulseWebView", "Portal URL canonical değil; normal navigasyona izin verildi: ${request.url}")
-                    return false
-                }
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, request.url))
                 } catch (e: Exception) {
@@ -130,9 +125,9 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (!AndroidUrlPolicy.isCanonicalPortalUrl(url, portalPath)) {
+                if (!AndroidUrlPolicy.isTrustedPortalNavigation(url)) {
                     bridgeAllowed = false
-                    Log.w("StagepulseWebView", "Kanonik portal URL değil; yeniden yükleme yapılmadı: $url")
+                    Log.w("StagepulseWebView", "Güvenilmeyen portal navigasyonu; bridge devre dışı: $url")
                     return
                 }
                 bridgeAllowed = true
