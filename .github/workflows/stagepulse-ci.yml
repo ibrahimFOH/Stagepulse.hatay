@@ -18,8 +18,6 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: '05 21 * * *'
-    - cron: '30 03 * * 0'
     - cron: '00 06 * * *'
 permissions:
   contents: read
@@ -102,7 +100,6 @@ jobs:
   public_integrity:
     name: Public SEO / Navigation Integrity
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate public pages
@@ -190,7 +187,7 @@ jobs:
 
   guardian:
     name: Daily Production Guardian
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '05 21 * * *' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '00 06 * * *' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -214,7 +211,7 @@ jobs:
 
   weekly_health:
     name: Weekly Autonomous Health
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '30 03 * * 0' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '00 06 * * *' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
