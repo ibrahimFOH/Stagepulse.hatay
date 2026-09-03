@@ -15,7 +15,6 @@ internal object AndroidUrlPolicy {
             if (uri.rawQuery != null || uri.rawFragment != null) return false
             val path = uri.rawPath ?: return false
             val parts = safePathSegments(path) ?: return false
-            // GitHub's canonical release URLs never need encoded path components.
             if (path.contains('%')) return false
             parts.size == 7 &&
                 parts[1] == "ibrahimFOH" &&
@@ -64,6 +63,17 @@ internal object AndroidUrlPolicy {
         val uri = parseHttps(trimmed) ?: return null
         val query = uri.rawQuery?.let { "?$it" }.orEmpty()
         return "https://$PORTAL_HOST${uri.rawPath ?: "/"}$query"
+    }
+
+    fun isTrustedPortalNavigation(value: String): Boolean {
+        return parseHttps(value)?.let { uri ->
+            uri.host.equals(PORTAL_HOST, ignoreCase = true) &&
+                uri.rawFragment == null &&
+                isSafeQuery(uri.rawQuery) &&
+                !uri.path.contains('\\') &&
+                !uri.path.contains("//") &&
+                safePathSegments(uri.rawPath ?: "/") != null
+        } ?: false
     }
 
     private fun parseHttps(value: String): URI? {
