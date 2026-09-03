@@ -57,23 +57,20 @@ internal object AndroidUrlPolicy {
         } ?: false
     }
 
+    /**
+     * Variant-scoped trust check. Admin APKs stay inside /admin/ and staff APKs
+     * stay inside /portal/. This prevents cross-flavor navigation from becoming
+     * a trusted WebView context and from re-enabling the native JS bridge.
+     */
+    fun isTrustedPortalNavigation(value: String, portalPath: String): Boolean =
+        isCanonicalPortalUrl(value, portalPath)
+
     fun canonicalNotificationUrl(value: String, portalPath: String): String? {
         val trimmed = value.trim()
         if (!isCanonicalPortalUrl(trimmed, portalPath)) return null
         val uri = parseHttps(trimmed) ?: return null
         val query = uri.rawQuery?.let { "?$it" }.orEmpty()
         return "https://$PORTAL_HOST${uri.rawPath ?: "/"}$query"
-    }
-
-    fun isTrustedPortalNavigation(value: String): Boolean {
-        return parseHttps(value)?.let { uri ->
-            uri.host.equals(PORTAL_HOST, ignoreCase = true) &&
-                uri.rawFragment == null &&
-                isSafeQuery(uri.rawQuery) &&
-                !uri.path.contains('\\') &&
-                !uri.path.contains("//") &&
-                safePathSegments(uri.rawPath ?: "/") != null
-        } ?: false
     }
 
     private fun parseHttps(value: String): URI? {
