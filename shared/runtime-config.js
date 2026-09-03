@@ -1,13 +1,6 @@
 /**
  * Stagepulse runtime config (client-safe values only).
- *
- * - Supabase publishable/anon key and Firebase Web config are designed to live in the browser.
- * - Never put service_role, Firebase Admin private keys, or signing secrets here.
- *
- * Override without editing this file:
- *   1) Set window.__STAGEPULSE_RUNTIME_OVERRIDE__ before this script loads, or
- *   2) CI/GitHub Actions can regenerate this file from repository secrets
- *      (SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, Firebase web keys).
+ * Never put service_role, Firebase Admin private keys, or signing secrets here.
  */
 (function (global) {
   'use strict';
@@ -40,6 +33,6 @@
   global.STAGEPULSE_RUNTIME = Object.freeze({supabaseUrl:url,supabasePublishableKey:key,siteAiUrl:siteAi,fcm:Object.freeze(fcm)});
   global.STAGEPULSE_FCM_CONFIG = Object.freeze(Object.assign({},fcm));
   if (global.location && /^\/admin\//.test(global.location.pathname)) {
-    [['link','stylesheet','admin/patron-center.css?v=20260903-1'],['script','', 'admin/patron-center.js?v=20260903-1'],['link','stylesheet','admin/owner-operating-system.css?v=20260903-1'],['script','', 'admin/owner-operating-system.js?v=20260903-1']].forEach(function(x){var e=document.createElement(x[0]);if(x[1])e.rel=x[1];e.src=x[2];e.href=x[2];e.defer=false;document.head.appendChild(e);});
+    [['link','stylesheet','patron-center.css?v=20260903-2'],['script','', 'patron-center.js?v=20260903-2'],['link','stylesheet','owner-operating-system.css?v=20260903-2'],['script','', 'owner-operating-system.js?v=20260903-2']].forEach(function(x){var e=document.createElement(x[0]);if(x[1])e.rel=x[1];if(x[0]==='script')e.src=x[2];else e.href=x[2];e.defer=false;document.head.appendChild(e);});
   }
 })(typeof globalThis !== 'undefined' ? globalThis : window);
