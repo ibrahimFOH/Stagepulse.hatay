@@ -1,23 +1,23 @@
 {
-  "release": null,
-  "updated_at": "2026-09-01T00:00:00Z",
-  "status": "no_verified_release",
+  "release": "v2.3.1-build.8",
+  "updated_at": "2026-09-03T12:25:35.349513Z",
+  "status": "verified",
   "staff": {
     "platform": "staff",
-    "apk_version": 0,
-    "web_version": "2.3.0",
+    "apk_version": 2003001,
+    "web_version": "2.3.1",
     "minimum_version": 0,
-    "apk_url": "",
-    "apk_sha256": "",
-    "notes": "Doğrulanmış APK yayını henüz mevcut değil."
+    "apk_url": "https://github.com/ibrahimFOH/Stagepulse.hatay/releases/download/v2.3.1-build.8/Stagepulse-Personel-v2.3.1.apk",
+    "apk_sha256": "6fc6705dfb8a43d4c29e2d56a10f97ba2b845793901c6b7ccaaeb7effb7feb3c",
+    "notes": "Stagepulse 2.3.1"
   },
   "admin": {
     "platform": "admin",
-    "apk_version": 0,
-    "web_version": "2.3.0",
+    "apk_version": 2003001,
+    "web_version": "2.3.1",
     "minimum_version": 0,
-    "apk_url": "",
-    "apk_sha256": "",
-    "notes": "Doğrulanmış APK yayını henüz mevcut değil."
+    "apk_url": "https://github.com/ibrahimFOH/Stagepulse.hatay/releases/download/v2.3.1-build.8/Stagepulse-Admin-v2.3.1.apk",
+    "apk_sha256": "aa8b2cac84d68f831c77400d487b47e47d4b03baa9036da8baef0f949b708e1e",
+    "notes": "Stagepulse 2.3.1"
   }
 }
