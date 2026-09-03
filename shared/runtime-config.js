@@ -11,9 +11,7 @@
  */
 (function (global) {
   'use strict';
-
   var OVERRIDE = global.__STAGEPULSE_RUNTIME_OVERRIDE__ || {};
-
   var DEFAULTS = {
     supabaseUrl: 'https://mtjcqqrogjqaxkagwkti.supabase.co',
     supabasePublishableKey: 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6',
@@ -29,48 +27,19 @@
       vapidKey: 'BOPkjOlp10RVFRaJQtDx2l8v2uzLVrBTcv2EgTthRiSNGA3IbOAc6f24mGJJrQuice0FQtG3dxbB6Ae54gQS7tE'
     }
   };
-
-  function pick(key) {
-    if (OVERRIDE[key] != null && OVERRIDE[key] !== '') return OVERRIDE[key];
-    return null;
-  }
-
+  function pick(key) { return OVERRIDE[key] != null && OVERRIDE[key] !== '' ? OVERRIDE[key] : null; }
   var url = pick('supabaseUrl') || DEFAULTS.supabaseUrl;
   var key = pick('supabasePublishableKey') || DEFAULTS.supabasePublishableKey;
   var siteAi = pick('siteAiUrl') || (url ? url.replace(/\/$/, '') + '/functions/v1/site-ai' : DEFAULTS.supabaseUrl + '/functions/v1/site-ai');
-
   var fcm = {
-    apiKey: (OVERRIDE.fcm && OVERRIDE.fcm.apiKey) || DEFAULTS.fcm.apiKey,
-    authDomain: (OVERRIDE.fcm && OVERRIDE.fcm.authDomain) || DEFAULTS.fcm.authDomain,
-    projectId: (OVERRIDE.fcm && OVERRIDE.fcm.projectId) || DEFAULTS.fcm.projectId,
-    storageBucket: (OVERRIDE.fcm && OVERRIDE.fcm.storageBucket) || DEFAULTS.fcm.storageBucket,
-    messagingSenderId: (OVERRIDE.fcm && OVERRIDE.fcm.messagingSenderId) || DEFAULTS.fcm.messagingSenderId,
-    appId: (OVERRIDE.fcm && OVERRIDE.fcm.appId) || DEFAULTS.fcm.appId,
-    measurementId: (OVERRIDE.fcm && OVERRIDE.fcm.measurementId) || DEFAULTS.fcm.measurementId,
-    vapidKey: (OVERRIDE.fcm && OVERRIDE.fcm.vapidKey) || DEFAULTS.fcm.vapidKey
+    apiKey:(OVERRIDE.fcm&&OVERRIDE.fcm.apiKey)||DEFAULTS.fcm.apiKey, authDomain:(OVERRIDE.fcm&&OVERRIDE.fcm.authDomain)||DEFAULTS.fcm.authDomain,
+    projectId:(OVERRIDE.fcm&&OVERRIDE.fcm.projectId)||DEFAULTS.fcm.projectId, storageBucket:(OVERRIDE.fcm&&OVERRIDE.fcm.storageBucket)||DEFAULTS.fcm.storageBucket,
+    messagingSenderId:(OVERRIDE.fcm&&OVERRIDE.fcm.messagingSenderId)||DEFAULTS.fcm.messagingSenderId, appId:(OVERRIDE.fcm&&OVERRIDE.fcm.appId)||DEFAULTS.fcm.appId,
+    measurementId:(OVERRIDE.fcm&&OVERRIDE.fcm.measurementId)||DEFAULTS.fcm.measurementId, vapidKey:(OVERRIDE.fcm&&OVERRIDE.fcm.vapidKey)||DEFAULTS.fcm.vapidKey
   };
-
-  var runtime = Object.freeze({
-    supabaseUrl: url,
-    supabasePublishableKey: key,
-    siteAiUrl: siteAi,
-    fcm: Object.freeze(fcm)
-  });
-
-  global.STAGEPULSE_RUNTIME = runtime;
-
-  // Keep legacy global used by service worker / FCM register scripts.
-  global.STAGEPULSE_FCM_CONFIG = Object.freeze(Object.assign({}, fcm));
-
-  // Patron Center is loaded only inside the admin application. It remains hidden from staff.
+  global.STAGEPULSE_RUNTIME = Object.freeze({supabaseUrl:url,supabasePublishableKey:key,siteAiUrl:siteAi,fcm:Object.freeze(fcm)});
+  global.STAGEPULSE_FCM_CONFIG = Object.freeze(Object.assign({},fcm));
   if (global.location && /^\/admin\//.test(global.location.pathname)) {
-    var css = document.createElement('link');
-    css.rel = 'stylesheet';
-    css.href = 'patron-center.css?v=20260903-1';
-    document.head.appendChild(css);
-    var js = document.createElement('script');
-    js.src = 'patron-center.js?v=20260903-1';
-    js.defer = false;
-    document.head.appendChild(js);
+    [['link','stylesheet','admin/patron-center.css?v=20260903-1'],['script','', 'admin/patron-center.js?v=20260903-1'],['link','stylesheet','admin/owner-operating-system.css?v=20260903-1'],['script','', 'admin/owner-operating-system.js?v=20260903-1']].forEach(function(x){var e=document.createElement(x[0]);if(x[1])e.rel=x[1];e.src=x[2];e.href=x[2];e.defer=false;document.head.appendChild(e);});
   }
 })(typeof globalThis !== 'undefined' ? globalThis : window);
