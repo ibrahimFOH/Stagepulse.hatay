@@ -149,4 +149,7 @@ declare r public.services; vmin integer; vmax integer; vdef integer; begin
  if r.id is null then raise exception 'Hizmet bulunamadı.'; end if; return r;
 end; $$;
 
+grant execute on function public.staff_capabilities(uuid) to authenticated;
+grant execute on function public.staff_capability(text) to authenticated;
+
 commit;
