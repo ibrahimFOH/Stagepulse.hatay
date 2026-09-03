@@ -61,4 +61,16 @@
 
   // Keep legacy global used by service worker / FCM register scripts.
   global.STAGEPULSE_FCM_CONFIG = Object.freeze(Object.assign({}, fcm));
+
+  // Patron Center is loaded only inside the admin application. It remains hidden from staff.
+  if (global.location && /^\/admin\//.test(global.location.pathname)) {
+    var css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'patron-center.css?v=20260903-1';
+    document.head.appendChild(css);
+    var js = document.createElement('script');
+    js.src = 'patron-center.js?v=20260903-1';
+    js.defer = false;
+    document.head.appendChild(js);
+  }
 })(typeof globalThis !== 'undefined' ? globalThis : window);
