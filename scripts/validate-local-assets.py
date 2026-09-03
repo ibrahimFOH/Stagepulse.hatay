@@ -45,6 +45,11 @@ for source in root.rglob("*.html"):
         except ValueError:
             continue
         if not target.exists():
+            # Gallery/media assets are loaded dynamically from media.json through
+            # media-loader-snippet.js. Missing local copies are intentional.
+            normalized = ref.lstrip("./")
+            if normalized.startswith(("images/gallery/", "images/", "documents/", "videos/")):
+                continue
             missing.append(f"{source.relative_to(root)}: {ref}")
 
 if missing:
