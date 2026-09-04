@@ -75,8 +75,7 @@
     img.loading = 'lazy';
     img.decoding = 'async';
     img.addEventListener('error', () => {
-      img.classList.add('media-load-failed');
-      img.alt = (alt || 'Stagepulse galeri görseli') + ' — görsel yüklenemedi';
+      figure.remove();
     });
     img.addEventListener('click', () => openLightbox(img.dataset.full || img.src, img.alt));
     figure.appendChild(img);
@@ -117,17 +116,17 @@
   async function initMediaSections() {
     const data = await loadMediaJson();
     const galleryContainer = document.getElementById('gallery') || document.getElementById('gallery-grid') || document.querySelector('.gallery-grid');
-    if (galleryContainer && data.gallery.length) {
+    if (galleryContainer) {
       galleryContainer.innerHTML = '';
       data.gallery.forEach(item => galleryContainer.appendChild(createGalleryItem(item)));
     }
     const videoContainer = document.getElementById('videos') || document.getElementById('video-grid') || document.querySelector('.video-grid');
-    if (videoContainer && data.videos.length) {
+    if (videoContainer) {
       videoContainer.innerHTML = '';
       data.videos.forEach(item => videoContainer.appendChild(createVideoItem(item)));
     }
     const docContainer = document.getElementById('docs-list') || document.querySelector('.docs-list');
-    if (docContainer && data.documents.length) {
+    if (docContainer) {
       docContainer.innerHTML = '';
       data.documents.forEach(item => docContainer.appendChild(createDocItem(item)));
     }
