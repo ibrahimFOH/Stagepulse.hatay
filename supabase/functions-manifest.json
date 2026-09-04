@@ -11,6 +11,7 @@
     { "name": "offer-pdf", "verifyJwt": false },
     { "name": "org-admin-control", "verifyJwt": false },
     { "name": "portal-login", "verifyJwt": false },
+    { "name": "production-os", "verifyJwt": false },
     { "name": "public-quote", "verifyJwt": false },
     { "name": "register-android-device", "verifyJwt": true },
     { "name": "send-fcm-notification", "verifyJwt": false },

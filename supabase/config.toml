@@ -16,6 +16,8 @@ verify_jwt = false
 verify_jwt = false
 [functions.portal-login]
 verify_jwt = false
+[functions.production-os]
+verify_jwt = false
 [functions.public-quote]
 verify_jwt = false
 [functions.register-android-device]
