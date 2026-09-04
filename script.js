@@ -81,13 +81,13 @@ ensureLanguageSwitcher();
     document.head.appendChild(st);
   }
   if (!document.getElementById('sp-mobile-nav-css')) {
-    var link = document.createElement('link'); link.id='sp-mobile-nav-css'; link.rel='stylesheet'; link.href='/mobile-nav-fix.css?v=20260827-nav3'; document.head.appendChild(link);
+    var link = document.createElement('link'); link.id='sp-mobile-nav-css'; link.rel='stylesheet'; link.href='/mobile-nav-fix.css?v=20260904-nav4'; document.head.appendChild(link);
   }
   function ensureHamburger(){var nr=document.querySelector('.nav-right');if(!nr)return null;var h=document.getElementById('hamburger');if(!h){h=document.createElement('button');h.type='button';h.className='hamburger';h.id='hamburger';h.setAttribute('aria-label','Menü');h.setAttribute('aria-expanded','false');h.innerHTML='<i class="fa-solid fa-bars" id="hamburger-icon"></i>';nr.appendChild(h)}return h}
   function bindMenu(){ensureCoreNavigationLinks();var hamburger=ensureHamburger(),navLinks=document.getElementById('navLinks'),icon=document.getElementById('hamburger-icon');if(!hamburger||!navLinks)return;if(hamburger.dataset.spMenuReady==='1')return;hamburger.dataset.spMenuReady='1';hamburger.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var open=!navLinks.classList.contains('active');navLinks.classList.toggle('active',open);hamburger.classList.toggle('open',open);hamburger.setAttribute('aria-expanded',open?'true':'false');if(icon){icon.classList.toggle('fa-bars',!open);icon.classList.toggle('fa-xmark',open)}});navLinks.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){navLinks.classList.remove('active');hamburger.classList.remove('open');hamburger.setAttribute('aria-expanded','false')})})}
   function boot(){bindMenu();try{new MutationObserver(function(){if(window.innerWidth<900&&!document.getElementById('hamburger')){var h=document.querySelector('.hamburger');if(h&&h.dataset)h.dataset.spMenuReady='';bindMenu()}}).observe(document.documentElement,{childList:true,subtree:true})}catch(err){}}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
-  var ctrl=document.createElement('script');ctrl.src='/script-controller.js?v=20260827-nav3';ctrl.async=true;ctrl.onerror=function(){var s=document.createElement('script');s.src='/core.js?v=20260827-nav3';document.head.appendChild(s)};document.head.appendChild(ctrl);
+  var ctrl=document.createElement('script');ctrl.src='/script-controller.js?v=20260904-nav4';ctrl.async=true;ctrl.onerror=function(){var s=document.createElement('script');s.src='/core.js?v=20260904-nav4';document.head.appendChild(s)};document.head.appendChild(ctrl);
 })();
 
 /* Public visual/media resilience — canonical LFS-safe hero/gallery loader. */
