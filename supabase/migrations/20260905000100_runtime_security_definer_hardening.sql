@@ -47,17 +47,6 @@ as $$
   end;
 $$;
 
-create or replace function public.staff_capability(p_capability text)
-returns boolean
-language sql stable security definer
-set search_path = pg_catalog, public, private, auth, pg_temp
-as $$
-  select auth.uid() is not null
-     and p_capability is not null
-     and length(p_capability) between 1 and 160
-     and private.admin_has_capability(p_capability);
-$$;
-
 -- Preserve the authenticated client surface; anonymous callers remain explicitly denied.
 revoke execute on function public.current_admin_profile() from anon;
 revoke execute on function public.panel_access(text) from anon;
