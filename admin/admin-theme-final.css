@@ -1,32 +1,55 @@
-/* Stagepulse Admin — final theme layer. Loaded after module CSS so every dynamically rendered admin view inherits one palette. */
-.admin-body{--sp-gold:#ffb000;--sp-green:#34d399;--sp-blue:#60a5fa;--sp-red:#fb7185;--sp-purple:#a78bfa;--sp-amber:#ffd166;--sp-bg:#0a0d12;--sp-panel:#11161d;--sp-panel-2:#151b23;--sp-line:#2e3540;--sp-text:#eef1f5;--sp-muted:#8f98a6;background:var(--sp-bg)!important;color:var(--sp-text)!important}
-.admin-body #appView,.admin-body .app-shell,.admin-body .main,.admin-body #content,.admin-body .content,.admin-body #moduleBody{background:var(--sp-bg)!important;color:var(--sp-text)!important}
-.admin-body #content h1,.admin-body #content h2,.admin-body #content h3,.admin-body #content h4,.admin-body #content h5,.admin-body #content h6{color:var(--sp-text)!important}
-.admin-body #content p,.admin-body #content label,.admin-body #content legend{color:var(--sp-text)}
-.admin-body #content .muted,.admin-body #content .subtle,.admin-body #content .hint,.admin-body #content .help-text,.admin-body #content small{color:var(--sp-muted)!important}
-.admin-body #content .panel,.admin-body #content .card,.admin-body #content .section,.admin-body #content .section-card,.admin-body #content .module-card,.admin-body #content .stat-card,.admin-body #content .metric-card,.admin-body #content .kpi,.admin-body #content .kpi-card,.admin-body #content .dashboard-card,.admin-body #content .summary-card,.admin-body #content .settings-card,.admin-body #content .box,.admin-body #content .tile{background:var(--sp-panel)!important;color:var(--sp-text)!important;border-color:var(--sp-line)!important}
-.admin-body #content table{background:transparent!important;color:var(--sp-text)!important;border-color:var(--sp-line)!important}
-.admin-body #content th{background:#0d1218!important;color:#aeb7c4!important;border-color:var(--sp-line)!important}
-.admin-body #content td{background:var(--sp-panel)!important;color:var(--sp-text)!important;border-color:var(--sp-line)!important}
-.admin-body #content tr:hover td{background:rgba(255,176,0,.065)!important}
-.admin-body #content input,.admin-body #content select,.admin-body #content textarea{background:#0c1117!important;color:var(--sp-text)!important;border-color:#303844!important}
-.admin-body #content input:focus,.admin-body #content select:focus,.admin-body #content textarea:focus{border-color:var(--sp-gold)!important;box-shadow:0 0 0 3px rgba(255,176,0,.10)!important}
-.admin-body #content button:not(.btn-primary):not(.btn-success):not(.btn-danger),.admin-body #content .btn:not(.btn-primary):not(.btn-success):not(.btn-danger){background:#171d25!important;color:#dfe5ec!important;border-color:#3b4552!important}
-.admin-body #content .btn-primary,.admin-body #content button.btn-primary{background:var(--sp-gold)!important;color:#111!important;border-color:var(--sp-gold)!important}
-.admin-body #content .btn-success,.admin-body #content button.btn-success{background:rgba(52,211,153,.12)!important;color:#6ee7a0!important;border-color:#245b47!important}
-.admin-body #content .btn-danger,.admin-body #content button.btn-danger,.admin-body #content .btn-delete{background:rgba(251,113,133,.10)!important;color:#ff91a3!important;border-color:#693444!important}
-.admin-body #content a{color:var(--sp-blue)!important}.admin-body #content a:hover{color:var(--sp-gold)!important}
-.admin-body #content .status.new,.admin-body #content .status.pending{color:#ffd166!important;background:rgba(255,176,0,.12)!important;border-color:#6b5000!important}
-.admin-body #content .status.reviewing,.admin-body #content .status.review{color:#c4b5fd!important;background:rgba(167,139,250,.12)!important;border-color:#594b88!important}
-.admin-body #content .status.preparing,.admin-body #content .status.sent,.admin-body #content .status.info{color:#8ab9ff!important;background:rgba(96,165,250,.12)!important;border-color:#34578f!important}
-.admin-body #content .status.accepted,.admin-body #content .status.paid,.admin-body #content .status.active,.admin-body #content .success{color:#6ee7a0!important;background:rgba(52,211,153,.12)!important;border-color:#245b47!important}
-.admin-body #content .status.rejected,.admin-body #content .status.cancelled,.admin-body #content .status.inactive,.admin-body #content .error,.admin-body #content .danger{color:#ff91a3!important;background:rgba(251,113,133,.11)!important;border-color:#693444!important}
-.admin-body #content .warning{color:#ffd166!important;background:rgba(255,176,0,.10)!important;border-color:#6b5000!important}
-.admin-body #content .toolbar,.admin-body #content .filters,.admin-body #content .filter-bar{background:var(--sp-panel-2)!important;color:var(--sp-text)!important;border-color:var(--sp-line)!important}
-.admin-body #content .tabs button.active,.admin-body #content .tab.active{background:var(--sp-gold)!important;color:#111!important;border-color:var(--sp-gold)!important}
-.admin-body #content .modal,.admin-body #content .dialog,.admin-body #content .drawer,.admin-body #content .popover,.admin-body #content .dropdown-menu{background:#10161d!important;color:var(--sp-text)!important;border-color:var(--sp-line)!important}
-.admin-body #content .empty,.admin-body #content .empty-state{background:#0e1319!important;color:var(--sp-muted)!important;border-color:#39424e!important}
-.admin-body #content .progress,.admin-body #content .progress-track{background:#202832!important;border-color:#303844!important}.admin-body #content .progress-bar,.admin-body #content .progress-fill{background:var(--sp-gold)!important}
-.admin-body #content [data-tone="positive"]{color:var(--sp-green)!important}.admin-body #content [data-tone="negative"]{color:var(--sp-red)!important}.admin-body #content [data-tone="warning"]{color:var(--sp-amber)!important}.admin-body #content [data-tone="info"]{color:var(--sp-blue)!important}
-.admin-body #content [aria-invalid="true"],.admin-body #content .is-invalid{border-color:var(--sp-red)!important}.admin-body #content .is-valid{border-color:var(--sp-green)!important}
-.admin-body #content ::selection{background:rgba(255,176,0,.30);color:#fff}
+/* Stagepulse Admin — final global theme layer. Must remain last in the admin cascade. */
+.admin-body{
+ --sp-gold:#ffb000;--sp-green:#34d399;--sp-blue:#60a5fa;--sp-red:#fb7185;--sp-purple:#a78bfa;--sp-amber:#ffd166;
+ --sp-bg:#0a0d12;--sp-panel:#11161d;--sp-panel2:#151b23;--sp-line:#2e3540;--sp-text:#eef1f5;--sp-muted:#8f98a6;
+ background:var(--sp-bg)!important;color:var(--sp-text)!important;
+}
+.admin-body,.admin-body *{box-sizing:border-box}
+.admin-body #appView,.admin-body .app-shell,.admin-body .main,.admin-body #content,.admin-body .content,.admin-body #moduleBody,.admin-body main,.admin-body section{color:var(--sp-text)}
+.admin-body #appView,.admin-body .app-shell,.admin-body .main,.admin-body #content,.admin-body .content,.admin-body #moduleBody,.admin-body main{background:var(--sp-bg)!important}
+.admin-body h1,.admin-body h2,.admin-body h3,.admin-body h4,.admin-body h5,.admin-body h6{color:var(--sp-text)!important}
+.admin-body p,.admin-body label,.admin-body legend,.admin-body li{color:var(--sp-text)}
+.admin-body small,.admin-body .muted,.admin-body .subtle,.admin-body .hint,.admin-body .help-text{color:var(--sp-muted)!important}
+
+/* Every common dynamically-rendered surface, regardless of module class. */
+.admin-body .card,.admin-body .panel,.admin-body .section-card,.admin-body .module-card,.admin-body .stat-card,.admin-body .metric-card,.admin-body .kpi,.admin-body .kpi-card,.admin-body .dashboard-card,.admin-body .summary-card,.admin-body .settings-card,.admin-body .box,.admin-body .tile,.admin-body .toolbar,.admin-body .filters,.admin-body .filter-bar,.admin-body .form-card,.admin-body .list-card,.admin-body .table-card,.admin-body [data-card],.admin-body [data-panel]{background:var(--sp-panel)!important;color:var(--sp-text)!important;border-color:var(--sp-line)!important}
+.admin-body table{background:transparent!important;color:var(--sp-text)!important;border-color:var(--sp-line)!important;width:100%}
+.admin-body th{background:#0d1218!important;color:#aeb7c4!important;border-color:var(--sp-line)!important}
+.admin-body td{background:var(--sp-panel)!important;color:var(--sp-text)!important;border-color:var(--sp-line)!important}
+.admin-body tr:hover td{background:rgba(255,176,0,.065)!important}
+
+/* Forms and controls across all admin modules. */
+.admin-body input,.admin-body select,.admin-body textarea{background:#0c1117!important;color:var(--sp-text)!important;border:1px solid #303844!important}
+.admin-body input::placeholder,.admin-body textarea::placeholder{color:#707987!important}
+.admin-body input:focus,.admin-body select:focus,.admin-body textarea:focus{border-color:var(--sp-gold)!important;box-shadow:0 0 0 3px rgba(255,176,0,.10)!important;outline:none!important}
+.admin-body button,.admin-body .btn{background:#171d25!important;color:#dfe5ec!important;border:1px solid #3b4552!important}
+.admin-body button:hover,.admin-body .btn:hover{border-color:var(--sp-gold)!important;color:#fff!important}
+.admin-body .btn-primary,.admin-body button.btn-primary{background:var(--sp-gold)!important;color:#111!important;border-color:var(--sp-gold)!important}
+.admin-body .btn-success,.admin-body button.btn-success{background:rgba(52,211,153,.12)!important;color:#6ee7a0!important;border-color:#245b47!important}
+.admin-body .btn-danger,.admin-body button.btn-danger,.admin-body .btn-delete{background:rgba(251,113,133,.10)!important;color:#ff91a3!important;border-color:#693444!important}
+.admin-body a{color:var(--sp-blue)!important}.admin-body a:hover{color:var(--sp-gold)!important}
+
+/* Status hierarchy — shared by all dynamically-rendered pages. */
+.admin-body .status.new,.admin-body .status.pending,.admin-body .status.warning,.admin-body .warning{color:var(--sp-amber)!important;background:rgba(255,176,0,.12)!important;border-color:#6b5000!important}
+.admin-body .status.reviewing,.admin-body .status.review{color:#c4b5fd!important;background:rgba(167,139,250,.12)!important;border-color:#594b88!important}
+.admin-body .status.preparing,.admin-body .status.sent,.admin-body .status.info{color:#8ab9ff!important;background:rgba(96,165,250,.12)!important;border-color:#34578f!important}
+.admin-body .status.accepted,.admin-body .status.paid,.admin-body .status.active,.admin-body .success{color:#6ee7a0!important;background:rgba(52,211,153,.12)!important;border-color:#245b47!important}
+.admin-body .status.rejected,.admin-body .status.cancelled,.admin-body .status.inactive,.admin-body .error,.admin-body .danger{color:#ff91a3!important;background:rgba(251,113,133,.11)!important;border-color:#693444!important}
+.admin-body [data-tone="positive"]{color:var(--sp-green)!important}.admin-body [data-tone="negative"]{color:var(--sp-red)!important}.admin-body [data-tone="warning"]{color:var(--sp-amber)!important}.admin-body [data-tone="info"]{color:var(--sp-blue)!important}
+.admin-body [aria-invalid="true"],.admin-body .is-invalid{border-color:var(--sp-red)!important}.admin-body .is-valid{border-color:var(--sp-green)!important}
+
+/* Tabs, overlays, menus and feedback surfaces. */
+.admin-body .tabs,.admin-body .tab-bar{border-color:var(--sp-line)!important}
+.admin-body .tabs button.active,.admin-body .tab.active{background:var(--sp-gold)!important;color:#111!important;border-color:var(--sp-gold)!important}
+.admin-body .modal,.admin-body .dialog,.admin-body .drawer,.admin-body .popover,.admin-body .dropdown-menu{background:#10161d!important;color:var(--sp-text)!important;border-color:var(--sp-line)!important}
+.admin-body .empty,.admin-body .empty-state{background:#0e1319!important;color:var(--sp-muted)!important;border-color:#39424e!important}
+.admin-body .progress,.admin-body .progress-track{background:#202832!important;border-color:#303844!important}.admin-body .progress-bar,.admin-body .progress-fill{background:var(--sp-gold)!important}
+.admin-body ::selection{background:rgba(255,176,0,.30);color:#fff}
+
+/* Mobile: preserve the same palette and prevent module overflow. */
+@media(max-width:899px){
+ .admin-body{overflow-x:hidden}
+ .admin-body #appView,.admin-body #content,.admin-body .content,.admin-body #moduleBody{width:100%;max-width:100%;overflow-x:auto}
+ .admin-body .card,.admin-body .panel,.admin-body .section-card,.admin-body .module-card,.admin-body .stat-card,.admin-body .toolbar,.admin-body .filters{max-width:100%}
+ .admin-body table{min-width:640px}
+}
