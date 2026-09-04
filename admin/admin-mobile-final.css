@@ -1,0 +1,41 @@
+/* Stagepulse Admin — final mobile/layout hardening. Loaded after every admin module style. */
+.admin-body{overflow-x:hidden!important}
+.admin-body .app-shell{width:100%;min-width:0;overflow-x:hidden}
+.admin-body .main{min-width:0;width:100%;overflow-x:hidden}
+.admin-body #content,.admin-body .content{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
+.admin-body #moduleBody{width:100%;max-width:100%;min-width:0;overflow-x:auto}
+
+/* Mobile admin navigation: one canonical overlay, always above page content. */
+@media(max-width:959px){
+  .admin-body .topbar{position:sticky;z-index:1000}
+  .admin-body #menuBtn{display:grid!important;visibility:visible!important;pointer-events:auto!important;touch-action:manipulation!important;position:relative;z-index:1102}
+  .admin-body #sidebar{position:fixed!important;top:0!important;left:0!important;bottom:0!important;width:min(86vw,360px)!important;max-width:360px!important;z-index:1100!important;transform:translateX(-105%)!important;visibility:hidden;transition:transform .22s ease,visibility 0s linear .22s!important;overflow-y:auto!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important}
+  .admin-body #sidebar.open{transform:translateX(0)!important;visibility:visible!important;transition:transform .22s ease!important}
+  .admin-body #mobileOverlay{position:fixed!important;inset:0!important;z-index:1090!important;background:rgba(0,0,0,.68)!important;backdrop-filter:blur(2px);touch-action:manipulation}
+  .admin-body #mobileOverlay[hidden]{display:none!important}
+  .admin-body .sidebar-top{position:sticky;top:0;z-index:2;background:#0b0b0b}
+  .admin-body .sidebar-user{position:sticky;bottom:0;background:#0b0b0b;z-index:2}
+  .admin-body .nav{min-height:0;overflow-y:auto}
+  .admin-body .content{padding:14px 12px 40px!important}
+}
+
+/* Phone/tablet cards must not create a desktop-width two-column layout. */
+@media(max-width:650px){
+  .admin-body .cards,.admin-body .grid2,.admin-body .sp-owner-metrics,.admin-body .sp-owner-actions,.admin-body .sp-owner-focus-grid,.admin-body .sp-os-grid,.admin-body .sp-os-stats{grid-template-columns:1fr!important}
+  .admin-body .sp-cc-grid{grid-template-columns:1fr!important}
+  .admin-body .sp-cc-fields{grid-template-columns:1fr!important}
+  .admin-body .sp-cc-fields .wide{grid-column:auto!important}
+  .admin-body .sp-cc-record{grid-template-columns:1fr!important}
+  .admin-body .page-head{width:100%;min-width:0}
+  .admin-body .page-head>.actions{width:100%;justify-content:stretch}
+  .admin-body .page-head>.actions .btn{flex:1 1 100%;min-width:0}
+  .admin-body .toolbar{grid-template-columns:1fr!important;display:grid!important}
+  .admin-body .panel,.admin-body .card,.admin-body .sp-owner-panel,.admin-body .sp-os,.admin-body #spPatronCommand{width:100%;max-width:100%;min-width:0}
+  .admin-body .sp-owner-hero,.admin-body .sp-os-head,.admin-body .cc-head{display:block!important;min-width:0}
+  .admin-body .sp-owner-hero .actions,.admin-body .sp-os-head>.btn,.admin-body .cc-actions{margin-top:10px}
+}
+
+/* Prevent long labels/buttons/IDs from forcing horizontal page overflow. */
+.admin-body button,.admin-body .btn,.admin-body input,.admin-body select,.admin-body textarea{max-width:100%;min-width:0}
+.admin-body .sp-owner-user,.admin-body .sp-owner-section-title,.admin-body .sp-os-head,.admin-body .sp-os-table-head,.admin-body .sp-cc-toolbar{min-width:0;max-width:100%}
+.admin-body code,.admin-body pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
