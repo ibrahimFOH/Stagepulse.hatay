@@ -2,14 +2,18 @@
 (() => {
   'use strict';
 
-  /* Canonical delegated mobile navigation handler. It does not depend on
-     core.js load order, so the hamburger remains usable on phones/tablets. */
+  /* Canonical delegated mobile navigation handler. The legacy script.js
+     already binds the hamburger directly; never toggle the same menu twice. */
   function bindMobileNavigation() {
     if (document.documentElement.dataset.stagepulseMobileNavReady === '1') return;
     document.documentElement.dataset.stagepulseMobileNavReady = '1';
     document.addEventListener('click', (event) => {
       const hamburger = event.target?.closest?.('#hamburger, .hamburger');
       if (hamburger) {
+        /* script.js is the primary handler when it has already bound the
+           concrete button. A second toggle here would open then immediately
+           close the menu in the same click event. */
+        if (hamburger.dataset.spMenuReady === '1') return;
         const navLinks = document.getElementById('navLinks');
         if (!navLinks) return;
         event.preventDefault();
