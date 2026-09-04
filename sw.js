@@ -1,5 +1,5 @@
-/* Stagepulse Service Worker v16 — resilient public offline shell. */
-const CACHE_VERSION='stagepulse-v16';
+/* Stagepulse Service Worker v17 — resilient public offline shell. */
+const CACHE_VERSION='stagepulse-v17';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const PRECACHE_ASSETS=['/','/index.html','/style.css','/script.js','/core.js','/consent.js','/favicon.svg','/manifest.webmanifest','/i18n.js','/site-ai.js','/site-ai.css','/ai-knowledge.json'];

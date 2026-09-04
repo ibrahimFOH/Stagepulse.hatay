@@ -1,10 +1,8 @@
 /* ============================================
-   STAGEPULSE – script.js (Güvenlik güçlendirmeli)
-   - Network-first uyumlu
-   - Proper GA Consent Mode v2
-   - Public quote intake Edge Function
-   - Honeypot + Turnstile + client rate-limit
-   - Daha sağlam cookie / form yönetimi
+   STAGEPULSE – public application core
+   - Security-hardened quote submission and media handling
+   - The canonical public navigation click handler lives in script.js.
+   - This file must not install a second hamburger toggle.
    ============================================ */
 
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xrpzeegb';
@@ -28,8 +26,10 @@ function initStagepulseCore(){
   if(document.getElementById('stickyCta'))document.body.classList.add('has-sticky-cta');
   initCookieConsent();
   if(document.getElementById('offerForm'))loadSupabase();
-  const hamburger=document.getElementById('hamburger'),navLinks=document.getElementById('navLinks'),icon=document.getElementById('hamburger-icon');
-  if(hamburger&&navLinks){hamburger.addEventListener('click',()=>{const isOpen=navLinks.classList.toggle('active');hamburger.classList.toggle('open',isOpen);hamburger.setAttribute('aria-expanded',isOpen?'true':'false');icon?.classList.toggle('fa-bars',!isOpen);icon?.classList.toggle('fa-xmark',isOpen)});navLinks.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{navLinks.classList.remove('active');hamburger.classList.remove('open');hamburger.setAttribute('aria-expanded','false');icon?.classList.add('fa-bars');icon?.classList.remove('fa-xmark')}))}
+
+  /* Navigation ownership is intentionally centralized in script.js. Do not
+     add another click listener to #hamburger here. */
+
   const currentPath=window.location.pathname.split('/').pop()||'index.html';document.querySelectorAll('.nav-links a').forEach(a=>{const href=a.getAttribute('href');if(!href)return;const clean=href.replace('./','').replace(/^\//,'')||'index.html';if(clean===currentPath||(currentPath===''&&clean==='index.html'))a.classList.add('active')});
 
   const lightbox=document.getElementById('lightbox'),lbImg=document.getElementById('lightbox-img'),lbClose=document.getElementById('lightbox-close');
