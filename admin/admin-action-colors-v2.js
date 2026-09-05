@@ -21,8 +21,11 @@
     scan(document);
     var o=new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes&&m.addedNodes.forEach(function(n){if(n.nodeType===1){classify(n);scan(n);}});});});
     o.observe(document.body,{childList:true,subtree:true});
-    load('admin-media-manager-v2.js?v=20260905-1');
+    load('media-manager-v2.js?v=20260905-2');
     load('admin-navigation-state-v2.js?v=20260905-1');
+    load('jarvis/knowledge.js?v=20260905-1');
+    load('jarvis/agent.js?v=20260905-1');
+    load('jarvis/bootstrap.js?v=20260905-1');
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
