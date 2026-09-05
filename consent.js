@@ -118,4 +118,15 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
+
+  /* Public Jarvis loader: additive only; no HTML rewrite and no internal/admin data. */
+  (function loadPublicJarvis(){
+    var path=location.pathname||'/';
+    if(/^\/admin\//.test(path)||/^\/portal\//.test(path)||path==='/Kvkk.html')return;
+    function add(){
+      if(!document.getElementById('sp-site-ai-css')){var css=document.createElement('link');css.id='sp-site-ai-css';css.rel='stylesheet';css.href='/site-ai.css?v=20260905-1';document.head.appendChild(css);}
+      if(!document.getElementById('sp-site-ai-js')){var js=document.createElement('script');js.id='sp-site-ai-js';js.src='/site-ai.js?v=20260905-1';js.async=true;document.head.appendChild(js);}
+    }
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',add,{once:true});else add();
+  })();
 })(window);
