@@ -121,7 +121,7 @@ jobs:
           import re
           from pathlib import Path
           sitemap=Path('sitemap.xml').read_text(encoding='utf-8')
-          urls=re.findall(r'<loc>(https://stagepulse\\.com\\.tr(?:/[^<]*)?)</loc>',sitemap)
+          urls=re.findall(r'<loc>(https://stagepulse\.com\.tr(?:/[^<]*)?)</loc>',sitemap)
           assert urls and len(urls)==len(set(urls)), 'Invalid or duplicate sitemap URLs'
           for url in urls:
               p=url.removeprefix('https://stagepulse.com.tr/').rstrip('/')
@@ -133,7 +133,7 @@ jobs:
               assert file.is_file(), f'Missing sitemap file: {file}'
               html=file.read_text(encoding='utf-8',errors='ignore')
               assert re.search(r'<title>[^<]+</title>',html,re.I), f'Missing title: {file}'
-              assert re.search(r'<meta[^>]+name=[\"\']description[\"\']',html,re.I), f'Missing description: {file}'
+              assert re.search(r'<meta[^>]+name=["\']description["\']',html,re.I), f'Missing description: {file}'
           print(f'Validated {len(urls)} sitemap pages.')
           PY
       - name: Verify public navigation controller
