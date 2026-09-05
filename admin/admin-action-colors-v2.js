@@ -1,4 +1,4 @@
-/* Stagepulse Admin — semantic action button colors */
+/* Stagepulse Admin — semantic action button colors + recovery loaders */
 (function(){
   'use strict';
   if(window.STAGEPULSE_ACTION_COLORS_V2)return;
@@ -16,6 +16,13 @@
     if(cls){b.classList.add(cls);b.dataset.spActionColored='1';}
   };
   var scan=function(root){(root||document).querySelectorAll('button,.btn,a[role="button"],input[type="button"],input[type="submit"]').forEach(classify);};
-  var boot=function(){scan(document);var o=new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes&&m.addedNodes.forEach(function(n){if(n.nodeType===1){classify(n);scan(n);}});});});o.observe(document.body,{childList:true,subtree:true});};
+  var load=function(src){var s=document.createElement('script');s.src=src;s.async=false;s.onload=function(){window.dispatchEvent(new CustomEvent('stagepulse-admin-recovery-ready'));};s.onerror=function(){console.warn('[stagepulse-admin] optional recovery layer failed',src);};document.body.appendChild(s);};
+  var boot=function(){
+    scan(document);
+    var o=new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes&&m.addedNodes.forEach(function(n){if(n.nodeType===1){classify(n);scan(n);}});});});
+    o.observe(document.body,{childList:true,subtree:true});
+    load('admin-media-manager-v2.js?v=20260905-1');
+    load('admin-navigation-state-v2.js?v=20260905-1');
+  };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
