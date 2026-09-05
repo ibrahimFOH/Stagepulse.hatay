@@ -2,7 +2,7 @@
   'use strict';
 
   var STORAGE_KEY = 'sp_consent';
-  var GA_ID = 'G-GVS4022KDJ';
+  var GA_ID = 'G-4BFSFS0SGM';
   var state = null;
 
   global.dataLayer = global.dataLayer || [];
