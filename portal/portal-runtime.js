@@ -27,10 +27,12 @@
   tag.async=false;
   tag.onload=()=>{
     if(!window.loadView){ fail(new Error('Canonical portal bundle did not expose loadView')); return; }
-    loadAfterBundle('analytics-v2.js?v=20260905-1',()=>{
-      window.STAGEPULSE_PORTAL_READY=true;
-      window.dispatchEvent(new CustomEvent('stagepulse:portal-ready'));
-      window.dispatchEvent(new CustomEvent('stagepulse-portal-ready'));
+    loadAfterBundle('portal-navigation-integrity-v2.js?v=20260905-1',()=>{
+      loadAfterBundle('analytics-v2.js?v=20260905-1',()=>{
+        window.STAGEPULSE_PORTAL_READY=true;
+        window.dispatchEvent(new CustomEvent('stagepulse:portal-ready'));
+        window.dispatchEvent(new CustomEvent('stagepulse-portal-ready'));
+      });
     });
   };
   tag.onerror=()=>fail(new Error('Portal bundle failed to load'));
