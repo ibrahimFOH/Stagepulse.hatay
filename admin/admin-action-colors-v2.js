@@ -54,7 +54,7 @@
     window.addEventListener('hashchange',function(){setTimeout(pricingRepair,30);});
     load('media-manager-v2.js?v=20260905-2');
     load('admin-navigation-state-v2.js?v=20260905-2');
-    load('admin-offer-pricing-v3.js?v=20260905-1');
+    load('admin-offer-pricing-v3.js?v=20260905-2');
     load('jarvis/knowledge.js?v=20260905-1');
     load('jarvis/agent.js?v=20260905-1');
     load('jarvis/bootstrap.js?v=20260905-1');
