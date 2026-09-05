@@ -46,12 +46,44 @@
             }).catch(function () {});
           });
           bar.appendChild(btn);
+        } else if (a.type === 'live-summary') {
+          const btn = document.createElement('button');
+          btn.type = 'button'; btn.className = 'btn-link'; btn.textContent = a.label || 'Canlı özeti getir';
+          btn.addEventListener('click', loadLiveSummary);
+          bar.appendChild(btn);
         }
       });
       div.appendChild(bar);
     }
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  async function loadLiveSummary() {
+    if (!navigator.onLine) {
+      addBubble('bot', 'Canlı özet için internet bağlantısı gerekli.', []);
+      return;
+    }
+    addBubble('bot', 'Canlı operasyon özeti yetki ve erişim kontrolünden geçiriliyor…', []);
+    try {
+      const url = 'https://mtjcqqrogjqaxkagwkti.supabase.co/functions/v1/production-os';
+      const token = localStorage.getItem('sb-access-token') || sessionStorage.getItem('sb-access-token');
+      if (!token) {
+        addBubble('bot', 'Oturum doğrulaması bulunamadı. Canlı iç veri açılmadı.', []);
+        return;
+      }
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ action: 'live_summary' }) });
+      const data = await r.json().catch(function () { return {}; });
+      if (!r.ok || data.error) {
+        addBubble('bot', 'Canlı özet alınamadı. Yetki veya servis durumu kontrol edilmeli.', []);
+        return;
+      }
+      const d = data.data || data;
+      const text = ['**Canlı operasyon özeti**', 'İşler: ' + (d.jobs ?? d.job_count ?? '—'), 'Bekleyenler: ' + (d.pending ?? d.pending_count ?? '—'), 'Hazırlık: ' + (d.readiness ?? '—'), 'Son güncelleme: ' + new Date().toLocaleString('tr-TR')].join('\n');
+      addBubble('bot', text, []);
+    } catch (_) {
+      addBubble('bot', 'Canlı özet servisine ulaşılamadı. Yerel Jarvis çalışmaya devam ediyor.', []);
+    }
   }
 
   function loadHist() {
