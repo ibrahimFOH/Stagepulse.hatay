@@ -38,7 +38,6 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-          cache: npm
       - name: Install Node dependencies when package lock exists
         run: |
           set -euo pipefail
@@ -122,16 +121,19 @@ jobs:
           import re
           from pathlib import Path
           sitemap=Path('sitemap.xml').read_text(encoding='utf-8')
-          urls=re.findall(r'<loc>(https://stagepulse\\.com\\.tr/[^<]*)</loc>',sitemap)
+          urls=re.findall(r'<loc>(https://stagepulse\\.com\\.tr(?:/[^<]*)?)</loc>',sitemap)
           assert urls and len(urls)==len(set(urls)), 'Invalid or duplicate sitemap URLs'
           for url in urls:
-              p=url.removeprefix('https://stagepulse.com.tr/')
-              file=Path('index.html') if not p else Path(p.rstrip('/'))
+              p=url.removeprefix('https://stagepulse.com.tr/').rstrip('/')
+              if not p:
+                  file=Path('index.html')
+              else:
+                  file=Path(p)
               if file.is_dir(): file=file/'index.html'
               assert file.is_file(), f'Missing sitemap file: {file}'
               html=file.read_text(encoding='utf-8',errors='ignore')
               assert re.search(r'<title>[^<]+</title>',html,re.I), f'Missing title: {file}'
-              assert re.search(r"<meta[^>]+name=[\\\"']description[\\\"']",html,re.I), f'Missing description: {file}'
+              assert re.search(r'<meta[^>]+name=[\"\']description[\"\']',html,re.I), f'Missing description: {file}'
           print(f'Validated {len(urls)} sitemap pages.')
           PY
       - name: Verify public navigation controller
