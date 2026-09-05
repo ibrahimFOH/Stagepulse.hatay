@@ -13,8 +13,8 @@
     const c=db();
     if(!c)return false;
     const rpc=await c.rpc('is_org_owner');
-    if(!rpc.error)return rpc.data===true;
-    // Browser/session-safe fallback: the canonical owner membership is readable by the user.
+    if(!rpc.error&&rpc.data===true)return true;
+    // Fallback for sessions that finish auth bootstrap after this script starts.
     const session=await c.auth.getSession();
     const uid=session?.data?.session?.user?.id;
     if(!uid)return false;
@@ -62,6 +62,11 @@
     document.querySelectorAll('[data-cap]').forEach(i=>i.addEventListener('change',async()=>{const c=db();i.disabled=true;try{const r=await c.rpc('owner_set_admin_capability',{p_user_id:selected,p_capability_key:i.dataset.cap,p_enabled:i.checked});if(r.error)throw r.error;window.toast?.(i.checked?'Yetki açıldı.':'Yetki kapatıldı.',true);const g=state.grants.find(x=>x.user_id===selected&&x.capability_key===i.dataset.cap);if(g)g.enabled=i.checked;else state.grants.push({user_id:selected,capability_key:i.dataset.cap,enabled:i.checked});const u=state.admin_members.find(x=>x.user_id===selected);if(u)u.enabled_capabilities+=i.checked?1:-1;render()}catch(e){i.checked=!i.checked;window.toast?.(e.message||'Yetki değiştirilemedi.',false)}finally{i.disabled=false}}));
   }
   async function open(){if(!location.hash.slice(1).startsWith('patron-center'))return;if(!owner)owner=await isOwner();if(!owner){renderDenied();return}load().catch(e=>{console.error(e);const root=$('#content');if(root)root.innerHTML=`<div class="panel"><h2>Patron Merkezi yüklenemedi</h2><p class="muted">${esc(e.message||'Bilinmeyen hata')}</p></div>`})}
-  async function boot(){if($('#patronCenterNav'))return;try{owner=await isOwner()}catch(_){owner=false}const nav=$('#sideNav');if(!nav)return; if(!owner)return; const b=document.createElement('button');b.id='patronCenterNav';b.type='button';b.textContent='Patron Merkezi';b.dataset.view='patron-center';b.addEventListener('click',()=>location.hash='patron-center');nav.insertBefore(b,nav.firstElementChild?.nextSibling||nav.firstChild);open()}
-  window.addEventListener('stagepulse-admin-ready',boot);window.addEventListener('hashchange',open);document.addEventListener('DOMContentLoaded',boot);setTimeout(boot,1000);
+  async function boot(){if($('#patronCenterNav'))return;try{owner=await isOwner()}catch(_){owner=false}const nav=$('#sideNav');if(!nav||!owner)return;const b=document.createElement('button');b.id='patronCenterNav';b.type='button';b.textContent='Patron Merkezi';b.dataset.view='patron-center';b.addEventListener('click',()=>location.hash='patron-center');nav.insertBefore(b,nav.firstElementChild?.nextSibling||nav.firstChild);open()}
+  window.addEventListener('stagepulse-admin-ready',boot);
+  window.addEventListener('stagepulse:admin-ready',boot);
+  window.addEventListener('stagepulse:logged-in',boot);
+  window.addEventListener('hashchange',open);
+  document.addEventListener('DOMContentLoaded',boot);
+  setInterval(boot,1500);
 })();
