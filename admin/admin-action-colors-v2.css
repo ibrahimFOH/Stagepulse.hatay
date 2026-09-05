@@ -1,0 +1,10 @@
+:root{--sp-yellow:#ffb000;--sp-yellow-2:#ffd166;--sp-red:#ff4d5e;--sp-red-2:#ff8a96;--sp-purple:#9b6cff;--sp-purple-2:#c3a8ff;--sp-green:#20c997;--sp-blue:#4da3ff}
+.admin-body .btn.sp-btn-edit{color:#111!important;background:linear-gradient(135deg,var(--sp-yellow-2),var(--sp-yellow))!important;border-color:var(--sp-yellow)!important;box-shadow:0 5px 16px rgba(255,176,0,.18)!important}
+.admin-body .btn.sp-btn-edit:hover{background:linear-gradient(135deg,#ffe08a,#ffbd18)!important;color:#111!important;transform:translateY(-1px)}
+.admin-body .btn.sp-btn-danger{color:#fff!important;background:linear-gradient(135deg,#ff5b6b,var(--sp-red))!important;border-color:#ff4d5e!important;box-shadow:0 5px 16px rgba(255,77,94,.18)!important}
+.admin-body .btn.sp-btn-danger:hover{background:linear-gradient(135deg,#ff7380,#ff3348)!important;color:#fff!important;transform:translateY(-1px)}
+.admin-body .btn.sp-btn-pdf{color:#fff!important;background:linear-gradient(135deg,#a879ff,#7046d9)!important;border-color:#9b6cff!important;box-shadow:0 5px 16px rgba(155,108,255,.20)!important}
+.admin-body .btn.sp-btn-pdf:hover{background:linear-gradient(135deg,#b88fff,#8054ed)!important;color:#fff!important;transform:translateY(-1px)}
+.admin-body .btn.sp-btn-primary{color:#101010!important;background:linear-gradient(135deg,#ffe08a,var(--sp-yellow))!important;border-color:var(--sp-yellow)!important;box-shadow:0 5px 16px rgba(255,176,0,.16)!important}
+.admin-body .btn.sp-btn-primary:hover{background:linear-gradient(135deg,#ffe8a8,#ffc42f)!important;color:#101010!important}
+.admin-body .sp-action-legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}.admin-body .sp-action-legend span{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:8px;border:1px solid #303640;background:#11151b;font-size:11px;font-weight:800}.admin-body .sp-action-legend i{width:9px;height:9px;border-radius:50%;display:block}.admin-body .sp-action-legend .edit i{background:var(--sp-yellow)}.admin-body .sp-action-legend .danger i{background:var(--sp-red)}.admin-body .sp-action-legend .pdf i{background:var(--sp-purple)}
