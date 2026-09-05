@@ -9,7 +9,21 @@
   const role=v=>({owner:'Patron / Owner',super_admin:'Süper Admin',ceo:'CEO',upper_admin:'Üst Admin'}[v]||v||'—');
   let state=null, selected=null, owner=false;
 
-  async function isOwner(){const c=db();if(!c)return false;const r=await c.rpc('is_org_owner');return !r.error&&r.data===true}
+  async function isOwner(){
+    const c=db();
+    if(!c)return false;
+    const rpc=await c.rpc('is_org_owner');
+    if(!rpc.error)return rpc.data===true;
+    // Browser/session-safe fallback: the canonical owner membership is readable by the user.
+    const session=await c.auth.getSession();
+    const uid=session?.data?.session?.user?.id;
+    if(!uid)return false;
+    const membership=await c.from('org_memberships').select('role_id,active').eq('user_id',uid).maybeSingle();
+    if(membership.error||!membership.data?.active||!membership.data.role_id)return false;
+    const r=await c.from('org_roles').select('code').eq('id',membership.data.role_id).maybeSingle();
+    return !r.error&&r.data?.code==='owner';
+  }
+
   async function load(){const c=db();if(!c)throw new Error('Yönetim bağlantısı hazır değil.');const r=await c.rpc('owner_control_center');if(r.error)throw r.error;if(!r.data?.authorized){renderDenied();return}state=r.data;const nonOwner=(state.admin_members||[]).filter(x=>x.role_code!=='owner');selected=selected&&nonOwner.some(x=>x.user_id===selected)?selected:(nonOwner[0]?.user_id||null);render()}
   function renderDenied(){const root=$('#content');if(root)root.innerHTML='<div class="panel"><h2>Patron Merkezi</h2><p class="muted">Bu alan yalnızca Patron / Owner hesabına açıktır.</p></div>'}
   function metric(label,value,kind=''){return `<div class="sp-owner-metric ${kind}"><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`}
@@ -48,6 +62,6 @@
     document.querySelectorAll('[data-cap]').forEach(i=>i.addEventListener('change',async()=>{const c=db();i.disabled=true;try{const r=await c.rpc('owner_set_admin_capability',{p_user_id:selected,p_capability_key:i.dataset.cap,p_enabled:i.checked});if(r.error)throw r.error;window.toast?.(i.checked?'Yetki açıldı.':'Yetki kapatıldı.',true);const g=state.grants.find(x=>x.user_id===selected&&x.capability_key===i.dataset.cap);if(g)g.enabled=i.checked;else state.grants.push({user_id:selected,capability_key:i.dataset.cap,enabled:i.checked});const u=state.admin_members.find(x=>x.user_id===selected);if(u)u.enabled_capabilities+=i.checked?1:-1;render()}catch(e){i.checked=!i.checked;window.toast?.(e.message||'Yetki değiştirilemedi.',false)}finally{i.disabled=false}}));
   }
   async function open(){if(!location.hash.slice(1).startsWith('patron-center'))return;if(!owner)owner=await isOwner();if(!owner){renderDenied();return}load().catch(e=>{console.error(e);const root=$('#content');if(root)root.innerHTML=`<div class="panel"><h2>Patron Merkezi yüklenemedi</h2><p class="muted">${esc(e.message||'Bilinmeyen hata')}</p></div>`})}
-  async function boot(){if($('#patronCenterNav'))return;try{owner=await isOwner()}catch(_){owner=false}if(!owner)return;const nav=$('#sideNav');if(!nav)return;const b=document.createElement('button');b.id='patronCenterNav';b.type='button';b.textContent='Patron Merkezi';b.dataset.view='patron-center';b.addEventListener('click',()=>location.hash='patron-center');nav.insertBefore(b,nav.firstElementChild?.nextSibling||nav.firstChild);open()}
+  async function boot(){if($('#patronCenterNav'))return;try{owner=await isOwner()}catch(_){owner=false}const nav=$('#sideNav');if(!nav)return; if(!owner)return; const b=document.createElement('button');b.id='patronCenterNav';b.type='button';b.textContent='Patron Merkezi';b.dataset.view='patron-center';b.addEventListener('click',()=>location.hash='patron-center');nav.insertBefore(b,nav.firstElementChild?.nextSibling||nav.firstChild);open()}
   window.addEventListener('stagepulse-admin-ready',boot);window.addEventListener('hashchange',open);document.addEventListener('DOMContentLoaded',boot);setTimeout(boot,1000);
 })();
