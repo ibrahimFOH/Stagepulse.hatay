@@ -25,6 +25,15 @@
     const accounts=nav.querySelector('button[data-view="accounts"]');
     add('rbac','Rol · Yetki Merkezi',accounts);
     const rbac=nav.querySelector('button[data-view="rbac"]');
+
+    // Recovery layers can be loaded more than once or coexist with older menu code.
+    // Keep exactly one canonical entry for every management/production item.
+    ['scope','organization','accounts','rbac','production'].forEach(view=>{
+      const nodes=[...nav.querySelectorAll(`button[data-view="${view}"]`)];
+      nodes.slice(1).forEach(node=>node.remove());
+    });
+    [...nav.querySelectorAll('[data-nav-section="production-os"]')].slice(1).forEach(node=>node.remove());
+
     if(!nav.querySelector('[data-nav-section="production-os"]')){
       const label=document.createElement('p');
       label.className='nav-label'; label.dataset.navSection='production-os'; label.textContent='Operasyon OS';
