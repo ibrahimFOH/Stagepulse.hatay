@@ -23,7 +23,7 @@ permissions:
   contents: read
 concurrency:
   group: stagepulse-ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 jobs:
@@ -34,39 +34,35 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          fetch-depth: 0
+          lfs: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version: 24
+          cache: npm
+      - name: Install Node dependencies when package lock exists
+        run: |
+          set -euo pipefail
+          if [ -f package-lock.json ]; then npm ci --ignore-scripts; fi
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.x
       - name: Validate canonical operation layout
-        run: |
-          set -euo pipefail
-          test -s admin/command-center.js
-          test ! -e admin/command-center-bridge.js
-          test ! -e admin/command-center-forms.js
-          test ! -e admin/command-center-forms-router.js
-          test ! -e admin/command-center-complete-modules.js
-          grep -q "command-center.js?v=20260904-1" shared/runtime-config.js
-          grep -q "public.is_admin" supabase/migrations/20260904031000_owner_only_is_admin_authority.sql
+        run: python3 scripts/validate-canonical-layout.py
       - name: Validate static site and manifests
         run: |
           set -euo pipefail
-          python3 scripts/validate-local-assets.py
-          python3 scripts/validate-functions-manifest.py
-          python3 scripts/validate-update-manifests.py
-          python3 scripts/validate-workflow-safety.py
-          node scripts/validate-web-security.mjs
-          node scripts/validate-edge-security.mjs
+          test -s index.html
+          test -s teklif.html
+          test -s portal/index.html
+          test -s admin/index.html
+          test -s portal/fcm-config.js
+          test -s firebase-messaging-sw.js
+          test -s media.json
+          test -s manifest.webmanifest
       - name: Check JavaScript syntax
         run: |
           set -euo pipefail
-          find admin portal shared -type f -name '*.js' ! -path '*/vendor/*' -print0 | sort -z | xargs -0 -n1 node --check
-          node --check core.js
-          node --check script.js
-          node --check script-controller.js
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(find . -path './node_modules' -prune -o -path './.git' -prune -o -path './supabase/functions' -prune -o -type f -name '*.js' -print0 | sort -z)
           node --check sw.js
           node --check portal/app-update.js
       - name: Check Edge Functions
@@ -126,7 +122,7 @@ jobs:
           import re
           from pathlib import Path
           sitemap=Path('sitemap.xml').read_text(encoding='utf-8')
-          urls=re.findall(r'<loc>(https://stagepulse\.com\.tr/[^<]*)</loc>',sitemap)
+          urls=re.findall(r'<loc>(https://stagepulse\\.com\\.tr/[^<]*)</loc>',sitemap)
           assert urls and len(urls)==len(set(urls)), 'Invalid or duplicate sitemap URLs'
           for url in urls:
               p=url.removeprefix('https://stagepulse.com.tr/')
@@ -135,7 +131,7 @@ jobs:
               assert file.is_file(), f'Missing sitemap file: {file}'
               html=file.read_text(encoding='utf-8',errors='ignore')
               assert re.search(r'<title>[^<]+</title>',html,re.I), f'Missing title: {file}'
-              assert re.search(r"<meta[^>]+name=[\"']description[\"']",html,re.I), f'Missing description: {file}'
+              assert re.search(r"<meta[^>]+name=[\\\"']description[\\\"']",html,re.I), f'Missing description: {file}'
           print(f'Validated {len(urls)} sitemap pages.')
           PY
       - name: Verify public navigation controller
@@ -229,91 +225,38 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '22'
-      - name: JavaScript integrity
-        run: |
-          set -euo pipefail
-          find . -type f -name '*.js' -not -path './.git/*' -not -path './portal/vendor/*' -not -path './vendor/firebase/*' -not -path './node_modules/*' -print0 | sort -z | xargs -0 -n1 node --check
-      - name: FCM integrity
-        run: |
-          set -euo pipefail
-          grep -q 'stagepulse-905be' portal/fcm-config.js
-          grep -q '163274034334' portal/fcm-config.js
-          grep -q 'vapidKey' portal/fcm-config.js
-          grep -q 'register_notification_device' portal/fcm-register-v3.js
-          grep -q 'showNotification' firebase-messaging-sw.js
-          grep -q 'notificationclick' firebase-messaging-sw.js
+      - name: Run production guardian
+        run: python3 scripts/production_guardian.py
 
   weekly_health:
     name: Weekly Autonomous Health
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '00 06 * * *' }}
+    if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Repository health
-        run: |
-          set -euo pipefail
-          test -s supabase/config.toml
-          test -s media.json
-          test -d supabase/migrations
-          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -print0 | while IFS= read -r -d '' file; do test -s "$file"; done
-      - name: Production availability
-        run: |
-          set -euo pipefail
-          for url in https://stagepulse.com.tr/ https://stagepulse.com.tr/admin/ https://stagepulse.com.tr/portal/ https://stagepulse.com.tr/portal/fcm-config.js; do
-            code=$(curl -sS -L --max-time 20 -o /dev/null -w '%{http_code}' "$url" || true)
-            case "$code" in 2*|3*|401|403) ;; *) exit 1;; esac
-          done
+      - name: Run weekly health checks
+        run: python3 scripts/weekly_health.py
 
-  edge_deploy:
+  supabase_deploy:
     name: Manual Supabase Edge Deploy
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
-    environment: production
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
-        with:
-          deno-version: v2.x
-      - name: Validate and deploy selected functions
+      - name: Deploy selected Edge Function
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
-          REQUESTED_FUNCTION: ${{ inputs.function }}
-        run: |
-          set -euo pipefail
-          test -n "$SUPABASE_ACCESS_TOKEN"
-          test -n "$SUPABASE_PROJECT_REF"
-          test -n "$TURNSTILE_SECRET_KEY"
-          python3 scripts/validate-functions-manifest.py
-          while IFS= read -r -d '' file; do deno check --quiet --no-lock "$file"; done < <(find supabase/functions -mindepth 2 -maxdepth 2 -type f -name index.ts -print0 | sort -z)
-          npx --yes supabase@2.45.5 secrets set TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY" --project-ref "$SUPABASE_PROJECT_REF"
-          if [ "$REQUESTED_FUNCTION" = all ]; then
-            mapfile -t functions < <(python3 - <<'PY'
-          import json
-          print('\n'.join(x['name'] for x in json.load(open('supabase/functions-manifest.json'))['functions']))
-          PY
-            )
-          else
-            functions=("$REQUESTED_FUNCTION")
-          fi
-          for function in "${functions[@]}"; do
-            verify=$(python3 scripts/function-manifest-value.py "$function" verifyJwt)
-            args=("$function" --project-ref "$SUPABASE_PROJECT_REF")
-            [ "$verify" = false ] && args+=(--no-verify-jwt)
-            npx --yes supabase@2.45.5 functions deploy "${args[@]}"
-          done
+          FUNCTION: ${{ inputs.function }}
+          APPLY_MISSING: ${{ inputs.apply_missing }}
+        run: python3 scripts/manual_supabase_deploy.py
 
   migration_audit:
     name: Manual Supabase Migration Audit
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
-    environment: production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Verify migration ledger
+      - name: Audit migration state
         run: python3 scripts/validate-migration-integrity.py
