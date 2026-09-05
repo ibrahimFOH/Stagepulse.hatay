@@ -1,1 +1,100 @@
-(function(){'use strict';const msgs=document.getElementById('msgs'),form=document.getElementById('form'),input=document.getElementById('input'),skillsPanel=document.getElementById('skillsPanel'),badge=document.getElementById('modeBadge'),KEY=window.SPAdminAgent.HIST_KEY;function setMode(){badge.textContent=navigator.onLine?'ONLINE · yerel ajan':'OFFLINE';badge.className='badge '+(navigator.onLine?'online':'offline')}setMode();addEventListener('online',setMode);addEventListener('offline',setMode);function safe(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>')}function bubble(role,text,actions){const d=document.createElement('div');d.className='bubble '+role;d.innerHTML=safe(text);if(actions?.length){const a=document.createElement('div');a.className='actions';actions.forEach(x=>{if(x.type==='copy'){const b=document.createElement('button');b.className='btn-copy';b.textContent=x.label;b.onclick=()=>navigator.clipboard?.writeText(x.payload||'');a.appendChild(b)}else if(x.type==='wa'||x.type==='link'){const l=document.createElement('a');l.className=x.type==='wa'?'btn-wa':'btn-link';l.textContent=x.label;l.href=x.href;l.target='_blank';l.rel='noopener';a.appendChild(l)}});d.appendChild(a)}msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight}let hist=[];try{hist=JSON.parse(sessionStorage.getItem(KEY)||'[]')}catch(_){}hist.forEach(h=>bubble(h.role,h.text,h.actions));if(!hist.length)bubble('bot','Admin Jarvis hazır. `yardım` ile başlayın.',[]);function save(){try{sessionStorage.setItem(KEY,JSON.stringify(hist.slice(-40)))}catch(_){}}function render(){skillsPanel.innerHTML='';(window.SP_ADMIN_KB?.skills||[]).forEach(s=>{const b=document.createElement('button');b.className='skill';b.type='button';b.textContent=s.label;b.onclick=()=>{input.value=s.sample;form.requestSubmit()};skillsPanel.appendChild(b)})}render();document.getElementById('btnSkills').onclick=()=>skillsPanel.classList.toggle('hidden');document.getElementById('btnClear').onclick=()=>{hist=[];save();msgs.innerHTML='';bubble('bot','Sohbet temizlendi.',[])};form.onsubmit=e=>{e.preventDefault();const q=input.value.trim();if(!q)return;input.value='';bubble('user',q,[]);hist.push({role:'user',text:q});const r=window.SPAdminAgent.run(q);bubble('bot',r.text,r.actions||[]);hist.push({role:'bot',text:r.text,actions:r.actions||[]});save()};})();
+(function () {
+  'use strict';
+  const msgs = document.getElementById('msgs');
+  const form = document.getElementById('form');
+  const input = document.getElementById('input');
+  const skillsPanel = document.getElementById('skillsPanel');
+  const modeBadge = document.getElementById('modeBadge');
+
+  function setOnline() {
+    modeBadge.textContent = navigator.onLine ? 'ONLINE (ajan offline)' : 'OFFLINE';
+    modeBadge.className = 'badge ' + (navigator.onLine ? 'online' : 'offline');
+  }
+  setOnline();
+  window.addEventListener('online', setOnline);
+  window.addEventListener('offline', setOnline);
+
+  function safe(t) {
+    return String(t)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function addBubble(role, text, actions) {
+    const div = document.createElement('div');
+    div.className = 'bubble ' + role;
+    div.innerHTML = safe(text);
+    if (actions && actions.length) {
+      const bar = document.createElement('div');
+      bar.className = 'actions';
+      actions.forEach(function (a) {
+        if (a.type === 'wa' || a.type === 'link') {
+          const link = document.createElement('a');
+          link.href = a.href; link.target = '_blank'; link.rel = 'noopener';
+          link.className = a.type === 'wa' ? 'btn-wa' : 'btn-link';
+          link.textContent = a.label;
+          bar.appendChild(link);
+        } else if (a.type === 'copy') {
+          const btn = document.createElement('button');
+          btn.type = 'button'; btn.className = 'btn-copy'; btn.textContent = a.label;
+          btn.addEventListener('click', function () {
+            navigator.clipboard.writeText(a.payload || '').then(function () {
+              btn.textContent = 'Kopyalandı';
+              setTimeout(function () { btn.textContent = a.label; }, 1200);
+            }).catch(function () {});
+          });
+          bar.appendChild(btn);
+        }
+      });
+      div.appendChild(bar);
+    }
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function loadHist() {
+    try { return JSON.parse(sessionStorage.getItem(window.SPAdminAgent.HIST_KEY) || '[]'); } catch (_) { return []; }
+  }
+  function saveHist(h) {
+    try { sessionStorage.setItem(window.SPAdminAgent.HIST_KEY, JSON.stringify(h.slice(-50))); } catch (_) {}
+  }
+
+  const hist = loadHist();
+  if (hist.length) hist.forEach(function (h) { addBubble(h.role === 'bot' ? 'bot' : h.role, h.text, h.actions); });
+  else addBubble('bot', '**Admin Jarvis Pro** hazır.\nToken yok · checklist · WA · teklif özeti · iş kaydı.\n**yardım** veya beceri seç.', []);
+
+  function renderSkills() {
+    skillsPanel.innerHTML = '';
+    ((window.SP_ADMIN_KB && window.SP_ADMIN_KB.skills) || []).forEach(function (s) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'skill'; b.textContent = s.label;
+      b.addEventListener('click', function () { input.value = s.sample; form.requestSubmit(); });
+      skillsPanel.appendChild(b);
+    });
+  }
+  renderSkills();
+
+  document.getElementById('btnSkills').addEventListener('click', function () { skillsPanel.classList.toggle('hidden'); });
+  const jobsBtn = document.getElementById('btnJobs');
+  if (jobsBtn) jobsBtn.addEventListener('click', function () { input.value = 'işler'; form.requestSubmit(); });
+  document.getElementById('btnClear').addEventListener('click', function () {
+    sessionStorage.removeItem(window.SPAdminAgent.HIST_KEY);
+    msgs.innerHTML = '';
+    addBubble('bot', 'Sohbet temizlendi.', []);
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = '';
+    addBubble('user', q, []);
+    hist.push({ role: 'user', text: q });
+    const res = window.SPAdminAgent.run(q);
+    addBubble('bot', res.text, res.actions || []);
+    hist.push({ role: 'bot', text: res.text, actions: res.actions || [] });
+    saveHist(hist);
+  });
+})();
