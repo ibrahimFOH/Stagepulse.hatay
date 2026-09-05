@@ -68,10 +68,17 @@ requireMatch(/if\(isAuthenticatedPath\)\{event\.respondWith\(fetch\(request,\{ca
 requireMatch(serviceWorker.includes("'/index.html'") && serviceWorker.includes('Promise.allSettled'), 'Service worker install must build a resilient offline shell.');
 requireMatch(serviceWorker.includes("status:503"), 'Service worker must return an explicit offline failure response when no shell exists.');
 
-for (const city of ['adana', 'antalya', 'gaziantep', 'hatay', 'mersin', 'sanliurfa']) {
+for (const city of ['adana', 'gaziantep', 'hatay', 'mersin', 'sanliurfa']) {
   const html = read(`${city}/index.html`);
   requireMatch(html.includes('property="og:title"') && html.includes('"@type":"Service"'), `${city} regional page must include supported OG and Service metadata.`);
 }
+
+const regionsPage = read('bolgeler.html');
+requireMatch(regionsPage.includes('Hatay · Adana · Gaziantep · Şanlıurfa · Mersin'), 'Public regions page must list only active service regions.');
+requireMatch(!regionsPage.includes('href="antalya/"'), 'Public regions page must not link to Antalya as a service region.');
+requireMatch(regionsPage.includes('Antalya aktif hizmet bölgesi değildir'), 'Public regions page must explicitly distinguish Antalya from active service regions.');
+const sitemap = read('sitemap.xml');
+requireMatch(!sitemap.includes('stagepulse.com.tr/antalya/'), 'Sitemap must not advertise Antalya as a service region.');
 
 for (const [path, headers] of [['_headers', rootHeaders], ['admin/_headers', adminHeaders], ['portal/_headers', portalHeaders]]) {
   for (const header of ['Content-Security-Policy:', 'X-Frame-Options: DENY', 'X-Content-Type-Options: nosniff', 'Referrer-Policy:', 'Permissions-Policy:']) {
@@ -87,7 +94,7 @@ for (const [path, html] of [['admin/index.html', adminHtml], ['portal/index.html
 }
 requireMatch(core.includes("supabase-js@2.112.4") && core.includes(`script.integrity='${supabaseSri}'`) && core.includes("script.crossOrigin='anonymous'"), 'Public Supabase loader must pin the verified asset and enforce SRI.');
 requireMatch(quoteView.includes('supabase-js@2.112.4') && quoteView.includes(`integrity="${supabaseSri}"`), 'Public quote view must pin the verified Supabase asset and enforce SRI.');
-requireMatch(!core.includes('supabase-js@2\''), 'Public Supabase loader must not use a floating major-version CDN URL.');
+requireMatch(!core.includes('supabase-js@2\\''), 'Public Supabase loader must not use a floating major-version CDN URL.');
 requireMatch(!quoteView.includes('supabase-js@2"'), 'Public quote view must not use a floating major-version CDN URL.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(adminRuntime), 'Admin runtime must not add a credential POST fallback.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(portalRuntime), 'Portal runtime must not add a credential POST fallback.');
