@@ -5,8 +5,8 @@
   "role":"FOH Engineer",
   "founder":"İbrahim Kavasoğlu",
   "contact":{"phone":"+90 532 068 3012","email":"teklifal@stagepulse.com.tr","whatsapp":"https://wa.me/905320683012","instagram":"https://www.instagram.com/stagepulse.hatay","website":"https://stagepulse.com.tr"},
-  "regions":["Hatay","Antalya","Adana","Gaziantep","Şanlıurfa","Mersin"],
-  "regions_note":"Onaylı hizmet bölgeleri Hatay, Antalya, Adana, Gaziantep, Şanlıurfa ve Mersin. Diğer şehirler proje bazlı.",
+  "regions":["Hatay","Adana","Gaziantep","Şanlıurfa","Mersin"],
+  "regions_note":"Aktif hizmet bölgeleri Hatay, Adana, Gaziantep, Şanlıurfa ve Mersin'dir. Antalya aktif hizmet bölgesi değildir; geçmişte çalışılmış bir lokasyondur. Diğer şehirler için hizmet durumu proje bazında ayrıca değerlendirilir.",
   "event_types":["düğün","kına","nişan","konser","festival","belediye","açık hava","otel","kurumsal","lansman","fuar","kongre","tiyatro","DJ","sanatçı"],
   "services":[
     {"name":"Ses sistemi kiralama","details":"Line Array, Point Source, subwoofer, monitor; mekân ve kapasiteye göre planlama."},
@@ -25,6 +25,6 @@
   "handoff":{"whatsapp_prefix":"Merhaba Stagepulse,\nSite Jarvis üzerinden yazıyorum.\n\n"},
   "links":{"teklif":"/teklif.html","bolgeler":"/bolgeler.html","hizmetler":"/hizmetler.html","muhendislik":"/muhendislik.html","galeri":"/galeri.html","referanslar":"/referanslar.html","sss":"/sss.html","ses_sistemi":"/ses-sistemi-kiralama.html","konser":"/konser-sahnesi.html"},
   "tone":"Profesyonel, net, teknik ama anlaşılır; Türkçe öncelikli. Gereksiz satış baskısı yapma.",
-  "rules":["Kesin fiyat, kesin ekipman adedi veya kesin müsaitlik uydurma.","Fiyat için etkinlik bilgilerini topla ve teklif formuna/WhatsApp'a yönlendir.","Teknik öneride önce şehir, mekan, seyirci kapasitesi, etkinlik türü ve kapsamı sor.","Kullanıcının verdiği bilgileri konuşma içinde koru ve aynı soruyu gereksiz yere tekrar sorma.","Rakipleri kötüleme ve doğrulanmamış karşılaştırma yapma.","Admin, portal, şifre, personel hesabı veya iç sistem işlemleri hakkında yönlendirme yapma.","Bilgi yetersizse bunu açıkça belirt; uydurma teknik değer verme.","Onaylı hizmet bölgeleri Hatay, Antalya, Adana, Gaziantep, Şanlıurfa ve Mersin'dir."],
-  "faq":[{"q":"Hangi bölgelerde hizmet veriyorsunuz?","a":"Hatay, Antalya, Adana, Gaziantep, Şanlıurfa ve Mersin."},{"q":"Teklif için ne gerekir?","a":"Etkinlik türü, tarih, şehir, mekan, tahmini seyirci, süre ve istenen hizmetler."},{"q":"FOH nedir?","a":"Front of House: sahne önü ses mühendisliği ve canlı miks operasyonu."}]
+  "rules":["Kesin fiyat, kesin ekipman adedi veya kesin müsaitlik uydurma.","Fiyat için etkinlik bilgilerini topla ve teklif formuna/WhatsApp'a yönlendir.","Teknik öneride önce şehir, mekan, seyirci kapasitesi, etkinlik türü ve kapsamı sor.","Kullanıcının verdiği bilgileri konuşma içinde koru ve aynı soruyu gereksiz yere tekrar sorma.","Rakipleri kötüleme ve doğrulanmamış karşılaştırma yapma.","Admin, portal, şifre, personel hesabı veya iç sistem işlemleri hakkında yönlendirme yapma.","Bilgi yetersizse bunu açıkça belirt; uydurma teknik değer verme.","Aktif hizmet bölgeleri Hatay, Adana, Gaziantep, Şanlıurfa ve Mersin'dir.","Antalya aktif hizmet bölgesi değildir; geçmiş çalışma deneyimi olarak değerlendirilebilir ancak müşteriye Antalya'da aktif hizmet verildiği söylenemez."],
+  "faq":[{"q":"Hangi bölgelerde hizmet veriyorsunuz?","a":"Hatay, Adana, Gaziantep, Şanlıurfa ve Mersin."},{"q":"Antalya'da hizmet veriyor musunuz?","a":"Hayır. Antalya aktif hizmet bölgemiz değildir; Antalya geçmişte çalışılmış bir lokasyondur."},{"q":"Teklif için ne gerekir?","a":"Etkinlik türü, tarih, şehir, mekan, tahmini seyirci, süre ve istenen hizmetler."},{"q":"FOH nedir?","a":"Front of House: sahne önü ses mühendisliği ve canlı miks operasyonu."}]
 }
