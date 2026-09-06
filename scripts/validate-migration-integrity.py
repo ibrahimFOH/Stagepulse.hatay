@@ -57,6 +57,9 @@ expected = LEDGER.read_text(encoding="utf-8").strip()
 current = tree.hexdigest()
 if current != expected:
     try:
+        shallow = ROOT / ".git" / "shallow"
+        if shallow.is_file():
+            subprocess.run(["git", "fetch", "--unshallow", "origin"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
         checkpoint = subprocess.check_output(["git", "log", "-1", "--format=%H", "--", "supabase/migrations.sha256"], cwd=ROOT, text=True).strip()
         checkpoint_ledger = subprocess.check_output(["git", "show", f"{checkpoint}:supabase/migrations.sha256"], cwd=ROOT, text=True, stderr=subprocess.DEVNULL).strip()
         changed = subprocess.check_output(["git", "diff", "--name-status", checkpoint, "HEAD", "--", "supabase/migrations"], cwd=ROOT, text=True).splitlines()
