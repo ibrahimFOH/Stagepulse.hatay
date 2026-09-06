@@ -33,4 +33,4 @@ $function$;
 
 revoke all on function private.admin_has_capability(text) from public;
 
-after commit;
+commit;
