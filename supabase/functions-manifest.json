@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "projectRefVariable": "SUPABASE_PROJECT_REF",
   "functions": [
+    { "name": "admin-ai", "verifyJwt": true },
     { "name": "admin-data", "verifyJwt": true },
     { "name": "admin-github-media", "verifyJwt": true },
     { "name": "admin-login", "verifyJwt": false },
@@ -16,6 +17,7 @@
     { "name": "register-android-device", "verifyJwt": true },
     { "name": "send-fcm-notification", "verifyJwt": false },
     { "name": "site-ai", "verifyJwt": false },
+    { "name": "staff-ai", "verifyJwt": true },
     { "name": "staff-login", "verifyJwt": false },
     { "name": "staff-session", "verifyJwt": false }
   ]
