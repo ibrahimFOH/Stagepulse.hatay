@@ -12,7 +12,18 @@
     ['rol · yetki merkezi','rbac']
   ]);
 
+  function retireCommandCenter(){
+    const nav=document.getElementById('sideNav');
+    if(nav)[...nav.querySelectorAll('button')].forEach(b=>{
+      if(norm(b.dataset.view)==='command-center'||norm(b.textContent)==='komuta merkezi')b.remove();
+    });
+    if(norm((location.hash||'').slice(1).split('?')[0])==='command-center'){
+      if(location.hash!=='#patron-center')location.hash='#patron-center';
+    }
+  }
+
   function repair(){
+    retireCommandCenter();
     const nav=document.getElementById('sideNav');
     if(!nav)return;
     const seen=new Set();
