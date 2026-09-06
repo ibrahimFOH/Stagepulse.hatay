@@ -148,7 +148,6 @@ class AppUpdater(private val activity: MainActivity) {
             val body = if (code in 200..299) c.inputStream.bufferedReader().use { it.readText() } else ""
             c.disconnect()
             if (code !in 200..299 || body.isBlank()) return null
-
             val releases = org.json.JSONArray(body)
             val prefix = if (BuildConfig.APP_VARIANT.equals("admin", true)) "Stagepulse-Admin-v" else "Stagepulse-Personel-v"
             for (r in 0 until releases.length()) {
@@ -202,70 +201,42 @@ class AppUpdater(private val activity: MainActivity) {
         val requested = prefs().getInt(INSTALLING, 0)
         if (requested <= 0) return
         if (currentVersionCode() >= requested) {
-            prefs().edit()
-                .putLong(LAST_SUCCESS, requested.toLong())
-                .remove(PENDING_VERSION).remove(PENDING_URL).remove(PENDING_SHA)
-                .remove(INSTALLING).remove(INSTALLING_SESSION)
-                .apply()
+            prefs().edit().putLong(LAST_SUCCESS, requested.toLong()).remove(PENDING_VERSION).remove(PENDING_URL).remove(PENDING_SHA).remove(INSTALLING).remove(INSTALLING_SESSION).apply()
             return
         }
         val sessionId = prefs().getInt(INSTALLING_SESSION, -1)
-        val active = if (sessionId >= 0) try {
-            activity.packageManager.packageInstaller.getSessionInfo(sessionId) != null
-        } catch (_: Exception) {
-            false
-        } else false
+        val active = if (sessionId >= 0) try { activity.packageManager.packageInstaller.getSessionInfo(sessionId) != null } catch (_: Exception) { false } else false
         if (!active) clearInstallState()
     }
 
-    private fun savePending(i: UpdateInfo) {
-        prefs().edit().putInt(PENDING_VERSION, i.version).putString(PENDING_URL, i.url).putString(PENDING_SHA, i.sha).apply()
-    }
-
-    private fun clearPending() {
-        prefs().edit().remove(PENDING_VERSION).remove(PENDING_URL).remove(PENDING_SHA).apply()
-    }
+    private fun savePending(i: UpdateInfo) { prefs().edit().putInt(PENDING_VERSION, i.version).putString(PENDING_URL, i.url).putString(PENDING_SHA, i.sha).apply() }
+    private fun clearPending() { prefs().edit().remove(PENDING_VERSION).remove(PENDING_URL).remove(PENDING_SHA).apply() }
 
     private fun pending(): Triple<Int, String, String>? {
-        val p = prefs()
-        val v = p.getInt(PENDING_VERSION, 0)
-        val u = p.getString(PENDING_URL, "").orEmpty()
-        val s = p.getString(PENDING_SHA, "").orEmpty()
+        val p = prefs(); val v = p.getInt(PENDING_VERSION, 0); val u = p.getString(PENDING_URL, "").orEmpty(); val s = p.getString(PENDING_SHA, "").orEmpty()
         return if (v > currentVersionCode() && v > 0 && AndroidUrlPolicy.isTrustedReleaseUrl(u) && SHA256.matches(s)) Triple(v, u, s) else null
     }
 
     private fun resumePending(): Boolean {
         if (hasActiveInstall()) return true
         val p = pending() ?: return false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
-            openUnknownSources()
-            return true
-        }
-        install(p)
-        return true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) { openUnknownSources(); return true }
+        install(p); return true
     }
 
     private fun showUpdate(i: UpdateInfo, required: Boolean) {
         if (activity.isFinishing) return
         val title = if (required) "Zorunlu güncelleme" else "Yeni güncelleme mevcut"
-        val message = buildString {
-            append("Yüklü sürüm: ").append(BuildConfig.VERSION_NAME)
-            append("\nYeni sürüm: ").append(i.displayVersion)
-            if (i.notes.isNotBlank()) append("\n\n").append(i.notes)
-        }
+        val message = buildString { append("Yüklü sürüm: ").append(BuildConfig.VERSION_NAME); append("\nYeni sürüm: ").append(i.displayVersion); if (i.notes.isNotBlank()) append("\n\n").append(i.notes) }
         val b = AlertDialog.Builder(activity).setTitle(title).setMessage(message).setPositiveButton("Güncelle") { _, _ -> startInstall() }
         if (!required) b.setNegativeButton("Daha Sonra", null)
         b.setCancelable(!required).show()
     }
 
-    private fun startInstall() {
-        if (hasActiveInstall()) return
-        pending()?.let { install(it) } ?: check(true)
-    }
+    private fun startInstall() { if (hasActiveInstall()) return; pending()?.let { install(it) } ?: check(true) }
 
     private fun install(p: Triple<Int, String, String>) {
-        if (hasActiveInstall()) return
-        if (!installing.compareAndSet(false, true)) return
+        if (hasActiveInstall() || !installing.compareAndSet(false, true)) return
         thread {
             try {
                 val (v, url, expected) = p
@@ -276,11 +247,7 @@ class AppUpdater(private val activity: MainActivity) {
                 activity.runOnUiThread { packageInstall(file, v) }
             } catch (e: Exception) {
                 prefs().edit().remove(INSTALLING).apply()
-                activity.runOnUiThread {
-                    AlertDialog.Builder(activity).setTitle("Güncelleme yüklenemedi")
-                        .setMessage("Güncelleme indirilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.")
-                        .setPositiveButton("Tekrar Dene") { _, _ -> startInstall() }.show()
-                }
+                activity.runOnUiThread { AlertDialog.Builder(activity).setTitle("Güncelleme yüklenemedi").setMessage("Güncelleme indirilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.").setPositiveButton("Tekrar Dene") { _, _ -> startInstall() }.show() }
             } finally { installing.set(false) }
         }
     }
@@ -288,146 +255,72 @@ class AppUpdater(private val activity: MainActivity) {
     private fun download(url: String, file: File) {
         if (!AndroidUrlPolicy.isTrustedReleaseUrl(url)) throw SecurityException("Güvenilmeyen APK indirme adresi")
         try {
-            var current = url
-            var redirects = 0
-            var completed = false
+            var current = url; var redirects = 0; var completed = false
             while (!completed) {
-                if (!AndroidUrlPolicy.isTrustedApkDownloadHop(current)) {
-                    throw SecurityException("Güvenilmeyen APK indirme yönlendirmesi")
-                }
-                val c = (URL(current).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    instanceFollowRedirects = false
-                    connectTimeout = 10000
-                    readTimeout = 120000
-                    useCaches = false
-                    setRequestProperty("Cache-Control", "no-cache")
-                }
+                if (!AndroidUrlPolicy.isTrustedApkDownloadHop(current)) throw SecurityException("Güvenilmeyen APK indirme yönlendirmesi")
+                val c = (URL(current).openConnection() as HttpURLConnection).apply { requestMethod = "GET"; instanceFollowRedirects = false; connectTimeout = 10000; readTimeout = 120000; useCaches = false; setRequestProperty("Cache-Control", "no-cache") }
                 try {
                     val status = c.responseCode
                     if (status in 200..299) {
-                        if (!AndroidUrlPolicy.isTrustedApkDownloadHop(c.url.toString())) {
-                            throw SecurityException("Güvenilmeyen nihai APK indirme adresi")
-                        }
+                        if (!AndroidUrlPolicy.isTrustedApkDownloadHop(c.url.toString())) throw SecurityException("Güvenilmeyen nihai APK indirme adresi")
                         c.inputStream.use { input -> file.outputStream().use { out -> input.copyTo(out, 65536) } }
-                        completed = true
-                        continue
+                        completed = true; continue
                     }
-                    if (status !in 300..399 || redirects >= MAX_REDIRECTS) {
-                        throw IllegalStateException("Güncelleme sunucusu HTTP $status")
-                    }
+                    if (status !in 300..399 || redirects >= MAX_REDIRECTS) throw IllegalStateException("Güncelleme sunucusu HTTP $status")
                     val location = c.getHeaderField("Location")?.trim().orEmpty()
                     if (location.isBlank()) throw SecurityException("APK yönlendirmesi adres içermiyor")
                     val next = URL(URL(current), location).toString()
-                    if (!AndroidUrlPolicy.isAllowedApkRedirect(current, next)) {
-                        throw SecurityException("Güvenilmeyen APK indirme yönlendirmesi")
-                    }
-                    current = next
-                    redirects++
-                } finally {
-                    c.disconnect()
-                }
+                    if (!AndroidUrlPolicy.isAllowedApkRedirect(current, next)) throw SecurityException("Güvenilmeyen APK indirme yönlendirmesi")
+                    current = next; redirects++
+                } finally { c.disconnect() }
             }
-        } catch (e: Exception) {
-            file.delete()
-            throw e
-        }
+        } catch (e: Exception) { file.delete(); throw e }
         if (!file.exists() || file.length() < 1024 * 1024) throw IllegalStateException("Güncelleme dosyası geçersiz")
     }
 
     private fun sha256(f: File): String {
         val d = MessageDigest.getInstance("SHA-256")
-        f.inputStream().use { input ->
-            val b = ByteArray(65536)
-            while (true) { val n = input.read(b); if (n < 0) break; d.update(b, 0, n) }
-        }
+        f.inputStream().use { input -> val b = ByteArray(65536); while (true) { val n = input.read(b); if (n < 0) break; d.update(b, 0, n) } }
         return d.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun verifyDownloadedPackage(file: File, expectedVersion: Int) {
-        val info = activity.packageManager.getPackageArchiveInfo(file.absolutePath, 0)
-            ?: throw SecurityException("İndirilen dosya geçerli bir APK değil")
+        val info = activity.packageManager.getPackageArchiveInfo(file.absolutePath, 0) ?: throw SecurityException("İndirilen dosya geçerli bir APK değil")
         val version = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode
-        if (info.packageName != activity.packageName || version != expectedVersion) {
-            throw SecurityException("APK paket kimliği veya sürümü güncelleme bildirimiyle eşleşmiyor")
-        }
+        if (info.packageName != activity.packageName || version != expectedVersion) throw SecurityException("APK paket kimliği veya sürümü güncelleme bildirimiyle eşleşmiyor")
     }
 
     private fun packageInstall(file: File, version: Int) {
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            !activity.packageManager.canRequestPackageInstalls()
-        ) {
-            clearInstallState()
-            openUnknownSources()
-            return
-        }
-        var installer: PackageInstaller? = null
-        var sessionId = -1
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) { clearInstallState(); openUnknownSources(); return }
+        var installer: PackageInstaller? = null; var sessionId = -1
         try {
-            val pi = activity.packageManager.packageInstaller
-            installer = pi
-            val p = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-                setSize(file.length())
-                if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
-            }
+            val pi = activity.packageManager.packageInstaller; installer = pi
+            val p = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply { setSize(file.length()); if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED) }
             sessionId = pi.createSession(p)
             prefs().edit().putInt(INSTALLING, version).putInt(INSTALLING_SESSION, sessionId).apply()
             pi.openSession(sessionId).use { session ->
                 file.inputStream().use { input -> session.openWrite("stagepulse.apk", 0, file.length()).use { out -> input.copyTo(out, 65536); session.fsync(out) } }
-                val intent = Intent(activity, AppUpdateReceiver::class.java).apply {
-                    putExtra(INSTALL_SESSION_ID, sessionId)
-                    putExtra(INSTALL_APK_PATH, file.absolutePath)
-                    putExtra(INSTALL_VERSION, version)
-                }
+                val intent = Intent(activity, AppUpdateReceiver::class.java).apply { putExtra(INSTALL_SESSION_ID, sessionId); putExtra(INSTALL_APK_PATH, file.absolutePath); putExtra(INSTALL_VERSION, version) }
                 val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
                 session.commit(PendingIntent.getBroadcast(activity, sessionId, intent, flags).intentSender)
             }
-        } catch (_: SecurityException) {
-            abandonInstallSession(installer, sessionId)
-            clearInstallState()
-            openUnknownSources()
-        } catch (_: Exception) {
-            abandonInstallSession(installer, sessionId)
-            clearInstallState()
-            fallbackInstall(file)
-        }
+        } catch (_: SecurityException) { abandonInstallSession(installer, sessionId); clearInstallState(); openUnknownSources() }
+        catch (_: Exception) { abandonInstallSession(installer, sessionId); clearInstallState(); fallbackInstall(file) }
     }
 
-    private fun hasActiveInstall(): Boolean =
-        prefs().getInt(INSTALLING, 0) > 0 && prefs().getInt(INSTALLING_SESSION, -1) >= 0
-
-    private fun clearInstallState() {
-        prefs().edit().remove(INSTALLING).remove(INSTALLING_SESSION).apply()
-    }
-
-    private fun abandonInstallSession(installer: PackageInstaller?, sessionId: Int) {
-        if (installer != null && sessionId >= 0) try {
-            installer.abandonSession(sessionId)
-        } catch (_: Exception) {
-            // The session may already be committed or abandoned.
-        }
-    }
+    private fun hasActiveInstall(): Boolean = prefs().getInt(INSTALLING, 0) > 0 && prefs().getInt(INSTALLING_SESSION, -1) >= 0
+    private fun clearInstallState() { prefs().edit().remove(INSTALLING).remove(INSTALLING_SESSION).apply() }
+    private fun abandonInstallSession(installer: PackageInstaller?, sessionId: Int) { if (installer != null && sessionId >= 0) try { installer.abandonSession(sessionId) } catch (_: Exception) {} }
 
     private fun fallbackInstall(file: File) {
         val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, MIME)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            clipData = android.content.ClipData.newRawUri("Stagepulse APK", uri)
-        }
+        val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(uri, MIME); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION); clipData = android.content.ClipData.newRawUri("Stagepulse APK", uri) }
         activity.startActivity(Intent.createChooser(intent, "Stagepulse güncellemesini yükle"))
     }
 
     private fun openUnknownSources() {
-        try {
-            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                data = Uri.parse("package:${activity.packageName}")
-            }
-            activity.startActivity(intent)
-        } catch (_: Exception) {
-            activity.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
-        }
+        try { activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}"))) }
+        catch (_: SecurityException) { android.util.Log.w("StagepulseUpdater", "Bilinmeyen kaynak izni ekranı açılamadı") }
     }
 }
 
@@ -436,10 +329,28 @@ class AppUpdateReceiver : BroadcastReceiver() {
         val s = i.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
         val v = i.getIntExtra(AppUpdater.INSTALL_VERSION, 0)
         val p = c.getSharedPreferences("stagepulse", Context.MODE_PRIVATE)
-        if (s == PackageInstaller.STATUS_SUCCESS) {
-            p.edit().putLong("apk_last_successful_install_version", v.toLong()).remove("apk_installing_version").remove("apk_installing_session_id").remove("apk_pending_version").remove("apk_pending_url").remove("apk_pending_sha256").apply()
+        if (s == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            val pendingIntent = if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java) else @Suppress("DEPRECATION") i.getParcelableExtra(Intent.EXTRA_INTENT)
+            if (pendingIntent == null) {
+                p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
+                android.util.Log.e("StagepulseUpdater", "Paket yükleyici kullanıcı onay Intent'i döndürmedi")
+            } else pendingIntent.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try { c.startActivity(this) }
+                catch (e: Exception) { p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply(); android.util.Log.e("StagepulseUpdater", "Paket yükleyici onay ekranı açılamadı", e) }
+            }
+        } else if (s == PackageInstaller.STATUS_SUCCESS) {
+            val installed = try { val info = c.packageManager.getPackageInfo(c.packageName, 0); if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode } catch (_: Exception) { 0 }
+            val edit = p.edit().remove("apk_installing_version").remove("apk_installing_session_id")
+            if (installed >= v && v > 0) edit.putLong("apk_last_successful_install_version", v.toLong()).remove("apk_pending_version").remove("apk_pending_url").remove("apk_pending_sha256")
+            else android.util.Log.e("StagepulseUpdater", "Paket yükleyici başarı bildirdi ancak yüklü sürüm doğrulanamadı")
+            edit.apply()
+            i.getStringExtra(AppUpdater.INSTALL_APK_PATH)?.let { File(it).delete() }
         } else {
+            val message = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
             p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
+            i.getStringExtra(AppUpdater.INSTALL_APK_PATH)?.let { File(it).delete() }
+            android.util.Log.e("StagepulseUpdater", "APK yükleme başarısız (durum=$s): $message")
         }
     }
 }
