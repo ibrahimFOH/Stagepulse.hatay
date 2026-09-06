@@ -11,8 +11,7 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 | Operation | Canonical entrypoint |
 |---|---|
 | Admin bootstrap / runtime | `admin/admin-runtime.js` |
-| Patron command center | `admin/command-center.js` |
-| Patron center | `admin/patron-center.js` |
+| Patron executive center | `admin/patron-center.js` |
 | Owner operating system | `admin/owner-operating-system.js` |
 | Admin authentication | `supabase/functions/admin-login/index.ts` |
 | Admin data API | `supabase/functions/admin-data/index.ts` |
