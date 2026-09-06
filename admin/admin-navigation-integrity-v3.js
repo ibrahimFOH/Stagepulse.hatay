@@ -38,10 +38,24 @@
     nav.querySelectorAll('#orgDashboardNav').forEach(node=>node.remove());
   }
 
-  const run=()=>{repair();setTimeout(repair,50);setTimeout(repair,500);};
+  function protectProductionRoute(){
+    const original=window.loadView;
+    if(typeof original!=='function'||original.__spProductionRouteGuard)return;
+    const wrapped=async function(view){
+      if(norm(view)==='production-os'){
+        if(location.hash!=='#production-os')location.hash='#production-os';
+        return true;
+      }
+      return original.apply(this,arguments);
+    };
+    wrapped.__spProductionRouteGuard=true;
+    window.loadView=wrapped;
+  }
+
+  const run=()=>{repair();protectProductionRoute();setTimeout(repair,50);setTimeout(repair,500);};
   document.addEventListener('DOMContentLoaded',run);
   window.addEventListener('stagepulse-admin-ready',run);
   window.addEventListener('hashchange',run);
-  setInterval(repair,1000);
+  setInterval(()=>{repair();protectProductionRoute();},1000);
   window.StagepulseAdminNavigationIntegrity={repair};
 })();
