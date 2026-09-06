@@ -1,4 +1,4 @@
-/* Stagepulse Admin — final navigation integrity layer. */
+/* Stagepulse Admin — canonical navigation integrity layer. */
 (() => {
   'use strict';
   if(window.__STAGEPULSE_ADMIN_NAV_INTEGRITY_V3__)return;
