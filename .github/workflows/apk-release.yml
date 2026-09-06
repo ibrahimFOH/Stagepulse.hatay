@@ -220,7 +220,7 @@ jobs:
           git fetch origin main
           test "$(git rev-parse origin/main)" = "$expected"
           test "$(git show origin/main:latest.json)" = "$(cat latest.json)"
-          test "$(git show origin/main:app-update.json)" = "$(cat app-update.json)")
+          test "$(git show origin/main:app-update.json)" = "$(cat app-update.json)"
       - name: Sync verified release metadata and notifications
         if: ${{ env.PUBLISH_RELEASE == 'true' }}
         env:
