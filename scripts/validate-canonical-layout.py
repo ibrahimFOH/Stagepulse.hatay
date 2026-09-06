@@ -17,6 +17,7 @@ REQUIRED = (
     "android/app/src/main/java/tr/com/stagepulse/app/MainActivity.kt",
     "android/app/src/main/java/tr/com/stagepulse/app/AppUpdater.kt",
     ".github/workflows/stagepulse-ci.yml",
+    ".github/workflows/regional-seo.yml",
     ".github/workflows/apk-release.yml",
 )
 
