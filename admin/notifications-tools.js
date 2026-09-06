@@ -70,7 +70,6 @@
     const textMap={'komuta merkezi':'command-center','genel bakış':'dashboard','analitik':'analytics','müşteriler':'customers','teklifler':'offers','fiyatlandırma':'pricing','gelir · gider':'settlements','işler · takvim':'calendar','ekipman':'equipment','personel':'personnel','ödemeler':'finance','bildirimler':'notifications','aktivite':'activity','medya':'media','ayarlar':'settings','yönetim kapsamım':'scope','şirket organizasyonu':'organization','rol · yetki merkezi':'rbac','yönetici hesapları':'accounts','çıkış':'logout'};
     $$('#sideNav button[data-view],#sideNav button:not([data-view])').forEach(b=>{const key=(b.dataset.view||textMap[(b.textContent||'').trim().toLowerCase()]||'').toLowerCase();b.classList.toggle('active',key===view);});
   }
-  const css=document.createElement('style'); css.textContent=`.admin-body .sp-admin-crud{display:none!important}`; document.head.appendChild(css);
   setInterval(refreshAdminUi,1200);
   window.addEventListener('hashchange',()=>setTimeout(refreshAdminUi,50));
   window.addEventListener('stagepulse:admin-ready',()=>setTimeout(refreshAdminUi,100));
