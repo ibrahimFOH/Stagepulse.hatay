@@ -1,0 +1,37 @@
+name: Stagepulse APK Auto Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - latest.json
+      - app-update.json
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: stagepulse-apk-auto-release
+  cancel-in-progress: false
+
+jobs:
+  dispatch-release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Trigger verified APK release
+        uses: actions/github-script@ed597411d8f924073f7b3b9c8f7a8b6b8c9a8f2b # v8
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'apk-release.yml',
+              ref: 'main',
+              inputs: {
+                minimum_version_code: 'preserve',
+                publish: 'true'
+              }
+            });
+            core.info('Verified APK release workflow dispatched automatically for this main push.');
