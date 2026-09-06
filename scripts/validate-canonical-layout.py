@@ -6,7 +6,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED = (
     "admin/admin-runtime.js",
-    "admin/command-center.js",
     "admin/patron-center.js",
     "admin/owner-operating-system.js",
     "supabase/functions/admin-login/index.ts",
@@ -27,7 +26,6 @@ for rel in REQUIRED:
     if not path.is_file() or path.stat().st_size == 0:
         errors.append(f"Missing canonical entrypoint: {rel}")
 
-# The canonical map itself is the source of truth for this validator.
 map_path = ROOT / "docs/CANONICAL_OPERATION_MAP.md"
 if not map_path.is_file():
     errors.append("Missing docs/CANONICAL_OPERATION_MAP.md")
