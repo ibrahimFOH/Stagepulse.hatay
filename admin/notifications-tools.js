@@ -11,12 +11,17 @@
     return result;
   };
   async function injectComposer() {
-    const { data: admins } = await sb.from('admin_profiles').select('user_id,username,display_name').eq('active',true);
-    const { data: staff } = await sb.from('staff_profiles').select('user_id,username,display_name,role').eq('active',true).order('display_name');
-    const users = [...(admins||[]).map(x=>({...x,role:'admin'})), ...(staff||[])];
+    const { data: members, error } = await sb.from('org_memberships')
+      .select('user_id,role:role_id(code,name,is_admin_role,active),active')
+      .eq('active',true);
+    if (error) { console.error('[stagepulse-notifications]', error); return; }
+    const users = (members||[]).map(x=>{
+      const role=Array.isArray(x.role)?x.role[0]:x.role;
+      return {user_id:x.user_id,role:role?.name||role?.code||'Üye'};
+    });
     if ($('#ntSend')) return;
     const box=document.createElement('div'); box.className='panel'; box.style.marginBottom='16px';
-    box.innerHTML=`<h3 style="margin-top:0">Yeni bildirim gönder</h3><p class="muted">Seçilen kullanıcıya hem uygulama içi bildirim hem de kayıtlı cihazlara push gönderilir.</p><div class="grid2"><label>Alıcılar<select id="ntRecipients" multiple size="5">${users.map(u=>`<option value="${escN(u.user_id)}">${escN(u.display_name||u.username)} · ${escN(u.role)}</option>`).join('')}</select></label><div><label>Başlık<input id="ntTitle" value="Stagepulse bildirimi" maxlength="120"></label><label>Mesaj<textarea id="ntBody" rows="4" maxlength="1000" placeholder="Bildirim metni"></textarea></label></div></div><div class="modal-actions"><button class="btn btn-primary" id="ntSend">Bildirimi gönder</button></div><p id="ntResult" class="muted"></p>`;
+    box.innerHTML=`<h3 style="margin-top:0">Yeni bildirim gönder</h3><p class="muted">Seçilen kullanıcıya hem uygulama içi bildirim hem de kayıtlı cihazlara push gönderilir.</p><div class="grid2"><label>Alıcılar<select id="ntRecipients" multiple size="5">${users.map(u=>`<option value="${escN(u.user_id)}">${escN(u.user_id)} · ${escN(u.role)}</option>`).join('')}</select></label><div><label>Başlık<input id="ntTitle" value="Stagepulse bildirimi" maxlength="120"></label><label>Mesaj<textarea id="ntBody" rows="4" maxlength="1000" placeholder="Bildirim metni"></textarea></label></div></div><div class="modal-actions"><button class="btn btn-primary" id="ntSend">Bildirimi gönder</button></div><p id="ntResult" class="muted"></p>`;
     $('#content')?.prepend(box);
     $('#ntSend').onclick=send;
   }
@@ -27,12 +32,10 @@
     const out=$('#ntResult'); if(!ids.length||!body){if(out)out.textContent='En az bir alıcı ve mesaj gerekli.';return;}
     const btn=$('#ntSend'); if(btn)btn.disabled=true;
     try{
-      const rows=ids.map(recipient_user_id=>({recipient_user_id,kind:'admin_manual',title,body}));
-      const {error:ie}=await sb.from('notifications').insert(rows); if(ie)throw ie;
       const {data:{session}}=await sb.auth.getSession(); if(!session?.access_token)throw new Error('Admin oturumu yok.');
       const r=await fetch(EDGE,{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({user_ids:ids,title,body,url:'/portal/',kind:'admin_manual'})});
       const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'Push gönderimi başarısız.');
-      if(out)out.textContent=`Gönderildi. Uygulama içi: ${ids.length} · Push: ${j.sent||0} · Eski cihaz: ${j.stale||0}`;
+      if(out)out.textContent=`Gönderildi. Push: ${j.sent||0} · Eski cihaz: ${j.stale||0}`;
       $('#ntBody').value=''; toast('Bildirim gönderildi.');
     }catch(e){if(out)out.textContent=e.message||'Bildirim gönderilemedi.';toast(e.message||'Bildirim gönderilemedi.',false)}finally{if(btn)btn.disabled=false}
   }
@@ -49,13 +52,7 @@
   ]);
   const statusClasses = {yeni:'new',new:'new',bekliyor:'new',pending:'new',incelemede:'reviewing',reviewing:'reviewing',inceleniyor:'reviewing',hazırlanıyor:'preparing',preparing:'preparing',gönderildi:'sent',sent:'sent',kabul:'accepted','kabul edildi':'accepted',accepted:'accepted',aktif:'accepted',active:'accepted',ödendi:'accepted',paid:'accepted',red:'rejected','reddedildi':'rejected',rejected:'rejected',iptal:'cancelled','iptal edildi':'cancelled',cancelled:'cancelled',pasif:'rejected',inactive:'rejected'};
 
-  function refreshAdminUi(){
-    syncMenu();
-    const root = $('#content'); if(!root) return;
-    translate(root);
-    decorateStatus(root);
-    addCrudActions(root);
-  }
+  function refreshAdminUi(){ syncMenu(); const root=$('#content'); if(!root)return; translate(root); decorateStatus(root); }
   function translate(root){
     const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT); const nodes=[];
     while(w.nextNode()) nodes.push(w.currentNode);
@@ -71,31 +68,9 @@
     const aliases={permissions:'rbac',permission:'rbac','role-permission':'rbac','role-permissions':'rbac','company-organization':'organization','management-scope':'scope','admin-accounts':'accounts'};
     const view=aliases[hash]||hash||'dashboard';
     const textMap={'komuta merkezi':'command-center','genel bakış':'dashboard','analitik':'analytics','müşteriler':'customers','teklifler':'offers','fiyatlandırma':'pricing','gelir · gider':'settlements','işler · takvim':'calendar','ekipman':'equipment','personel':'personnel','ödemeler':'finance','bildirimler':'notifications','aktivite':'activity','medya':'media','ayarlar':'settings','yönetim kapsamım':'scope','şirket organizasyonu':'organization','rol · yetki merkezi':'rbac','yönetici hesapları':'accounts','çıkış':'logout'};
-    $$('#sideNav button[data-view],#sideNav button:not([data-view])').forEach(b=>{
-      const key=(b.dataset.view||textMap[(b.textContent||'').trim().toLowerCase()]||'').toLowerCase();
-      b.classList.toggle('active',key===view);
-    });
+    $$('#sideNav button[data-view],#sideNav button:not([data-view])').forEach(b=>{const key=(b.dataset.view||textMap[(b.textContent||'').trim().toLowerCase()]||'').toLowerCase();b.classList.toggle('active',key===view);});
   }
-  const deletable={customers:'customers',offers:'teklifler',pricing:'services',settlements:'settlements',calendar:'jobs',finance:'payments',personnel:'staff',equipment:'equipment'};
-  function addCrudActions(root){
-    const view=(location.hash||'#dashboard').slice(1).split('?')[0]; const table=deletable[view];
-    if(!table) return;
-    $$('.admin-table tbody tr',root).forEach(tr=>{
-      const id=tr.dataset.spRowId||tr.querySelector('[data-id]')?.dataset.id; if(!id)return;
-      let cell=tr.querySelector('td:last-child'); if(!cell){cell=document.createElement('td');tr.appendChild(cell);}
-      if(cell.querySelector('.sp-admin-crud')) return;
-      cell.classList.add('sp-runtime-actions');
-      const wrap=document.createElement('span'); wrap.className='sp-admin-crud';
-      const edit=cell.querySelector('.btn-primary,.edit-btn,.btn-edit,.sp-runtime-edit');
-      if(edit) wrap.appendChild(edit);
-      if(!cell.querySelector('.sp-admin-delete')){const d=document.createElement('button');d.type='button';d.className='sp-admin-delete';d.textContent='Sil';d.onclick=async()=>{if(!confirm('Bu kaydı silmek istediğinize emin misiniz?'))return;d.disabled=true;const {error}=await sb.from(table).delete().eq('id',id);if(error){d.disabled=false;toast(error.message||'Kayıt silinemedi.',false);return;}tr.remove();toast('Kayıt silindi.',true);};wrap.appendChild(d);}
-      if(wrap.children.length) cell.replaceChildren(wrap);
-    });
-  }
-  const css=document.createElement('style'); css.textContent=`
-    .admin-body .sp-admin-crud{display:inline-flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.admin-body .sp-admin-delete{display:inline-flex;align-items:center;justify-content:center;min-width:64px;padding:9px 12px;border-radius:10px;background:#211419;color:#ff8a9b;border:1px solid #6a3040;font-weight:900;cursor:pointer}.admin-body .sp-admin-delete:hover{background:#ff5c7a;color:#21070c;border-color:#ff5c7a}.admin-body .sp-admin-delete:disabled{opacity:.55;cursor:wait}.admin-body .sp-runtime-actions{white-space:nowrap}.admin-body .admin-table tbody tr:hover td{background:rgba(255,176,0,.055)!important}.admin-body .status{border-radius:999px;padding:4px 9px;font-weight:800}
-    @media(max-width:760px){.admin-body .sp-admin-crud{width:100%;justify-content:stretch}.admin-body .sp-admin-crud>*{flex:1}.admin-body .sp-admin-delete{min-width:0}}
-  `; document.head.appendChild(css);
+  const css=document.createElement('style'); css.textContent=`.admin-body .sp-admin-crud{display:none!important}`; document.head.appendChild(css);
   setInterval(refreshAdminUi,1200);
   window.addEventListener('hashchange',()=>setTimeout(refreshAdminUi,50));
   window.addEventListener('stagepulse:admin-ready',()=>setTimeout(refreshAdminUi,100));
