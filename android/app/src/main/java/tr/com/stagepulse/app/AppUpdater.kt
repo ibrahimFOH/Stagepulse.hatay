@@ -21,7 +21,7 @@ class AppUpdater(private val activity: MainActivity) {
     companion object {
         private const val SUPABASE_MANIFEST = "https://mtjcqqrogjqaxkagwkti.supabase.co/rest/v1/app_versions?platform=eq.%s&select=platform,web_version,apk_version,minimum_version,apk_url,apk_sha256,notes&limit=1"
         private const val PUBLIC_MANIFEST = "https://raw.githubusercontent.com/ibrahimFOH/Stagepulse.hatay/main/latest.json"
-        private const val GITHUB_RELEASE_API = "https://api.github.com/repos/ibrahimFOH/Stagepulse.hatay/releases/latest"
+        private const val GITHUB_RELEASE_API = "https://api.github.com/repos/ibrahimFOH/Stagepulse.hatay/releases?per_page=20"
         private const val MIME = "application/vnd.android.package-archive"
         private const val PREFS = "stagepulse"
         private const val LAST_CHECK = "apk_update_last_check_ms"
@@ -135,7 +135,7 @@ class AppUpdater(private val activity: MainActivity) {
 
     private fun fetchGitHub(): UpdateInfo? {
         return try {
-            val c = (URL(GITHUB_RELEASE_API + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection).apply {
+            val c = (URL(GITHUB_RELEASE_API + "&t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 setRequestProperty("Accept", "application/vnd.github+json")
                 setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
@@ -148,20 +148,23 @@ class AppUpdater(private val activity: MainActivity) {
             val body = if (code in 200..299) c.inputStream.bufferedReader().use { it.readText() } else ""
             c.disconnect()
             if (code !in 200..299 || body.isBlank()) return null
-            val release = org.json.JSONObject(body)
-            val tag = release.optString("tag_name").removePrefix("v")
-            val version = releaseVersionCode(tag) ?: return null
+
+            val releases = org.json.JSONArray(body)
             val prefix = if (BuildConfig.APP_VARIANT.equals("admin", true)) "Stagepulse-Admin-v" else "Stagepulse-Personel-v"
-            val assets = release.optJSONArray("assets") ?: return null
-            for (i in 0 until assets.length()) {
-                val a = assets.optJSONObject(i) ?: continue
-                val name = a.optString("name")
-                if (!name.startsWith(prefix) || !name.endsWith(".apk")) continue
-                val url = a.optString("browser_download_url").trim()
-                val sha = a.optString("digest").removePrefix("sha256:").trim().lowercase()
-                if (AndroidUrlPolicy.isTrustedReleaseUrl(url) && SHA256.matches(sha)) {
-                    // GitHub confirms artifact identity but does not publish the rollout minimum.
-                    return UpdateInfo("github", version, 0, url, sha, "GitHub Release $tag", tag)
+            for (r in 0 until releases.length()) {
+                val release = releases.optJSONObject(r) ?: continue
+                val tag = release.optString("tag_name").removePrefix("v")
+                val version = releaseVersionCode(tag) ?: continue
+                val assets = release.optJSONArray("assets") ?: continue
+                for (i in 0 until assets.length()) {
+                    val a = assets.optJSONObject(i) ?: continue
+                    val name = a.optString("name")
+                    if (!name.startsWith(prefix) || !name.endsWith(".apk", true)) continue
+                    val url = a.optString("browser_download_url").trim()
+                    val sha = a.optString("digest").removePrefix("sha256:").trim().lowercase()
+                    if (AndroidUrlPolicy.isTrustedReleaseUrl(url) && SHA256.matches(sha)) {
+                        return UpdateInfo("github", version, 0, url, sha, "GitHub Release $tag", tag)
+                    }
                 }
             }
             null
@@ -418,9 +421,12 @@ class AppUpdater(private val activity: MainActivity) {
 
     private fun openUnknownSources() {
         try {
-            activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")))
-        } catch (_: SecurityException) {
-            android.util.Log.w("StagepulseUpdater", "Bilinmeyen kaynak izni ekranı açılamadı")
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                data = Uri.parse("package:${activity.packageName}")
+            }
+            activity.startActivity(intent)
+        } catch (_: Exception) {
+            activity.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
         }
     }
 }
@@ -430,39 +436,10 @@ class AppUpdateReceiver : BroadcastReceiver() {
         val s = i.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
         val v = i.getIntExtra(AppUpdater.INSTALL_VERSION, 0)
         val p = c.getSharedPreferences("stagepulse", Context.MODE_PRIVATE)
-        if (s == PackageInstaller.STATUS_PENDING_USER_ACTION) {
-            val pendingIntent = if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java) else @Suppress("DEPRECATION") i.getParcelableExtra(Intent.EXTRA_INTENT)
-            if (pendingIntent == null) {
-                p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
-                android.util.Log.e("StagepulseUpdater", "Paket yükleyici kullanıcı onay Intent'i döndürmedi")
-            } else pendingIntent.apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                try {
-                    c.startActivity(this)
-                } catch (e: Exception) {
-                    p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
-                    android.util.Log.e("StagepulseUpdater", "Paket yükleyici onay ekranı açılamadı", e)
-                }
-            }
-        } else if (s == PackageInstaller.STATUS_SUCCESS) {
-            val installed = try {
-                val info = c.packageManager.getPackageInfo(c.packageName, 0)
-                if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode
-            } catch (_: Exception) { 0 }
-            val edit = p.edit().remove("apk_installing_version").remove("apk_installing_session_id")
-            if (installed >= v && v > 0) {
-                edit.putLong("apk_last_successful_install_version", v.toLong())
-                    .remove("apk_pending_version").remove("apk_pending_url").remove("apk_pending_sha256")
-            } else {
-                android.util.Log.e("StagepulseUpdater", "Paket yükleyici başarı bildirdi ancak yüklü sürüm doğrulanamadı")
-            }
-            edit.apply()
-            i.getStringExtra(AppUpdater.INSTALL_APK_PATH)?.let { File(it).delete() }
+        if (s == PackageInstaller.STATUS_SUCCESS) {
+            p.edit().putLong("apk_last_successful_install_version", v.toLong()).remove("apk_installing_version").remove("apk_installing_session_id").remove("apk_pending_version").remove("apk_pending_url").remove("apk_pending_sha256").apply()
         } else {
-            val message = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
             p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
-            i.getStringExtra(AppUpdater.INSTALL_APK_PATH)?.let { File(it).delete() }
-            android.util.Log.e("StagepulseUpdater", "APK yükleme başarısız (durum=$s): $message")
         }
     }
 }
