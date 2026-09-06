@@ -1,6 +1,11 @@
 /* Stagepulse Patron Center — owner-only executive cockpit. */
 (() => {
   'use strict';
+  // Canonical singleton: this file may be injected/reloaded by legacy admin bootstraps.
+  // Never allow more than one Patron Merkezi controller or nav item on the page.
+  if (window.STAGEPULSE_PATRON_CENTER_CONTROLLER) return;
+  window.STAGEPULSE_PATRON_CENTER_CONTROLLER = true;
+
   const $=(s,r=document)=>r.querySelector(s);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const db=()=>window.__stagepulseAdminClient||window.sb||window.supabaseClient||null;
@@ -65,20 +70,34 @@
     if(bootInFlight)return;
     const nav=$('#sideNav');
     if(!nav)return;
-    const existing=nav.querySelectorAll('#patronCenterNav');
-    if(existing.length>1)existing.forEach((b,i)=>{if(i>0)b.remove()});
-    if($('#patronCenterNav')){open();return}
+    // Remove every legacy/duplicate Patron Merkezi button, regardless of its old id.
+    const patronButtons=Array.from(nav.querySelectorAll('[data-view="patron-center"], #patronCenterNav'));
+    const canonical=patronButtons[0]||null;
+    patronButtons.slice(1).forEach(b=>b.remove());
+    if(canonical){
+      canonical.id='patronCenterNav';
+      canonical.type='button';
+      canonical.textContent='Patron Merkezi';
+      canonical.dataset.view='patron-center';
+      if(!canonical.dataset.patronBound){
+        canonical.dataset.patronBound='1';
+        canonical.addEventListener('click',()=>location.hash='patron-center');
+      }
+      open();
+      return;
+    }
     bootInFlight=true;
     try{
       owner=await isOwner();
       if(!owner)return;
-      const current=$('#patronCenterNav');
+      const current=nav.querySelector('[data-view="patron-center"], #patronCenterNav');
       if(current)return;
       const b=document.createElement('button');
       b.id='patronCenterNav';
       b.type='button';
       b.textContent='Patron Merkezi';
       b.dataset.view='patron-center';
+      b.dataset.patronBound='1';
       b.addEventListener('click',()=>location.hash='patron-center');
       nav.insertBefore(b,nav.firstElementChild?.nextSibling||nav.firstChild);
       open();
