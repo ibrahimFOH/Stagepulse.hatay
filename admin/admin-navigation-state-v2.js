@@ -45,11 +45,6 @@
     add('accounts','Yönetici Hesapları',organization);
     const accounts=nav.querySelector('button[data-view="accounts"]');
     add('rbac','Rol · Yetki Merkezi',accounts);
-    if(!nav.querySelector('[data-nav-section="production-os"]')&&!nav.querySelector('button[data-view="production-os"]')){
-      const label=document.createElement('p');
-      label.className='nav-label';label.dataset.navSection='production-os';label.textContent='Operasyon OS';
-      if(logout)nav.insertBefore(label,logout);else nav.appendChild(label);
-    }
     dedupeManagement();
     [scope,organization,accounts,rbac].filter(Boolean).forEach(b=>b.classList.add('nav-management-entry'));
   };
