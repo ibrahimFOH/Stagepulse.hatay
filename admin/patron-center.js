@@ -70,8 +70,8 @@
     if(bootInFlight)return;
     const nav=$('#sideNav');
     if(!nav)return;
-    // Remove every legacy/duplicate Patron Merkezi button, regardless of its old id.
-    const patronButtons=Array.from(nav.querySelectorAll('[data-view="patron-center"], #patronCenterNav'));
+    // Remove every legacy/duplicate Patron Merkezi button, including old buttons without data-view/id.
+    const patronButtons=Array.from(nav.querySelectorAll('button')).filter(b=>b.textContent.trim()==='Patron Merkezi'||b.dataset.view==='patron-center'||b.id==='patronCenterNav');
     const canonical=patronButtons[0]||null;
     patronButtons.slice(1).forEach(b=>b.remove());
     if(canonical){
