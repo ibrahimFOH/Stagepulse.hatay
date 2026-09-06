@@ -12,7 +12,7 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 |---|---|
 | Admin bootstrap / runtime | `admin/admin-runtime.js` |
 | Patron executive center | `admin/patron-center.js` |
-| Owner operating system | `admin/owner-operating-system.js` |
+| Owner compatibility marker | `admin/owner-operating-system.js` |
 | Admin authentication | `supabase/functions/admin-login/index.ts` |
 | Admin data API | `supabase/functions/admin-data/index.ts` |
 | Staff authentication | `supabase/functions/staff-login/index.ts` |
@@ -22,6 +22,7 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 | Android application entry | `android/app/src/main/java/tr/com/stagepulse/app/MainActivity.kt` |
 | Android update engine | `android/app/src/main/java/tr/com/stagepulse/app/AppUpdater.kt` |
 | CI / web / security gate | `.github/workflows/stagepulse-ci.yml` |
+| Regional SEO gate | `.github/workflows/regional-seo.yml` |
 | Signed APK release | `.github/workflows/apk-release.yml` |
 
 ## ZIP policy
