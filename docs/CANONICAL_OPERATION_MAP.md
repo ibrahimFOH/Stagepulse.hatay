@@ -15,15 +15,26 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 | Owner compatibility marker | `admin/owner-operating-system.js` |
 | Admin authentication | `supabase/functions/admin-login/index.ts` |
 | Admin data API | `supabase/functions/admin-data/index.ts` |
+| Admin AI assistant | `supabase/functions/admin-ai/index.ts` + `admin/admin-ai.js` |
 | Staff authentication | `supabase/functions/staff-login/index.ts` |
 | Staff session | `supabase/functions/staff-session/index.ts` |
+| Staff AI assistant | `supabase/functions/staff-ai/index.ts` + `portal/staff-ai.js` |
 | Public quote intake | `supabase/functions/public-quote/index.ts` |
+| Public AI assistant | `supabase/functions/site-ai/index.ts` + `site-ai.js` |
+| AI management / permissions | `supabase/functions/ai-manage/index.ts` + existing AI control center |
 | Web application runtime | `script.js` / existing page controllers |
 | Android application entry | `android/app/src/main/java/tr/com/stagepulse/app/MainActivity.kt` |
 | Android update engine | `android/app/src/main/java/tr/com/stagepulse/app/AppUpdater.kt` |
 | CI / web / security gate | `.github/workflows/stagepulse-ci.yml` |
 | Regional SEO gate | `.github/workflows/regional-seo.yml` |
 | Signed APK release | `.github/workflows/apk-release.yml` |
+
+## AI safety model
+
+- Public AI is unauthenticated, rate-limited, knowledge-grounded and must not expose private company data.
+- Admin AI requires a valid authenticated admin membership; it is analysis/proposal-only and cannot directly execute database changes.
+- Staff AI requires a valid authenticated active organization membership and is restricted to the user's own operational context.
+- AI execution remains governed by the existing AI-agent capability model and approval/audit layer. `can_execute` stays disabled for the newly exposed conversational assistants.
 
 ## ZIP policy
 
