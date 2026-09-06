@@ -1,0 +1,24 @@
+/* Stagepulse Admin — canonical visual system */
+:root{--bg:#070809;--panel:#101214;--panel-2:#15181b;--line:#262b30;--line-soft:#1c2024;--text:#f5f6f7;--muted:#858d96;--gold:#ffb000;--gold-2:#ff8a00;--green:#55d98a;--blue:#5aa8ff;--red:#ff6f72}
+html,body{background:radial-gradient(1200px 600px at 70% -10%,rgba(255,176,0,.055),transparent 60%),var(--bg)}
+.sidebar{background:linear-gradient(180deg,#0a0b0c 0%,#0d0f11 100%);border-right:1px solid #24282c;box-shadow:10px 0 40px rgba(0,0,0,.18)}
+.sidebar-top{height:72px;padding:16px;border-bottom:1px solid #202428}
+.brand-dot{background:linear-gradient(145deg,#ffc21a,#ff8b00);box-shadow:0 6px 20px rgba(255,176,0,.18)}
+.brand-text{font-size:14px;color:#f4f5f6}.brand-text span{margin-top:2px;color:#777f88}
+.nav{padding:14px 10px 18px;gap:3px}
+.nav-label{color:#5d6670;font-size:9px;font-weight:800;letter-spacing:.16em;padding:16px 10px 7px}
+.nav button{color:#aeb5bc;padding:10px 12px;border:1px solid transparent;border-radius:9px;font-size:13px;font-weight:600;min-height:40px}
+.nav button:hover{background:#15191d;border-color:#22282d;color:#fff}
+.nav button.active{background:linear-gradient(90deg,rgba(255,176,0,.16),rgba(255,138,0,.055));border-color:rgba(255,176,0,.42);color:#ffc21a;box-shadow:inset 3px 0 0 #ffb000}
+.nav button[data-view="patron-center"]{color:#e8ebee;font-weight:700}
+.nav button[data-view="patron-center"].active{color:#111;background:linear-gradient(135deg,#ffc21a,#ff9800);border-color:#ffb000;box-shadow:0 6px 18px rgba(255,176,0,.16)}
+.nav-logout{margin-top:8px;color:#e2777b!important;border-top:1px solid #202428!important;border-radius:0!important;padding-top:14px!important}
+.sidebar-user{min-height:70px;padding:14px 16px;background:#0a0b0c;border-top:1px solid #202428}.avatar{background:#171b1f;border:1px solid #30363c;color:#ffc21a}
+.topbar{height:64px;background:rgba(7,8,9,.9);border-bottom:1px solid #24282c}.topbar-title h1{font-size:17px}.topbar-title p{color:#737c85}
+.content{max-width:1180px;padding:24px 20px 56px}
+.page-head h1{font-size:24px}.panel,.card{background:linear-gradient(145deg,#121517,#0d0f11);border-color:#24292e;box-shadow:0 12px 34px rgba(0,0,0,.16)}
+.panel{padding:18px}.panel h3{font-weight:700;color:#f0f2f4}.card{padding:16px}.card::before{height:2px;opacity:.72}
+.btn{background:#171a1e;border-color:#30363c;color:#e8eaed}.btn:hover{background:#1d2126;border-color:#474e55}.btn-primary{background:linear-gradient(135deg,#ffc21a,#ff8a00);border-color:#ffb000;color:#111;box-shadow:0 8px 24px rgba(255,176,0,.14)}
+.status{background:#171a1d;border-color:#30363c}.status.new{background:rgba(255,176,0,.08);border-color:rgba(255,176,0,.32)}
+@media(max-width:959px){.sidebar{width:min(320px,86vw)}.content{padding:18px 14px 44px}.nav button{min-height:42px}.sidebar-top{height:68px}}
+@media(min-width:960px){.content{padding-left:28px;padding-right:28px}}
