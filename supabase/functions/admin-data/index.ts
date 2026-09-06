@@ -62,8 +62,10 @@ Deno.serve(async (req) => {
     } else if (action === "delete_offer") {
       const id=String(body?.id||"");if(!id)throw new Error("BAD_ID");const {error}=await supabase.from("teklifler").delete().eq("id",id);if(error)throw error;data={ok:true};
     } else if (action === "delete") {
-      const table=String(body?.table||"");if(!new Set(["customers","services","price_rules","equipment","jobs","job_equipment","job_staff","payments","settlements"]).has(table))throw new Error("BAD_ACTION");
+      const table=String(body?.table||"");if(!new Set(["customers","services","price_rules","equipment","jobs","job_equipment","job_staff","payments","settlements","activity_logs"]).has(table))throw new Error("BAD_ACTION");
       const id=String(body?.id||"");if(!id)throw new Error("BAD_ID");const {error}=await supabase.from(table).delete().eq("id",id);if(error)throw error;data={ok:true};
+    } else if (action === "clear_activity") {
+      const {error}=await supabase.from("activity_logs").delete().not("id","is",null);if(error)throw error;data={ok:true};
     } else if (action === "activity_insert") {
       if(!body?.payload||typeof body.payload!=="object")throw new Error("BAD_PAYLOAD");const {error}=await supabase.from("activity_logs").insert({...body.payload,actor_id:user.id});if(error)throw error;data={ok:true};
     } else throw new Error("BAD_ACTION");
