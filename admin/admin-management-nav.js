@@ -14,38 +14,25 @@
     ['accounts', 'Yönetici Hesapları'],
     ['rbac', 'Rol · Yetki Merkezi']
   ];
-
-  const LEGACY_IDS = new Set([
-    'patronCenterNav', 'orgDashboardNav', 'orgScopeNav', 'companyOrgNav',
-    'orgAccountsNav', 'rbacNav'
-  ]);
-  const LEGACY_LABELS = new Set([
-    'patron merkezi', 'şirket yönetimi', 'yönetim kapsamım',
-    'şirket organizasyonu', 'yönetici hesapları', 'rol · yetki merkezi',
-    'rol / yetki merkezi'
-  ]);
+  const LEGACY_IDS = new Set(['patronCenterNav','orgDashboardNav','orgScopeNav','companyOrgNav','orgAccountsNav','rbacNav']);
+  const LEGACY_LABELS = new Set(['patron merkezi','şirket yönetimi','yönetim kapsamım','şirket organizasyonu','yönetici hesapları','rol · yetki merkezi','rol / yetki merkezi']);
   const VIEWS = new Set(ITEMS.map(x => x[0]));
+  const nav = () => document.getElementById('sideNav');
 
-  function nav() { return document.getElementById('sideNav'); }
   function isManagementButton(b) {
-    const id = String(b.id || '');
-    const view = String(b.dataset.view || '').toLowerCase();
-    const text = String(b.textContent || '').trim().toLowerCase();
-    return LEGACY_IDS.has(id) || VIEWS.has(view) || LEGACY_LABELS.has(text);
+    return LEGACY_IDS.has(String(b.id || '')) || VIEWS.has(String(b.dataset.view || '').toLowerCase()) || LEGACY_LABELS.has(String(b.textContent || '').trim().toLowerCase());
   }
 
   function open(view) {
     if (view === 'patron-center') {
-      if (location.hash !== '#patron-center') history.pushState(null, '', '#patron-center');
-      window.dispatchEvent(new HashChangeEvent('hashchange'));
-      return;
-    }
-    if (typeof window.loadView === 'function') {
-      window.loadView(view).catch?.(() => {});
-      history.replaceState(null, '', `#${view}`);
+      if (location.hash !== '#patron-center') location.hash = 'patron-center';
+      else window.dispatchEvent(new Event('hashchange'));
       return;
     }
     history.replaceState(null, '', `#${view}`);
+    if (typeof window.loadView === 'function') {
+      try { Promise.resolve(window.loadView(view)).catch(() => {}); } catch (_) {}
+    }
   }
 
   function setActive() {
@@ -55,39 +42,28 @@
     n.querySelectorAll('button[data-sp-management]').forEach(b => {
       const on = b.dataset.view === active;
       b.classList.toggle('active', on);
-      if (on) b.setAttribute('aria-current', 'page');
-      else b.removeAttribute('aria-current');
+      if (on) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current');
     });
   }
 
   function boot() {
     const n = nav();
     if (!n) return;
-    const management = [...n.querySelectorAll('button')].filter(isManagementButton);
-    management.forEach(b => b.remove());
-
-    const label = [...n.querySelectorAll('.nav-label')].find(x =>
-      String(x.textContent || '').trim().toLowerCase() === 'yönetim'
-    );
+    [...n.querySelectorAll('button')].filter(isManagementButton).forEach(b => b.remove());
+    const label = [...n.querySelectorAll('.nav-label')].find(x => String(x.textContent || '').trim().toLowerCase() === 'yönetim');
     if (!label) return;
-
     const frag = document.createDocumentFragment();
-    for (const [view, text] of ITEMS) {
+    for (const [view,text] of ITEMS) {
       const b = document.createElement('button');
       b.type = 'button';
       b.dataset.view = view;
       b.dataset.spManagement = '1';
+      if (view === 'patron-center') b.dataset.patronBound = '1';
       b.textContent = text;
       b.setAttribute('aria-label', text);
-      b.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        open(view);
-        setActive();
-      });
+      b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); open(view); setActive(); });
       frag.appendChild(b);
     }
-
     label.after(frag);
     setActive();
   }
