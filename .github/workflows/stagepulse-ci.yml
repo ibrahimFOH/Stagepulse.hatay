@@ -253,11 +253,11 @@ jobs:
           if [ "$APPLY_MISSING" = "true" ]; then python3 scripts/sync-supabase-migrations.py; fi
           if [ "$FUNCTION" = "all" ]; then
             find supabase/functions -mindepth 1 -maxdepth 1 -type d ! -name _shared -printf '%f\n' | sort | while read -r fn; do
-              supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+              supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
             done
           else
             test -f "supabase/functions/$FUNCTION/index.ts"
-            supabase functions deploy "$FUNCTION" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+            supabase functions deploy "$FUNCTION" --project-ref "$SUPABASE_PROJECT_REF"
           fi
 
   migration_audit:
