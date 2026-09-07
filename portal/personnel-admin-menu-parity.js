@@ -72,23 +72,29 @@
   }
 
   async function refreshFromServer() {
-    if (document.hidden || typeof window.can !== 'function' || !window.supabase) return;
+    if (document.hidden || typeof window.can !== 'function') return;
     try {
-      const baseUrl = (typeof SUPABASE_URL !== 'undefined') ? SUPABASE_URL : '';
-      const publishableKey = (typeof SUPABASE_KEY !== 'undefined') ? SUPABASE_KEY : '';
-      if (!baseUrl || !publishableKey) return;
-      const client = window.supabase.createClient(baseUrl, publishableKey);
+      const R = window.STAGEPULSE_RUNTIME || {};
+      const baseUrl = R.supabaseUrl || '';
+      const publishableKey = R.supabasePublishableKey || '';
+      const client = window.StagepulsePortalSupabase?.getClient?.() || window.sb;
+      if (!baseUrl || !publishableKey || !client) return;
       const { data: { session } } = await client.auth.getSession();
       if (!session?.access_token) return;
-      const response = await fetch(`${baseUrl}/functions/v1/staff-session`, {
+      const response = await fetch(`${baseUrl}/functions/v1/org-admin-control`, {
         method: 'POST',
         headers: { apikey: publishableKey, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'session' })
+        body: JSON.stringify({ action: 'my_context' }),
+        cache: 'no-store'
       });
       if (!response.ok) return;
       const body = await response.json();
-      const permissions = body.permissions || {};
-      const signature = JSON.stringify(Object.keys(permissions).filter(k => permissions[k] === true).sort());
+      const permissions = {};
+      for (const item of (body.capabilities || [])) {
+        const key = item?.key || item?.capability_key;
+        if (key) permissions[key] = true;
+      }
+      const signature = JSON.stringify(Object.keys(permissions).sort());
       if (signature !== lastSignature) {
         lastSignature = signature;
         remotePermissions = permissions;
@@ -104,7 +110,7 @@
     window.addEventListener('stagepulse:permissions-ready', () => { render(); refreshFromServer(); });
     window.addEventListener('stagepulse:permissions-changed', render);
     if (typeof window.can === 'function' && document.getElementById('appView') && !document.getElementById('appView').hidden) render();
-    window.setInterval(refreshFromServer, 5000);
+    window.setInterval(refreshFromServer, 30000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
