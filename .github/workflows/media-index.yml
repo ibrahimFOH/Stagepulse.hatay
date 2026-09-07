@@ -7,7 +7,6 @@ on:
       - 'images/gallery/**'
       - 'documents/**'
       - 'scripts/process_media.py'
-      - 'media.json'
   workflow_dispatch:
 
 permissions:
