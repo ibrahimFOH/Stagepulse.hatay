@@ -14,6 +14,16 @@
     ['accounts', 'Yönetici Hesapları'],
     ['rbac', 'Rol · Yetki Merkezi']
   ];
+  const META = {
+    'patron-center':['Patron Merkezi','Executive cockpit'],
+    'command-center':['Komuta Merkezi','Operasyon'],
+    dashboard:['Genel Bakış','Satış ve operasyon'],
+    analytics:['Analitik','Dönüşüm'],
+    scope:['Yönetim Kapsamım','Yetki ve kapsam'],
+    organization:['Şirket Organizasyonu','Organizasyon ve hiyerarşi'],
+    accounts:['Yönetici Hesapları','Yönetici hesapları'],
+    rbac:['Rol · Yetki Merkezi','Roller ve yetkiler']
+  };
   const LEGACY_IDS = new Set(['patronCenterNav','orgDashboardNav','orgScopeNav','companyOrgNav','orgAccountsNav','rbacNav']);
   const LEGACY_LABELS = new Set(['patron merkezi','şirket yönetimi','yönetim kapsamım','şirket organizasyonu','yönetici hesapları','rol · yetki merkezi','rol / yetki merkezi']);
   const VIEWS = new Set(ITEMS.map(x => x[0]));
@@ -23,6 +33,15 @@
     return LEGACY_IDS.has(String(b.id || '')) || VIEWS.has(String(b.dataset.view || '').toLowerCase()) || LEGACY_LABELS.has(String(b.textContent || '').trim().toLowerCase());
   }
 
+  function syncHeader(active) {
+    const meta=META[active];
+    if(!meta)return;
+    const title=document.getElementById('viewTitle');
+    const subtitle=document.getElementById('viewSubtitle');
+    if(title)title.textContent=meta[0];
+    if(subtitle)subtitle.textContent=meta[1];
+  }
+
   function open(view) {
     if (view === 'patron-center') {
       if (location.hash !== '#patron-center') location.hash = 'patron-center';
@@ -30,6 +49,7 @@
       return;
     }
     history.replaceState(null, '', `#${view}`);
+    syncHeader(view);
     if (typeof window.loadView === 'function') {
       try { Promise.resolve(window.loadView(view)).catch(() => {}); } catch (_) {}
     }
@@ -44,6 +64,7 @@
       b.classList.toggle('active', on);
       if (on) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current');
     });
+    syncHeader(active);
   }
 
   function boot() {
