@@ -5,14 +5,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 env:
   JARVIS_URL: https://stagepulse.com.tr/jarvis/admin/
   SUPABASE_URL: https://mtjcqqrogjqaxkagwkti.supabase.co
-
 jobs:
   contract:
     name: JARVIS Runtime Contract
@@ -64,7 +61,6 @@ jobs:
             code=$(curl -sS -L --max-time 20 -o /dev/null -w '%{http_code}' -X OPTIONS "$SUPABASE_URL/functions/v1/$fn" || true)
             case "$code" in 2*|3*|4*) ;; *) echo "$fn -> $code"; exit 1;; esac
           done
-
   authenticated:
     name: Patron Login -> JARVIS -> Tool -> Approval -> Execute
     needs: contract
@@ -83,3 +79,20 @@ jobs:
           SUPABASE_E2E_EMAIL: ${{ secrets.SUPABASE_E2E_EMAIL }}
           SUPABASE_E2E_PASSWORD: ${{ secrets.SUPABASE_E2E_PASSWORD }}
         run: node scripts/jarvis-e2e.mjs
+  credentials_notice:
+    name: Auth E2E Credential Status
+    needs: contract
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report credential availability
+        env:
+          EMAIL: ${{ secrets.SUPABASE_E2E_EMAIL }}
+          PASSWORD: ${{ secrets.SUPABASE_E2E_PASSWORD }}
+          KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "$EMAIL" ] && [ -n "$PASSWORD" ] && [ -n "$KEY" ]; then
+            echo 'Authenticated E2E credentials configured.'
+          else
+            echo 'Authenticated E2E credentials are not configured; runtime contract remains enforced.'
+          fi
