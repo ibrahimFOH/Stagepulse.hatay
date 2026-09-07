@@ -1,35 +1,38 @@
 # Stagepulse Repository Audit
 
-Date: 2026-09-01  
-Scope: isolated working tree at `.conversation/stagepulse-working`
+Date: 2026-09-07
+Scope: canonical `main` branch of `ibrahimFOH/Stagepulse.hatay` plus production Supabase project `mtjcqqrogjqaxkagwkti`.
 
 ## PASS
 
-- JavaScript syntax checks passed for the admin, portal, public-site, and helper JavaScript files.
-- Python syntax checks passed for the media index/optimization scripts.
-- Local HTML asset reference check passed.
-- Sitemap validation passed for 23 public URLs; referenced files have titles and descriptions.
-- Local HTTP smoke passed for `/`, `/teklif.html`, `/teklif-view.html`, `/admin/`, `/portal/`, runtime config, manifest, FCM service worker, sitemap, and robots.
-- Live read-only smoke passed:
-  - `public-quote` returned the expected validation response for an empty request.
-  - `site-ai` returned the expected validation response for an empty request.
-- GitHub public media tree was reachable and contained 8 media files.
-- 207 migrations have unique 14-digit timestamps and non-empty contents.
-- 19 workflow files have unique names and valid top-level structure.
-- Removed duplicate automatic media and public-navigation workflows; their responsibilities are now covered by the canonical media processor and SEO guard.
-- Removed active references to the missing `offer-pdf-v4` endpoint.
-- Added the customer-facing `offer-pdf-v3` compatibility function, PDF state synchronization trigger, and public quote access finalization.
-- Added the missing distributed login/quote rate-limit table and RPC.
+- Static / Security / Supabase Gate passed on the current audited baseline: canonical layout, static site/manifests, JavaScript syntax, Edge Functions, migrations, credential baseline, frontend service-role protection, and private-schema protection.
+- Public SEO / Navigation Integrity passed.
+- GitHub Pages Build Validation and GitHub Pages Deploy passed.
+- Android Debug Validation passed.
+- Signed Personel and Admin APK/AAB release pipeline passed build, signing, artifact verification, download verification, manifest publication, and production metadata synchronization for `4.0.6`.
+- Current published manifest is `latest.json` release `v4.0.6-build.181`, status `verified`.
+- Media pipeline is canonical: `admin-github-media` writes repository media and GitHub Actions owns WebP conversion plus `media.json` generation.
+- Supported repository photo normalization includes JPG/JPEG, PNG, WebP, GIF, AVIF, BMP, TIFF, HEIC and HEIF; HEIC/HEIF conversion uses `pillow-heif`.
+- Media index currently contains 13 gallery photos and 3 PDF documents.
+- Admin media path validation now prevents cross-area media deletion and prevents changing media type during rename.
+- `admin-github-media` no longer writes `media.json` itself, preventing a race with the canonical media workflow.
+- Android WebView explicitly enables system Autofill support and the login HTML uses standard username/password autocomplete tokens.
+- The public documents page was converted to a static document surface so a failing dynamic media index cannot hang the page.
+- Canonical admin navigation and Patron Center duplication cleanup remain enforced.
 
-## BLOCKED / REQUIRES DEPLOYMENT OR CREDENTIALS
+## PRODUCTION NOTES
 
-- Authenticated admin and portal login/session/permission refresh cannot be proven without a real Supabase account.
-- Real offer CRUD, storage upload/preview/delete, PDF generation, customer response, FCM registration, and Android WebView flows require a connected Supabase/Firebase environment.
-- New Edge Functions and migrations are local only until the Supabase project is linked and deployed.
-- GitHub media writes require `GITHUB_TOKEN` in the Edge Function environment. Without it, the manager intentionally remains read-only and reports a 503 for write actions.
-- The isolated working tree has no GitHub remote configured, so no push was attempted.
-- Visual responsive screenshots were not treated as PASS because this isolated static tree is not registered as a runnable preview artifact.
+- The production Edge Function catalog contains historical compatibility functions alongside canonical functions. Repository runtime references were checked so obsolete functions are not used by the canonical frontend path.
+- `admin-github-media` is active at version 14 with JWT verification enabled.
+- The media manager intentionally remains read-only when the server-side `GITHUB_TOKEN` secret is absent; the token is never exposed to the browser.
 
-## FAIL
+## REQUIRES REAL-ACCOUNT / DEVICE TESTING
 
-No hard failure was observed in the completed static and unauthenticated smoke checks.
+- Authenticated admin and portal login, permission changes, real offer CRUD, customer response, FCM delivery to a registered Android device, and Android Autofill behavior still require an actual authorized account/device to exercise end-to-end.
+- The repository CI validates source/build integrity; it does not replace a real device or authenticated user acceptance test.
+
+## CURRENT BLOCKERS
+
+No repository static/security/Edge/Android CI blocker is currently known on the audited baseline.
+
+The remaining operational dependency for Admin Media Center write actions is the production `GITHUB_TOKEN` secret. If it is absent, upload/delete/rename correctly fail closed instead of exposing a GitHub credential to the client.
