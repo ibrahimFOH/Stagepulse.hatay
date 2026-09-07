@@ -1,1 +1,7 @@
-window.STAGEPULSE_JARVIS_CONFIG=Object.freeze({version:'4.2-advanced',brand:'Stagepulse',assistantName:'Stagepulse Jarvis',endpoints:Object.freeze({publicAi:'https://mtjcqqrogjqaxkagwkti.supabase.co/functions/v1/public-ai',staffAi:'https://mtjcqqrogjqaxkagwkti.supabase.co/functions/v1/staff-ai',patronAi:'https://mtjcqqrogjqaxkagwkti.supabase.co/functions/v1/patron-ai',tools:'https://mtjcqqrogjqaxkagwkti.supabase.co/functions/v1/jarvis-tools',approve:'https://mtjcqqrogjqaxkagwkti.supabase.co/functions/v1/jarvis-approve',audit:'https://mtjcqqrogjqaxkagwkti.supabase.co/functions/v1/jarvis-audit'}),approvalRequired:['github.file_write','github.push','github.merge','github.open_pr','db.delete','db.bulk_update','pricing.update','deploy','permission.change','agent.create','agent.delete','agent.grant_tool','quotes.send']});
+(function(global){
+ 'use strict';
+ const base='https://mtjcqqrogjqaxkagwkti.supabase.co';
+ const key='sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
+ const functions=base+'/functions/v1/';
+ global.STAGEPULSE_JARVIS_CONFIG=Object.freeze({supabaseUrl:base,publishableKey:key,functions:{patronAI:functions+'patron-ai',tools:functions+'jarvis-tools',approve:functions+'jarvis-approve',audit:functions+'jarvis-audit'}});
+})(typeof globalThis!=='undefined'?globalThis:window);
