@@ -22,11 +22,13 @@
   tag.async=false;
   tag.onload=()=>{
     if(!window.loadView){ fail(new Error('Canonical portal bundle did not expose loadView')); return; }
-    loadAfterBundle('portal-navigation-integrity.js?v=20260907-canonical',()=>{
-      loadAfterBundle('analytics.js?v=20260907-canonical',()=>{
-        window.STAGEPULSE_PORTAL_READY=true;
-        window.dispatchEvent(new CustomEvent('stagepulse:portal-ready'));
-        window.dispatchEvent(new CustomEvent('stagepulse-portal-ready'));
+    loadAfterBundle('recovery-callback.js?v=20260907-recovery',()=>{
+      loadAfterBundle('portal-navigation-integrity.js?v=20260907-canonical',()=>{
+        loadAfterBundle('analytics.js?v=20260907-canonical',()=>{
+          window.STAGEPULSE_PORTAL_READY=true;
+          window.dispatchEvent(new CustomEvent('stagepulse:portal-ready'));
+          window.dispatchEvent(new CustomEvent('stagepulse-portal-ready'));
+        });
       });
     });
   };
