@@ -52,7 +52,10 @@
   ]);
   const statusClasses = {yeni:'new',new:'new',bekliyor:'new',pending:'new',incelemede:'reviewing',reviewing:'reviewing',inceleniyor:'reviewing',hazırlanıyor:'preparing',preparing:'preparing',gönderildi:'sent',sent:'sent',kabul:'accepted','kabul edildi':'accepted',accepted:'accepted',aktif:'accepted',active:'accepted',ödendi:'accepted',paid:'accepted',red:'rejected','reddedildi':'rejected',rejected:'rejected',iptal:'cancelled','iptal edildi':'cancelled',cancelled:'cancelled',pasif:'rejected',inactive:'rejected'};
 
-  function refreshAdminUi(){ syncMenu(); const root=$('#content'); if(!root)return; translate(root); decorateStatus(root); }
+  function refreshAdminUi(){
+    const root=$('#content'); if(!root)return;
+    translate(root); decorateStatus(root);
+  }
   function translate(root){
     const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT); const nodes=[];
     while(w.nextNode()) nodes.push(w.currentNode);
@@ -63,14 +66,6 @@
     $$('.status',root).forEach(el=>{const raw=(el.textContent||'').trim().toLowerCase();const cls=statusClasses[raw]||'';el.className=`status ${cls}`.trim();});
     $$('.admin-table tbody tr',root).forEach(tr=>{const heads=[...(tr.closest('table')?.querySelectorAll('thead th')||[])];[...tr.cells].forEach((td,i)=>{if((heads[i]?.textContent||'').trim()==='Durum'&&!td.querySelector('.status')){const raw=(td.textContent||'').trim().toLowerCase();td.innerHTML=`<span class="status ${statusClasses[raw]||''}">${labels.get(raw)||raw}</span>`;}});});
   }
-  function syncMenu(){
-    const hash=(location.hash||'#dashboard').slice(1).split('?')[0].toLowerCase();
-    const aliases={permissions:'rbac',permission:'rbac','role-permission':'rbac','role-permissions':'rbac','company-organization':'organization','management-scope':'scope','admin-accounts':'accounts'};
-    const view=aliases[hash]||hash||'dashboard';
-    const textMap={'komuta merkezi':'command-center','genel bakış':'dashboard','analitik':'analytics','müşteriler':'customers','teklifler':'offers','fiyatlandırma':'pricing','gelir · gider':'settlements','işler · takvim':'calendar','ekipman':'equipment','personel':'personnel','ödemeler':'finance','bildirimler':'notifications','aktivite':'activity','medya':'media','ayarlar':'settings','yönetim kapsamım':'scope','şirket organizasyonu':'organization','rol · yetki merkezi':'rbac','yönetici hesapları':'accounts','çıkış':'logout'};
-    $$('#sideNav button[data-view],#sideNav button:not([data-view])').forEach(b=>{const key=(b.dataset.view||textMap[(b.textContent||'').trim().toLowerCase()]||'').toLowerCase();b.classList.toggle('active',key===view);});
-  }
-  setInterval(refreshAdminUi,1200);
   window.addEventListener('hashchange',()=>setTimeout(refreshAdminUi,50));
   window.addEventListener('stagepulse:admin-ready',()=>setTimeout(refreshAdminUi,100));
   window.addEventListener('stagepulse-admin-ready',()=>setTimeout(refreshAdminUi,100));
