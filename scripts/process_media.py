@@ -85,30 +85,31 @@ def photo_record(path: Path) -> dict:
     }
 
 
+def logical_name(path: Path) -> str:
+    """Normalize harmless filename separators so renamed copies are not published twice."""
+    return path.stem.replace("_", " ").strip().casefold()
+
+
 def main() -> None:
     PHOTO_DIR.mkdir(parents=True, exist_ok=True)
     VIDEO_DIR.mkdir(parents=True, exist_ok=True)
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # New uploads are queued in images/gallery/photo and normalized to WebP.
     normalize_photo_directory(PHOTO_DIR)
-
-    # Legacy manually-added root images remain supported and are normalized in place.
     for src in all_files(LEGACY_GALLERY_DIR, RASTER_TO_WEBP, recursive=False):
         optimize_photo(src)
 
-    # A filename is one logical gallery asset. Prefer the dedicated photo queue
-    # over a legacy root duplicate so media.json never publishes the same photo twice.
     photos: list[dict] = []
     seen_names: set[str] = set()
+    # Dedicated photo queue wins over legacy root duplicates.
     for path in all_files(PHOTO_DIR, {".webp"}):
-        key = path.name.casefold()
+        key = logical_name(path)
         if key in seen_names:
             continue
         seen_names.add(key)
         photos.append(photo_record(path))
     for path in sorted(LEGACY_GALLERY_DIR.glob("*.webp")):
-        key = path.name.casefold()
+        key = logical_name(path)
         if key in seen_names:
             continue
         seen_names.add(key)
