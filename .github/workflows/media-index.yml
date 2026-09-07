@@ -7,6 +7,7 @@ on:
       - 'images/gallery/**'
       - 'documents/**'
       - 'scripts/process_media.py'
+      - 'media.json'
   workflow_dispatch:
 
 permissions:
@@ -33,17 +34,17 @@ jobs:
       - name: Install image tooling
         run: python -m pip install --disable-pip-version-check Pillow
 
-      - name: Rebuild media index
+      - name: Rebuild media index and WebP assets
         run: python scripts/process_media.py
 
-      - name: Commit media index when changed
+      - name: Commit optimized assets and media index when changed
         run: |
-          if git diff --quiet -- media.json; then
-            echo "media.json is already current"
+          if git diff --quiet -- media.json images/gallery; then
+            echo "Media assets and index are already current"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add media.json
-          git commit -m "chore(media): rebuild media index"
+          git add media.json images/gallery
+          git commit -m "chore(media): optimize images and rebuild media index"
           git push
