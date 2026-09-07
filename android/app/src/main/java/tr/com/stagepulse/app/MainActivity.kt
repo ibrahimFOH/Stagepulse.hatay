@@ -86,9 +86,6 @@ class MainActivity : AppCompatActivity() {
         webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
         webView.settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
         webView.clearCache(true)
-        // Keep Android's system Autofill service enabled for the WebView.
-        // Without an explicit importance hint, some Android/Chrome WebView
-        // combinations treat dynamically-created WebViews as not autofillable.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             webView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
         }
@@ -100,7 +97,7 @@ class MainActivity : AppCompatActivity() {
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "*/*"
-                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"))
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/heic", "image/heif", "application/pdf"))
                         putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
                     }
                     startActivityForResult(intent, fileChooserRequest)
