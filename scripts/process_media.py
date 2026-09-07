@@ -14,7 +14,7 @@ LEGACY_GALLERY_DIR = ROOT / "images" / "gallery"
 DOCS_DIR = ROOT / "documents"
 MEDIA_JSON = ROOT / "media.json"
 
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".bmp", ".tif", ".tiff"}
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".bmp", ".tif", ".tiff", ".heic", ".heif"}
 RASTER_TO_WEBP = IMAGE_EXTS - {".webp"}
 VIDEO_EXTS = {".mp4", ".webm", ".mov"}
 PDF_EXTS = {".pdf"}
@@ -49,9 +49,15 @@ def rel(path: Path) -> str:
 
 
 def optimize_photo(src: Path) -> Path:
-    """Convert any supported raster photo to high-quality WebP."""
+    """Convert supported raster formats, including HEIC/HEIF, to high-quality WebP."""
     if src.suffix.lower() == ".webp":
         return src
+    if src.suffix.lower() in {".heic", ".heif"}:
+        try:
+            from pillow_heif import register_heif_opener  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError("HEIC/HEIF desteği için pillow-heif kurulmalı.") from exc
+        register_heif_opener()
     from PIL import Image  # type: ignore
 
     out = src.with_suffix(".webp")
