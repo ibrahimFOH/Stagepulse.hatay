@@ -73,5 +73,54 @@ $('recoveryForm').addEventListener('submit',async e=>{e.preventDefault();if($('n
 async function boot(){const hash=new URLSearchParams(location.hash.replace(/^#/,'')).get('type');const query=new URLSearchParams(location.search).get('type');if(hash==='recovery'||query==='recovery'){$('login').classList.add('hidden');$('recoveryBox').classList.remove('hidden');}const {data}=await S.auth.getSession();if(data.session){session=data.session;if(['patron','owner'].includes(session.user.app_metadata?.role))openApp('Oturum geri yüklendi.')}}
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>tool(b.dataset.tool));window.addEventListener('online',()=>{$('net').innerHTML='<i class="dot"></i>ONLINE'});window.addEventListener('offline',()=>{$('net').innerHTML='<i class="dot" style="background:var(--bad)"></i>OFFLINE'});boot();
 </script>
+<script id="jarvis-login-hotfix">
+/* JARVIS LOGIN HOTFIX: reliable Supabase sign-in and patron authorization. */
+(function(){
+  'use strict';
+  function install(){
+    var form=document.getElementById('loginForm');
+    if(!form || form.dataset.loginFixInstalled==='1') return;
+    form.dataset.loginFixInstalled='1';
+    form.addEventListener('submit', async function(ev){
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      var status=document.getElementById('loginStatus');
+      var email=(document.getElementById('email')||{}).value||'';
+      var password=(document.getElementById('password')||{}).value||'';
+      email=email.trim();
+      if(!email || !password){ if(status) status.textContent='E-posta ve şifre gerekli.'; return; }
+      var btn=form.querySelector('button[type="submit"]');
+      if(btn){btn.disabled=true;btn.textContent='Giriş yapılıyor…';}
+      if(status) status.textContent='Supabase oturumu doğrulanıyor…';
+      try{
+        if(!window.STAGEPULSE_RUNTIME || !STAGEPULSE_RUNTIME.supabaseUrl || !STAGEPULSE_RUNTIME.supabasePublishableKey) throw new Error('Supabase yapılandırması yüklenemedi.');
+        var result=await S.auth.signInWithPassword({email:email,password:password});
+        if(result.error) throw result.error;
+        var sess=result.data && result.data.session;
+        var usr=result.data && result.data.user;
+        if(!sess || !usr) throw new Error('Oturum oluşturulamadı.');
+        var role=(usr.app_metadata&&usr.app_metadata.role)||'';
+        var meta=usr.user_metadata||{};
+        var allowed=['patron','owner','admin'].indexOf(role)>=0 || meta.admin_access===true || meta.organization_role==='owner' || meta.organization_role==='admin';
+        if(!allowed) throw new Error('Bu hesap için Patron/JARVIS yetkisi bulunmuyor.');
+        session=sess;
+        if(typeof window.showApp==='function') window.showApp();
+        else {document.getElementById('login')?.classList.add('hidden');document.getElementById('recoveryBox')?.classList.add('hidden');document.getElementById('app')?.classList.remove('hidden');}
+        if(typeof window.refreshApprovals==='function') window.refreshApprovals().catch(function(){});
+        if(status) status.textContent='';
+        var p=document.getElementById('provider'); if(p) p.textContent='Oturum aktif';
+        if(typeof window.log==='function' && document.getElementById('chat') && !document.getElementById('chat').children.length) window.log('Patron oturumu açıldı. JARVIS hazır.','bot');
+      }catch(e){
+        if(status) status.textContent='Giriş başarısız: '+(e&&e.message?e.message:'Bilinmeyen hata');
+        try{await S.auth.signOut();}catch(_){ }
+      }finally{
+        if(btn){btn.disabled=false;btn.textContent='JARVIS\'i Aç';}
+      }
+    }, true);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',install,{once:true}); else install();
+})();
+</script>
+
 </body>
 </html>
