@@ -12,13 +12,73 @@ const PROVIDERS:any={
 };
 const TABLE_ALIASES:any={list_leads:["teklifler","leads","contacts"],list_events:["event_projects","events","etkinlikler"],equipment_status:["equipment","ekipman","technical_specs"],list_staff:["staff","personnel","personel"]};
 const WRITE_RE=/\b(repo|github|dosya yaz|kod değiştir|push|merge|sil|fiyat değiştir|ajan oluştur|ajan sil|deploy|yetki|izin değiştir|teklif gönder)\b/i;
-function readIntent(low:string){if(/ajan|agent/.test(low)&&/liste|list|göster|goster|hangi|mevcut/.test(low))return "agents.list";if(/onay|approval/.test(low)&&/liste|list|bekleyen|bekleyenleri|göster|goster/.test(low))return "approvals.list";if(/github|repo/.test(low)&&/durum|status|bağlantı|baglanti|kontrol|kontrol et/.test(low))return "github_status";if(/teklif|lead/.test(low))return "list_leads";if(/etkinlik|event/.test(low))return "list_events";if(/ekipman/.test(low))return "equipment_status";if(/personel|çalışan|ekip/.test(low))return "list_staff";return "";}
-async function tableRead(admin:any,tool:string,limit:number){for(const table of TABLE_ALIASES[tool]||[]){const {data,error}=await admin.from(table).select("*").limit(limit);if(!error)return {table,items:data||[],count:(data||[]).length};}return {table:null,items:[],count:0};}
-async function agentsRead(admin:any){const {data,error}=await admin.from("jarvis_agents").select("id,name,mode,tools,status,created_at,updated_at").order("created_at",{ascending:false});if(error)throw error;return {items:data||[],count:(data||[]).length};}
-async function approvalsRead(admin:any){const {data,error}=await admin.from("jarvis_approvals").select("id,type,status,preview,payload,created_at,requested_by").eq("status","pending").order("created_at",{ascending:false}).limit(50);if(error)throw error;return {items:data||[],count:(data||[]).length};}
-async function githubRead(){const token=Deno.env.get("GITHUB_TOKEN");return {owner:Deno.env.get("GITHUB_OWNER")||"ibrahimFOH",repo:Deno.env.get("GITHUB_REPO")||"Stagepulse.hatay",configured:Boolean(token)};}
-function fallback(message:string,ctx:any,tool:string,configured:boolean){const low=message.toLocaleLowerCase("tr-TR");if(/çalışıyor musun|çalışıyor mu|online|hazır mısın/.test(low))return `Evet. Patron JARVIS çevrimiçi. Kimlik doğrulama, araç ve onay katmanı aktif. AI sağlayıcısı: ${configured?"yapılandırılmış":"yapılandırılmamış"}.`;if(/durum|status|sağlık|health/.test(low))return `JARVIS durumu: çevrimiçi. Supabase oturumu aktif. Araç merkezi aktif. Onay kuyruğu aktif. AI sağlayıcısı: ${configured?"hazır":"API anahtarı bulunamadı; operasyonel fallback aktif"}.`;if(/merhaba|selam/.test(low))return "Merhaba. Patron JARVIS hazır.";if(tool==="agents.list"&&ctx)return ctx.count?`Toplam ${ctx.count} JARVIS ajanı bulundu.\n${ctx.items.slice(0,20).map((a:any)=>`• ${a.name||a.id} — ${a.status||"durum yok"}${a.mode?` — ${a.mode}`:""}`).join("\n")}`:"Kayıtlı JARVIS ajanı bulunamadı.";if(tool==="approvals.list"&&ctx)return ctx.count?`Bekleyen ${ctx.count} onay var.\n${ctx.items.slice(0,20).map((a:any)=>`• ${a.preview?.title||a.type||a.id} — ${a.preview?.risk||"risk belirtilmemiş"}`).join("\n")}`:"Bekleyen onay yok.";if(tool==="github_status"&&ctx)return ctx.configured?`GitHub bağlantısı yapılandırılmış. Repo: ${ctx.owner}/${ctx.repo}.`:`GitHub bağlantısı bulunamadı: GITHUB_TOKEN yapılandırılmamış.`;if(tool&&ctx)return `${tool} canlı veri kaynağı: ${ctx.table||"tanımlı araç"}. ${ctx.count??0} kayıt bulundu.`;return `Komutunu aldım: “${message.slice(0,300)}”.`}
-async function providerCall(p:any,key:string,model:string,messages:any[]){if(p.kind==="anthropic"){const r=await fetch(`${p.base}/messages`,{method:"POST",headers:{"x-api-key":key,"anthropic-version":"2023-06-01","Content-Type":"application/json"},body:JSON.stringify({model,max_tokens:900,temperature:.2,messages:messages.filter((m:any)=>m.role!=="system"),system:messages.filter((m:any)=>m.role==="system").map((m:any)=>m.content).join("\n")})});const j=await r.json();if(!r.ok)throw new Error(`Anthropic ${r.status}`);return j?.content?.map((x:any)=>x?.text||"").join("").trim();}if(p.kind==="gemini"){const contents=messages.filter((m:any)=>m.role!=="system").map((m:any)=>({role:m.role==="assistant"?"model":"user",parts:[{text:String(m.content||"")}]}));const system=messages.filter((m:any)=>m.role==="system").map((m:any)=>String(m.content||"")).join("\n");const r=await fetch(`${p.base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents,generationConfig:{temperature:.2,maxOutputTokens:900}})});const j=await r.json();if(!r.ok)throw new Error(`Gemini ${r.status}`);return j?.candidates?.[0]?.content?.parts?.map((x:any)=>x?.text||"").join("").trim();}const r=await fetch(`${p.base}/chat/completions`,{method:"POST",headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},body:JSON.stringify({model,messages,temperature:.2,max_tokens:900})});const j=await r.json();if(!r.ok)throw new Error(`AI ${r.status}: ${j?.error?.message||"API hatası"}`);return String(j?.choices?.[0]?.message?.content||"").trim();}
-Deno.serve(async(req)=>{if(req.method==="OPTIONS")return options();try{const user=await requireUser(req,true);const {admin}=clients(req);if(req.method!=="POST")return json({error:"POST gerekli"},405);const b=await req.json();const message=String(b.message||"").trim().slice(0,4000);if(!message)throw new Error("BAD_REQUEST");const low=message.toLocaleLowerCase("tr-TR");const readTool=readIntent(low);let dataContext:any=null;if(readTool==="agents.list")dataContext=await agentsRead(admin);else if(readTool==="approvals.list")dataContext=await approvalsRead(admin);else if(readTool==="github_status")dataContext=await githubRead();else if(readTool)dataContext=await tableRead(admin,readTool,20);const requested=String(b.provider||Deno.env.get("AI_PROVIDER")||"").toLowerCase();const order=requested&&PROVIDERS[requested]?[requested]:["openai","xai","anthropic","google","groq","deepseek","mistral","openrouter"];const configured=order.some(id=>Boolean(Deno.env.get(PROVIDERS[id].env)));let reply=fallback(message,dataContext,readTool,configured),provider="fallback",providerError="";if(!readTool){for(const id of order){const p=PROVIDERS[id],key=Deno.env.get(p.env);if(!key)continue;try{const model=Deno.env.get(p.modelEnv)||p.fallbackModel;const history=Array.isArray(b.history)?b.history.slice(-12).map((x:any)=>({role:x?.role==="assistant"?"assistant":"user",content:String(x?.content||"").slice(0,2000)})).filter((x:any)=>x.content):[];const system=`Sen Stagepulse Patron JARVIS'sın. Türkçe konuş. Kısa ama faydalı ve operasyonel cevap ver. Gerçekleştirmediğin bir işlemi yapılmış gibi söyleme. Kritik yazma/silme/fiyat/yetki/deploy/GitHub push-merge/ajan değişiklikleri için onay gerekir. Canlı veriyi uydurma. Ham JSON dökme.`;const candidate=await providerCall(p,key,model,[{role:"system",content:system},...history,{role:"user",content:message}]);if(candidate){reply=candidate;provider=id;break;}}catch(e){providerError=e instanceof Error?e.message:String(e)}}}
-let proposed_action=null;if(!readTool&&WRITE_RE.test(low)){const type=/repo|github|dosya yaz|kod değiştir|push|merge/.test(low)?"github.file_write":/ajan oluştur/.test(low)?"agent.create":/ajan sil/.test(low)?"agent.delete":/deploy/.test(low)?"deploy":/yetki|izin değiştir/.test(low)?"permission.change":/sil/.test(low)?"db.delete":"db.bulk_update";const payload={instruction:message};proposed_action={type,preview:{title:"Patron onayı gerekli",risk:"high"},payload};const approval={id:"ap_"+crypto.randomUUID(),type,status:"pending",requested_by:"patron",requested_by_user:user.id,preview:proposed_action.preview,payload,payload_hash:await sha256(payload)};const {error}=await admin.from("jarvis_approvals").insert(approval);if(error)throw error;reply+="\n\nBu yazma işlemi onay kuyruğuna alındı. Onay verilmeden uygulanmaz.";}
-await admin.from("jarvis_audit").insert({actor:user.id,mode:"patron",event_type:"patron.chat",body:{message:message.slice(0,1000),provider,provider_error:providerError||null,read_tool:readTool,proposed_action}});return json({reply,provider,ai_configured:configured,provider_error:providerError||null,read_tool,context:dataContext,proposed_action});}catch(e){return err(e)}});
+function intent(low:string){
+ if(/ajan|agent/.test(low)&&/liste|list|göster|goster|hangi|mevcut/.test(low))return "agents.list";
+ if(/onay|approval/.test(low)&&/liste|list|bekleyen|göster|goster/.test(low))return "approvals.list";
+ if(/github|repo/.test(low)&&/durum|status|bağlantı|baglanti|kontrol/.test(low))return "github_status";
+ if(/teklif|lead/.test(low))return "list_leads";
+ if(/etkinlik|event/.test(low))return "list_events";
+ if(/ekipman/.test(low))return "equipment_status";
+ if(/personel|çalışan|ekip/.test(low))return "list_staff";
+ return "";
+}
+async function readTable(admin:any,tool:string,limit:number){
+ for(const table of TABLE_ALIASES[tool]||[]){
+  const {data,error}=await admin.from(table).select("*").limit(limit);
+  if(!error)return {table,items:data||[],count:(data||[]).length};
+ }
+ return {table:null,items:[],count:0};
+}
+async function agents(admin:any){const {data,error}=await admin.from("jarvis_agents").select("id,name,mode,tools,status,created_at,updated_at").order("created_at",{ascending:false});if(error)throw error;return {items:data||[],count:(data||[]).length};}
+async function approvals(admin:any){const {data,error}=await admin.from("jarvis_approvals").select("id,type,status,preview,payload,created_at,requested_by").eq("status","pending").order("created_at",{ascending:false}).limit(50);if(error)throw error;return {items:data||[],count:(data||[]).length};}
+async function githubStatus(){return {owner:Deno.env.get("GITHUB_OWNER")||"ibrahimFOH",repo:Deno.env.get("GITHUB_REPO")||"Stagepulse.hatay",configured:Boolean(Deno.env.get("GITHUB_TOKEN"))};}
+function localReply(message:string,ctx:any,tool:string,configured:boolean){
+ const low=message.toLocaleLowerCase("tr-TR");
+ if(/çalışıyor musun|çalışıyor mu|online|hazır mısın/.test(low))return `Evet. Patron JARVIS çevrimiçi. Kimlik doğrulama, araç ve onay katmanı aktif. AI sağlayıcısı: ${configured?"yapılandırılmış":"yapılandırılmamış"}.`;
+ if(tool==="agents.list")return ctx?.count?`Toplam ${ctx.count} JARVIS ajanı bulundu.\n${ctx.items.slice(0,20).map((a:any)=>`• ${a.name||a.id} — ${a.status||"durum yok"}`).join("\n")}`:"Kayıtlı JARVIS ajanı bulunamadı.";
+ if(tool==="approvals.list")return ctx?.count?`Bekleyen ${ctx.count} onay var.\n${ctx.items.slice(0,20).map((a:any)=>`• ${a.preview?.title||a.type||a.id}`).join("\n")}`:"Bekleyen onay yok.";
+ if(tool==="github_status")return ctx?.configured?`GitHub bağlantısı yapılandırılmış. Repo: ${ctx.owner}/${ctx.repo}.`:`GitHub bağlantısı yapılandırılmamış. GITHUB_TOKEN eksik.`;
+ if(tool&&ctx)return `${tool}: ${ctx.count??0} kayıt bulundu.`;
+ if(/durum|status|sağlık|health/.test(low))return `JARVIS çevrimiçi. Supabase oturumu doğrulandı. Araç ve onay katmanı hazır. AI sağlayıcısı: ${configured?"hazır":"yapılandırılmamış"}.`;
+ if(/merhaba|selam/.test(low))return "Merhaba. Patron JARVIS hazır.";
+ return `Komutunu aldım: “${message.slice(0,300)}”.`;
+}
+async function providerCall(p:any,key:string,model:string,messages:any[]){
+ if(p.kind==="anthropic"){
+  const r=await fetch(`${p.base}/messages`,{method:"POST",headers:{"x-api-key":key,"anthropic-version":"2023-06-01","Content-Type":"application/json"},body:JSON.stringify({model,max_tokens:900,temperature:.2,messages:messages.filter((m:any)=>m.role!=="system"),system:messages.filter((m:any)=>m.role==="system").map((m:any)=>m.content).join("\n")})});
+  const j=await r.json();if(!r.ok)throw new Error(`Anthropic ${r.status}`);return j?.content?.map((x:any)=>x?.text||"").join("").trim();
+ }
+ if(p.kind==="gemini"){
+  const contents=messages.filter((m:any)=>m.role!=="system").map((m:any)=>({role:m.role==="assistant"?"model":"user",parts:[{text:String(m.content||"")}]}));
+  const system=messages.filter((m:any)=>m.role==="system").map((m:any)=>String(m.content||"")).join("\n");
+  const r=await fetch(`${p.base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents,generationConfig:{temperature:.2,maxOutputTokens:900}})});
+  const j=await r.json();if(!r.ok)throw new Error(`Gemini ${r.status}`);return j?.candidates?.[0]?.content?.parts?.map((x:any)=>x?.text||"").join("").trim();
+ }
+ const r=await fetch(`${p.base}/chat/completions`,{method:"POST",headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},body:JSON.stringify({model,messages,temperature:.2,max_tokens:900})});
+ const j=await r.json();if(!r.ok)throw new Error(`AI ${r.status}: ${j?.error?.message||"API hatası"}`);return String(j?.choices?.[0]?.message?.content||"").trim();
+}
+Deno.serve(async(req)=>{
+ if(req.method==="OPTIONS")return options();
+ try{
+  const user=await requireUser(req,true);const {admin}=clients(req);
+  if(req.method!=="POST")return json({error:"POST gerekli"},405);
+  const b=await req.json();const message=String(b.message||"").trim().slice(0,4000);if(!message)throw new Error("BAD_REQUEST");
+  const low=message.toLocaleLowerCase("tr-TR");const tool=intent(low);let ctx:any=null;
+  if(tool==="agents.list")ctx=await agents(admin);else if(tool==="approvals.list")ctx=await approvals(admin);else if(tool==="github_status")ctx=await githubStatus();else if(tool)ctx=await readTable(admin,tool,20);
+  const requested=String(b.provider||Deno.env.get("AI_PROVIDER")||"").toLowerCase();const order=requested&&PROVIDERS[requested]?[requested]:Object.keys(PROVIDERS);const configured=order.some(id=>Boolean(Deno.env.get(PROVIDERS[id].env)));
+  let reply=localReply(message,ctx,tool,configured),provider="fallback",providerError="";
+  const history=Array.isArray(b.history)?b.history.slice(-12).map((x:any)=>({role:x?.role==="assistant"?"assistant":"user",content:String(x?.content||"").slice(0,2000)})).filter((x:any)=>x.content):[];
+  if(configured){
+   for(const id of order){const p=PROVIDERS[id],key=Deno.env.get(p.env);if(!key)continue;try{const model=Deno.env.get(p.modelEnv)||p.fallbackModel;const sys=`Sen Stagepulse Patron JARVIS'sın. Türkçe konuş. Operasyonel cevap ver. Gerçekleştirmediğin işlemi yapılmış gibi söyleme. Canlı veri verilmediyse uydurma. Kritik yazma, silme, yetki, fiyat, deploy ve GitHub değişiklikleri approval gerektirir.`;const candidate=await providerCall(p,key,model,[{role:"system",content:sys},...history,{role:"user",content:message}]);if(candidate){reply=candidate;provider=id;break;}}catch(e){providerError=e instanceof Error?e.message:String(e)}}
+  }
+  let proposed_action:any=null;
+  if(WRITE_RE.test(low)){
+   const type=/repo|github|dosya yaz|kod değiştir|push|merge/.test(low)?"github.file_write":/ajan oluştur/.test(low)?"agent.create":/ajan sil/.test(low)?"agent.delete":/deploy/.test(low)?"deploy":/yetki|izin değiştir/.test(low)?"permission.change":/sil/.test(low)?"db.delete":"db.bulk_update";
+   const payload={instruction:message};const preview={title:"Patron onayı gerekli",risk:"high"};
+   const approval={id:"ap_"+crypto.randomUUID(),type,status:"pending",requested_by:"patron",requested_by_user:user.id,preview,payload,payload_hash:await sha256(payload)};
+   const {error}=await admin.from("jarvis_approvals").insert(approval);if(error)throw error;proposed_action={type,preview,payload};reply+=`\n\nİşlem onay kuyruğuna alındı: ${type}. Onay verilmeden uygulanmaz.`;
+  }
+  await admin.from("jarvis_audit").insert({actor:user.id,mode:"patron",event_type:"patron.chat",body:{message:message.slice(0,1000),provider,provider_error:providerError||null,tool,proposed_action}});
+  return json({reply,provider,ai_configured:configured,provider_error:providerError||null,tool,context:ctx,proposed_action});
+ }catch(e){return err(e)}
+});
