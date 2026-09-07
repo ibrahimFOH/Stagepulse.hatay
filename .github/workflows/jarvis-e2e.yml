@@ -1,0 +1,51 @@
+name: JARVIS E2E
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  JARVIS_URL: https://stagepulse.com.tr/jarvis/admin/
+  SUPABASE_URL: https://mtjcqqrogjqaxkagwkti.supabase.co
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate JARVIS source contracts
+        run: |
+          set -euo pipefail
+          test -s jarvis/admin/index.html
+          test -s jarvis/core/config.js
+          test -s supabase/functions/patron-ai/index.ts
+          test -s supabase/functions/jarvis-tools/index.ts
+          test -s supabase/functions/jarvis-approve/index.ts
+          test -s supabase/functions/jarvis-audit/index.ts
+          grep -q 'patron-ai' jarvis/admin/index.html
+          grep -q 'jarvis-tools' jarvis/admin/index.html
+          grep -q 'jarvis-approve' jarvis/admin/index.html
+          grep -q 'jarvis_memory' jarvis/README.md supabase/migrations/*jarvis*.sql
+      - name: Syntax check browser scripts
+        run: |
+          set -euo pipefail
+          node --check shared/runtime-config.js
+          node --check jarvis/core/config.js
+      - name: Check production Patron page
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -L --max-time 25 -A 'Stagepulse-JARVIS-E2E/1.0' -o /tmp/jarvis.html -w '%{http_code}' "$JARVIS_URL" || true)
+          case "$code" in 2*|3*) ;; *) echo "JARVIS page HTTP $code"; exit 1;; esac
+          grep -q 'Stagepulse' /tmp/jarvis.html
+          grep -q 'JARVIS' /tmp/jarvis.html
+      - name: Check function endpoints exist
+        run: |
+          set -euo pipefail
+          for fn in patron-ai jarvis-tools jarvis-approve jarvis-audit; do
+            code=$(curl -sS -L --max-time 20 -o /dev/null -w '%{http_code}' -X OPTIONS "$SUPABASE_URL/functions/v1/$fn" || true)
+            case "$code" in 2*|3*|4*) ;; *) echo "$fn -> $code"; exit 1;; esac
+          done
