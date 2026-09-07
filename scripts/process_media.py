@@ -57,10 +57,7 @@ def optimize_photo(src: Path) -> Path:
     out = src.with_suffix(".webp")
     with Image.open(src) as im:
         if im.mode not in ("RGB", "RGBA"):
-            if "A" in im.getbands():
-                im = im.convert("RGBA")
-            else:
-                im = im.convert("RGB")
+            im = im.convert("RGBA" if "A" in im.getbands() else "RGB")
         im.save(out, "WEBP", quality=90, method=6)
     if not out.exists() or out.stat().st_size <= 0:
         raise RuntimeError(f"WebP dönüşümü başarısız: {src}")
@@ -74,54 +71,48 @@ def normalize_photo_directory(directory: Path) -> None:
         optimize_photo(src)
 
 
+def photo_record(path: Path) -> dict:
+    r = rel(path)
+    return {
+        "name": path.name,
+        "path": r,
+        "file": r,
+        "size": path.stat().st_size,
+        "size_human": human(path.stat().st_size),
+        "modified": iso(path),
+        "type": "gallery",
+        "optimized": True,
+    }
+
+
 def main() -> None:
     PHOTO_DIR.mkdir(parents=True, exist_ok=True)
     VIDEO_DIR.mkdir(parents=True, exist_ok=True)
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # New uploads live in images/gallery/photo and are always published as WebP.
+    # New uploads are queued in images/gallery/photo and normalized to WebP.
     normalize_photo_directory(PHOTO_DIR)
 
-    # Keep compatibility with older manually-added images/gallery/* assets:
-    # convert every non-WebP raster in the legacy root to WebP in place.
+    # Legacy manually-added root images remain supported and are normalized in place.
     for src in all_files(LEGACY_GALLERY_DIR, RASTER_TO_WEBP, recursive=False):
         optimize_photo(src)
 
+    # A filename is one logical gallery asset. Prefer the dedicated photo queue
+    # over a legacy root duplicate so media.json never publishes the same photo twice.
     photos: list[dict] = []
-    seen: set[str] = set()
-
+    seen_names: set[str] = set()
     for path in all_files(PHOTO_DIR, {".webp"}):
-        r = rel(path)
-        if r in seen:
+        key = path.name.casefold()
+        if key in seen_names:
             continue
-        seen.add(r)
-        photos.append({
-            "name": path.name,
-            "path": r,
-            "file": r,
-            "size": path.stat().st_size,
-            "size_human": human(path.stat().st_size),
-            "modified": iso(path),
-            "type": "gallery",
-            "optimized": True,
-        })
-
-    # Backward-compatible root WebP files.
+        seen_names.add(key)
+        photos.append(photo_record(path))
     for path in sorted(LEGACY_GALLERY_DIR.glob("*.webp")):
-        r = rel(path)
-        if r in seen:
+        key = path.name.casefold()
+        if key in seen_names:
             continue
-        seen.add(r)
-        photos.append({
-            "name": path.name,
-            "path": r,
-            "file": r,
-            "size": path.stat().st_size,
-            "size_human": human(path.stat().st_size),
-            "modified": iso(path),
-            "type": "gallery",
-            "optimized": True,
-        })
+        seen_names.add(key)
+        photos.append(photo_record(path))
 
     videos: list[dict] = []
     for path in all_files(VIDEO_DIR, VIDEO_EXTS):
@@ -140,7 +131,6 @@ def main() -> None:
     documents: list[dict] = []
     for path in all_files(DOCS_DIR, PDF_EXTS):
         r = rel(path)
-        title = path.stem.replace("-", " ").replace("_", " ").strip()
         documents.append({
             "name": path.name,
             "path": r,
@@ -149,8 +139,17 @@ def main() -> None:
             "size_human": human(path.stat().st_size),
             "modified": iso(path),
             "type": "document",
-            "title": title,
+            "title": path.stem.replace("-", " ").replace("_", " ").strip(),
         })
+
+    source_media = (
+        all_files(PHOTO_DIR, IMAGE_EXTS)
+        + all_files(LEGACY_GALLERY_DIR, IMAGE_EXTS, recursive=False)
+        + all_files(VIDEO_DIR, VIDEO_EXTS)
+        + all_files(DOCS_DIR, PDF_EXTS)
+    )
+    if source_media and not (photos or videos or documents):
+        raise RuntimeError("Medya bulundu ancak media.json boş üretildi; yayın durduruldu.")
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
