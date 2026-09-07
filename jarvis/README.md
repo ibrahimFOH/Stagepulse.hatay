@@ -1,17 +1,20 @@
-# Stagepulse Jarvis OS
+# Stagepulse JARVIS OS
 
-Canonical live path: `/jarvis/`.
+Canonical Patron path: `/jarvis/admin/`.
 
-## Live
-- Public Jarvis: `/jarvis/public/site-jarvis.js`
-- Patron: `/jarvis/admin/`
-- Portal bridge: `/jarvis/portal/patron-bridge.js`
-- Supabase state: `jarvis_approvals`, `jarvis_audit`, `jarvis_agents`, `jarvis_memory`
-- Critical writes are approval-gated.
-- Approval state is server-backed, so multiple devices read the same queue.
-- Repo changes use path + content and are executed only after approval.
+Runtime chain:
+`UI -> Auth -> Orchestrator -> Live Context/AI -> Approval -> Executor -> Audit -> UI`
 
-## Manual production secret
-Set `GITHUB_TOKEN` in Supabase Edge Function secrets before GitHub read/write or approve/apply can work. `OPENAI_API_KEY` is optional; without it, deterministic/local behavior remains available.
+State tables:
+- `jarvis_approvals`
+- `jarvis_audit`
+- `jarvis_agents`
+- `jarvis_memory`
 
-Do not put secrets in this repository or browser configuration.
+Security contract:
+- Browser/mobile uses only the publishable Supabase key.
+- User JWT is sent in `Authorization: Bearer <jwt>`.
+- Backend secret keys and provider/GitHub tokens remain in Supabase Edge Function secrets.
+- Critical writes are approval-gated and payload-integrity checked.
+
+Legacy `/admin/jarvis/` is not the canonical Patron cockpit.
