@@ -1,0 +1,41 @@
+name: Apply JARVIS microphone fix
+
+on:
+  push:
+    paths:
+      - .github/workflows/jarvis-mic-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch JARVIS microphone flow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('jarvis/admin/index.html')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('<button id="micHelp">Mikrofon yardımı</button>', '')
+          old = "async function ensureMicPermission(){if(!navigator.mediaDevices?.getUserMedia)throw new Error('Bu tarayıcı mikrofon erişimini desteklemiyor.');const stream=await navigator.mediaDevices.getUserMedia({audio:true});stream.getTracks().forEach(x=>x.stop())}"
+          new = "async function ensureMicPermission(){if(!window.isSecureContext)throw new Error('Mikrofon yalnızca güvenli HTTPS bağlantısında kullanılabilir.');if(!navigator.mediaDevices||typeof navigator.mediaDevices.getUserMedia!=='function')throw new Error('Chrome mikrofon API\'sini kullanıma açmadı. Sayfayı normal sekmede açın.');try{if(navigator.permissions?.query){const q=await navigator.permissions.query({name:'microphone'});if(q.state==='denied')throw new Error('Mikrofon izni daha önce reddedilmiş. Chrome → Site ayarları → Mikrofon → İzin ver yapın.')}}catch(e){if(String(e.message||'').includes('reddedilmiş'))throw e}const stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true}});stream.getTracks().forEach(x=>x.stop())}"
+          if old not in s: raise SystemExit('old permission function not found')
+          s = s.replace(old, new, 1)
+          start = s.index("$('mic').onclick=async()=>{")
+          end = s.index(";\n$('speak').onclick=", start) + 1
+          handler = "$('mic').onclick=async()=>{if(window.StagepulseAndroid&&typeof window.StagepulseAndroid.startVoiceRecognition==='function'){window.StagepulseAndroid.startVoiceRecognition();$('voiceStatus').textContent='Dinliyorum…';$('mic').textContent='Dinleniyor…';$('mic').classList.add('active');return}try{$('voiceStatus').textContent='Mikrofon izni isteniyor…';await ensureMicPermission();$('voiceStatus').textContent='Dinliyorum…';startWebSpeech()}catch(e){$('voiceStatus').textContent='Mikrofon: '+(e?.message||'izin alınamadı')}}"
+          s = s[:start] + handler + s[end:]
+          s = s.replace("$('micHelp').onclick=()=>alert('Chrome: adres çubuğundaki ayarlar simgesine dokunun → Site ayarları → Mikrofon → İzin ver seçin. Sonra sayfayı yenileyin. Android APK kullanıyorsanız JARVIS Mikrofon düğmesi native Android SpeechRecognizer kullanır ve uygulama mikrofon izni ister.');", '')
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "Stagepulse Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add jarvis/admin/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(jarvis): request microphone permission directly"
+          git push
