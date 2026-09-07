@@ -40,8 +40,6 @@ jobs:
         with:
           fetch-depth: 1
       - name: Calculate next Stagepulse version
-        env:
-          MINIMUM_VERSION_INPUT: ${{ env.MINIMUM_VERSION_INPUT }}
         run: |
           set -euo pipefail
           python3 scripts/validate-update-manifests.py
@@ -88,9 +86,7 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/stagepulse-release.keystore"
           expected=$(printf '%s' "$EXPECTED_CERT_INPUT" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
           [[ "$expected" =~ ^[0-9A-F]{64}$ ]]
-          actual=$(keytool -list -v -keystore "$RUNNER_TEMP/stagepulse-release.keystore" \
-            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" |
-            sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          actual=$(keytool -list -v -keystore "$RUNNER_TEMP/stagepulse-release.keystore" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr '[:lower:]' '[:upper:]')
           test "$actual" = "$expected"
           echo "EXPECTED_CERT_SHA256=$expected" >> "$GITHUB_ENV"
       - name: Build signed Personel and Admin APKs and AABs
@@ -102,38 +98,30 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          gradle :app:assemblePersonelRelease :app:assembleAdminRelease \
-            :app:bundlePersonelRelease :app:bundleAdminRelease \
-            -Pstagepulse.versionCode="$VERSION_CODE" \
-            -Pstagepulse.versionName="$VERSION_NAME" --no-daemon
+          gradle :app:assemblePersonelRelease :app:assembleAdminRelease :app:bundlePersonelRelease :app:bundleAdminRelease -Pstagepulse.versionCode="$VERSION_CODE" -Pstagepulse.versionName="$VERSION_NAME" --no-daemon
       - name: Prepare verified release files and manifest
         id: files
         run: |
           set -euo pipefail
-          rm -rf release
-          mkdir -p release
+          rm -rf release && mkdir -p release
           build_tools="${ANDROID_HOME}/build-tools/35.0.0"
-          test -x "$build_tools/apksigner" || { echo "Missing apksigner: $build_tools/apksigner"; exit 1; }
-          test -x "$build_tools/aapt" || { echo "Missing aapt: $build_tools/aapt"; exit 1; }
+          test -x "$build_tools/apksigner" && test -x "$build_tools/aapt"
           for row in \
             'personel Stagepulse-Personel tr.com.stagepulse.app android/app/build/outputs/apk/personel/release/app-personel-release.apk android/app/build/outputs/bundle/personelRelease/app-personel-release.aab' \
             'admin Stagepulse-Admin tr.com.stagepulse.admin android/app/build/outputs/apk/admin/release/app-admin-release.apk android/app/build/outputs/bundle/adminRelease/app-admin-release.aab'; do
             read -r flavor product package apk aab <<< "$row"
-            test -f "$apk" || { echo "Missing APK for $flavor: $apk"; exit 1; }
-            test -f "$aab" || { echo "Missing AAB for $flavor: $aab"; exit 1; }
+            test -f "$apk" && test -f "$aab"
             "$build_tools/apksigner" verify --verbose --print-certs "$apk" > "/tmp/${flavor}-apk-signature.txt"
             cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "/tmp/${flavor}-apk-signature.txt" | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
-            test -n "$cert" || { echo "Could not read APK signing certificate for $flavor"; cat "/tmp/${flavor}-apk-signature.txt"; exit 1; }
-            test "$cert" = "$EXPECTED_CERT_SHA256" || { echo "APK certificate mismatch for $flavor: $cert"; exit 1; }
+            test "$cert" = "$EXPECTED_CERT_SHA256"
             badging=$("$build_tools/aapt" dump badging "$apk")
-            grep -Fq "package: name='$package'" <<< "$badging" || { echo "Package ID mismatch for $flavor"; echo "$badging"; exit 1; }
-            grep -Fq "versionCode='$VERSION_CODE'" <<< "$badging" || { echo "versionCode mismatch for $flavor"; echo "$badging"; exit 1; }
-            grep -Fq "versionName='$VERSION_NAME'" <<< "$badging" || { echo "versionName mismatch for $flavor"; echo "$badging"; exit 1; }
-            jarsigner -verify -certs "$aab" > "/tmp/${flavor}-aab-jarsigner.txt" 2>&1 || { echo "AAB jarsigner verification failed for $flavor"; cat "/tmp/${flavor}-aab-jarsigner.txt"; exit 1; }
-            grep -Fq 'jar verified.' "/tmp/${flavor}-aab-jarsigner.txt" || { echo "AAB verification did not report jar verified for $flavor"; cat "/tmp/${flavor}-aab-jarsigner.txt"; exit 1; }
+            grep -Fq "package: name='$package'" <<< "$badging"
+            grep -Fq "versionCode='$VERSION_CODE'" <<< "$badging"
+            grep -Fq "versionName='$VERSION_NAME'" <<< "$badging"
+            jarsigner -verify -certs "$aab" > "/tmp/${flavor}-aab-jarsigner.txt" 2>&1
+            grep -Fq 'jar verified.' "/tmp/${flavor}-aab-jarsigner.txt"
             aab_cert=$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
-            test -n "$aab_cert" || { echo "Could not read AAB signing certificate for $flavor"; exit 1; }
-            test "$aab_cert" = "$EXPECTED_CERT_SHA256" || { echo "AAB certificate mismatch for $flavor: $aab_cert"; exit 1; }
+            test "$aab_cert" = "$EXPECTED_CERT_SHA256"
             cp "$apk" "release/${product}-v${VERSION_NAME}.apk"
             cp "$aab" "release/${product}-v${VERSION_NAME}.aab"
           done
@@ -142,31 +130,14 @@ jobs:
           staff_sha=$(sha256sum "release/Stagepulse-Personel-v${VERSION_NAME}.apk" | awk '{print $1}')
           admin_sha=$(sha256sum "release/Stagepulse-Admin-v${VERSION_NAME}.apk" | awk '{print $1}')
           python3 - "$VERSION_NAME" "$VERSION_CODE" "$tag" "$GITHUB_REPOSITORY" "$staff_sha" "$admin_sha" "$STAFF_MINIMUM_VERSION" "$ADMIN_MINIMUM_VERSION" > latest.json <<'PY'
-          import datetime
-          import json
-          import sys
-
+          import datetime, json, sys
           version, code, tag, repo, staff_sha, admin_sha = sys.argv[1:7]
           code = int(code)
           minimums = {"staff": int(sys.argv[7]), "admin": int(sys.argv[8])}
           base = f"https://github.com/{repo}/releases/download/{tag}"
           def item(platform, product, sha):
-              return {
-                  "platform": platform,
-                  "apk_version": code,
-                  "web_version": version,
-                  "minimum_version": minimums[platform],
-                  "apk_url": f"{base}/{product}-v{version}.apk",
-                  "apk_sha256": sha,
-                  "notes": f"Stagepulse {version}"
-              }
-          print(json.dumps({
-              "release": tag,
-              "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
-              "status": "verified",
-              "staff": item("staff", "Stagepulse-Personel", staff_sha),
-              "admin": item("admin", "Stagepulse-Admin", admin_sha)
-          }, ensure_ascii=False, indent=2))
+              return {"platform": platform, "apk_version": code, "web_version": version, "minimum_version": minimums[platform], "apk_url": f"{base}/{product}-v{version}.apk", "apk_sha256": sha, "notes": f"Stagepulse {version}"}
+          print(json.dumps({"release": tag, "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"), "status": "verified", "staff": item("staff", "Stagepulse-Personel", staff_sha), "admin": item("admin", "Stagepulse-Admin", admin_sha)}, ensure_ascii=False, indent=2))
           PY
           cp latest.json app-update.json
           sha256sum release/*.apk release/*.aab | sed 's#release/##' > release/SHA256SUMS
@@ -199,8 +170,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf /tmp/verify && mkdir /tmp/verify
-          for asset in "Stagepulse-Personel-v${VERSION_NAME}.apk" "Stagepulse-Admin-v${VERSION_NAME}.apk" \
-            "Stagepulse-Personel-v${VERSION_NAME}.aab" "Stagepulse-Admin-v${VERSION_NAME}.aab" SHA256SUMS; do
+          for asset in "Stagepulse-Personel-v${VERSION_NAME}.apk" "Stagepulse-Admin-v${VERSION_NAME}.apk" "Stagepulse-Personel-v${VERSION_NAME}.aab" "Stagepulse-Admin-v${VERSION_NAME}.aab" SHA256SUMS; do
             gh release download "$TAG" --pattern "$asset" --dir /tmp/verify --clobber
             test -s "/tmp/verify/$asset"
           done
@@ -209,18 +179,26 @@ jobs:
         if: ${{ env.PUBLISH_RELEASE == 'true' }}
         run: |
           set -euo pipefail
-          git fetch origin main
-          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
           git config user.name github-actions
           git config user.email github-actions@github.com
+          git fetch origin main --depth=100
+          git rebase origin/main
           git add latest.json app-update.json
+          git diff --cached --quiet && { echo "Manifest already current; nothing to publish."; exit 0; }
           git commit -m "chore(android): publish verified APK manifest ${VERSION_NAME}"
-          git push origin "HEAD:main"
-          expected=$(git rev-parse HEAD)
-          git fetch origin main
-          test "$(git rev-parse origin/main)" = "$expected"
-          test "$(git show origin/main:latest.json)" = "$(cat latest.json)"
-          test "$(git show origin/main:app-update.json)" = "$(cat app-update.json)"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:main"; then break; fi
+            test "$attempt" -lt 3 || exit 1
+            git fetch origin main --depth=100
+            git rebase origin/main
+          done
+          published=$(git rev-parse HEAD)
+          git fetch origin main --depth=100
+          remote=$(git rev-parse origin/main)
+          git merge-base --is-ancestor "$published" "$remote"
+          test "$(git show "$published":latest.json)" = "$(cat latest.json)"
+          test "$(git show "$published":app-update.json)" = "$(cat app-update.json)"
+          echo "Verified manifest commit $published is published on main (remote=$remote)."
       - name: Sync verified release metadata and notifications
         if: ${{ env.PUBLISH_RELEASE == 'true' }}
         env:
@@ -228,51 +206,28 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_ACCESS_TOKEN"; test -n "$SUPABASE_PROJECT_REF"
+          test -n "$SUPABASE_ACCESS_TOKEN" && test -n "$SUPABASE_PROJECT_REF"
           python3 - "$VERSION_NAME" "$VERSION_CODE" "$GITHUB_REPOSITORY" "${{ steps.files.outputs.tag }}" > /tmp/query.json <<'PY'
-          import json
-          import sys
-
+          import json, sys
           version, code, repo, tag = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
           manifest = json.load(open("latest.json"))
-          def sql(value):
-              return "'" + str(value).replace("'", "''") + "'"
+          def sql(value): return "'" + str(value).replace("'", "''") + "'"
           statements = ["begin"]
           for platform in ("staff", "admin"):
               row = manifest[platform]
-              statements.append(
-                  "do $$ declare affected integer; begin update public.app_versions set "
+              statements.append("do $$ declare affected integer; begin update public.app_versions set "
                   f"web_version={sql(version)}, apk_version={code}, minimum_version={int(row['minimum_version'])}, "
-                  f"apk_url={sql(row['apk_url'])}, apk_sha256={sql(row['apk_sha256'])}, "
-                  f"notes={sql(row['notes'])}, updated_at=now() where platform={sql(platform)}; "
+                  f"apk_url={sql(row['apk_url'])}, apk_sha256={sql(row['apk_sha256'])}, notes={sql(row['notes'])}, updated_at=now() where platform={sql(platform)}; "
                   "get diagnostics affected = row_count; "
-                  f"if affected <> 1 then raise exception 'Expected one {platform} app_versions row, got %', affected; end if; end $$"
-              )
-          statements.append(
-              "insert into public.notifications(kind,title,body,recipient_user_id) "
-              "select 'app_update','Stagepulse güncellemesi hazır',"
-              f"{sql(f'Stagepulse {version} yayınlandı. Uygulamayı açarak güncellemeyi yükleyebilirsiniz.')},m.user_id "
-              "from public.org_memberships m where m.active and m.user_id is not null "
-              "and not exists (select 1 from public.notifications n where n.kind='app_update' "
-              f"and n.recipient_user_id=m.user_id and n.body like {sql(f'%Stagepulse {version} yayınlandı%')})"
-          )
-          statements.append(
-              "do $$ declare verified integer; begin select count(*) into verified from public.app_versions "
-              f"where (platform='staff' and apk_version={code} and apk_sha256={sql(manifest['staff']['apk_sha256'])}) "
-              f"or (platform='admin' and apk_version={code} and apk_sha256={sql(manifest['admin']['apk_sha256'])}); "
-              "if verified <> 2 then raise exception 'app_versions readback failed: %', verified; end if; end $$"
-          )
-          statements.extend(["commit", "select count(*)::integer as verified_rows from public.app_versions "
-                             f"where apk_version={code} and platform in ('staff','admin')"])
+                  f"if affected <> 1 then raise exception 'Expected one {platform} app_versions row, got %', affected; end if; end $$")
+          statements.append("insert into public.notifications(kind,title,body,recipient_user_id) select 'app_update','Stagepulse güncellemesi hazır'," + sql(f"Stagepulse {version} yayınlandı. Uygulamayı açarak güncellemeyi yükleyebilirsiniz.") + ",m.user_id from public.org_memberships m where m.active and m.user_id is not null and not exists (select 1 from public.notifications n where n.kind='app_update' and n.recipient_user_id=m.user_id and n.body like " + sql(f"%Stagepulse {version} yayınlandı%") + ")")
+          statements.append("do $$ declare verified integer; begin select count(*) into verified from public.app_versions where (platform='staff' and apk_version=" + str(code) + " and apk_sha256=" + sql(manifest['staff']['apk_sha256']) + ") or (platform='admin' and apk_version=" + str(code) + " and apk_sha256=" + sql(manifest['admin']['apk_sha256']) + "); if verified <> 2 then raise exception 'app_versions readback failed: %', verified; end if; end $$")
+          statements.extend(["commit", "select count(*)::integer as verified_rows from public.app_versions where apk_version=" + str(code) + " and platform in ('staff','admin')"])
           print(json.dumps({"query": ";\n".join(statements), "read_only": False}))
           PY
-          curl -fsS -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query" \
-            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data @/tmp/query.json > /tmp/supabase-response.json
+          curl -fsS -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query" -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" -H "Content-Type: application/json" --data @/tmp/query.json > /tmp/supabase-response.json
           python3 - /tmp/supabase-response.json <<'PY'
-          import json
-          import sys
+          import json, sys
           data = json.load(open(sys.argv[1]))
           rows = data if isinstance(data, list) else data.get("result", data)
           if isinstance(rows, list) and rows and isinstance(rows[-1], dict):
