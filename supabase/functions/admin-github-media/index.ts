@@ -38,7 +38,11 @@ function mediaPath(area: string, fileName: string) {
   }
   if (area === "documents" && !PDF_EXT.test(name)) throw new Error("Documents klasörü yalnızca PDF kabul eder.");
   if (area === "gallery" && PDF_EXT.test(name)) throw new Error("Gallery klasörüne PDF yüklenemez.");
-  return area === "documents" ? `documents/${name}` : `images/gallery/${name}`;
+  // Raster images enter the dedicated photo queue so the Media Index workflow
+  // can convert them to WebP before they are published in media.json.
+  if (area === "gallery" && IMAGE_EXTS.test(name)) return `images/gallery/photo/${name}`;
+  if (area === "gallery" && VIDEO_EXTS.test(name)) return `images/gallery/video/${name}`;
+  return `documents/${name}`;
 }
 
 async function github(path = "", init: RequestInit = {}) {
