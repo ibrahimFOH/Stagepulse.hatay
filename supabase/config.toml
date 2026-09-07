@@ -34,3 +34,11 @@ verify_jwt = true
 verify_jwt = false
 [functions.staff-session]
 verify_jwt = false
+[functions.patron-ai]
+verify_jwt = true
+[functions.jarvis-tools]
+verify_jwt = true
+[functions.jarvis-approve]
+verify_jwt = true
+[functions.jarvis-audit]
+verify_jwt = true
