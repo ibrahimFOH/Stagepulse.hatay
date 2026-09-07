@@ -113,6 +113,68 @@ async function listMedia() {
     .map((entry: any) => item(entry.path, entry.size || 0, entry.sha || ""));
 }
 
+function encodeBase64(value: string) {
+  return btoa(unescape(encodeURIComponent(value)));
+}
+
+async function syncMediaIndex() {
+  const items = await listMedia();
+  const gallery = items
+    .filter((entry: any) => entry.path.startsWith("images/gallery/") && IMAGE_EXTS.test(entry.path))
+    .sort((a: any, b: any) => a.path.localeCompare(b.path))
+    .map((entry: any) => ({
+      name: entry.name,
+      path: entry.path,
+      file: entry.path,
+      size: entry.size,
+      size_human: entry.size ? `${(entry.size / 1024).toFixed(1)} KB` : "0 B",
+      type: "gallery",
+      optimized: IMAGE_EXTS.test(entry.path) && /\.webp$/i.test(entry.path),
+    }));
+  const videos = items
+    .filter((entry: any) => entry.path.startsWith("images/gallery/") && VIDEO_EXTS.test(entry.path))
+    .sort((a: any, b: any) => a.path.localeCompare(b.path))
+    .map((entry: any) => ({
+      name: entry.name,
+      path: entry.path,
+      file: entry.path,
+      size: entry.size,
+      size_human: entry.size ? `${(entry.size / 1024).toFixed(1)} KB` : "0 B",
+      type: "video",
+    }));
+  const documents = items
+    .filter((entry: any) => entry.path.startsWith("documents/") && PDF_EXT.test(entry.path))
+    .sort((a: any, b: any) => a.path.localeCompare(b.path))
+    .map((entry: any) => ({
+      name: entry.name,
+      path: entry.path,
+      file: entry.path,
+      size: entry.size,
+      size_human: entry.size ? `${(entry.size / 1024).toFixed(1)} KB` : "0 B",
+      type: "document",
+      title: entry.name.replace(/\.pdf$/i, "").replace(/[-_]+/g, " ").trim(),
+    }));
+  const payload = {
+    generated_at: new Date().toISOString(),
+    gallery,
+    videos,
+    documents,
+    photos: gallery.map((entry: any) => entry.path),
+    counts: { gallery: gallery.length, videos: videos.length, documents: documents.length },
+  };
+  const current = await github("media.json");
+  await github("media.json", {
+    method: "PUT",
+    body: JSON.stringify({
+      message: "chore(media): sync media index",
+      content: encodeBase64(JSON.stringify(payload, null, 2) + "\n"),
+      branch: BRANCH,
+      sha: current.sha,
+    }),
+  });
+  return payload.counts;
+}
+
 function requireWriteAccess() {
   if (!GITHUB_TOKEN) {
     throw Object.assign(new Error("GitHub medya yazma bağlantısı yapılandırılmamış. Listeleme salt okunur olarak kullanılabilir."), { status: 503 });
@@ -124,7 +186,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return out(req, { error: "Method Not Allowed" }, 405);
 
   try {
-    const { userId } = await requireAdmin(req);
+    await requireAdmin(req);
     const body = await req.json().catch(() => ({}));
     const action = text(body.action, 40);
 
@@ -151,7 +213,8 @@ Deno.serve(async (req) => {
           branch: BRANCH,
         }),
       });
-      return out(req, { ok: true, item: item(path, saved.content?.size || 0, saved.content?.sha || "") });
+      const counts = await syncMediaIndex();
+      return out(req, { ok: true, item: item(path, saved.content?.size || 0, saved.content?.sha || ""), counts });
     }
 
     if (action === "delete") {
@@ -162,7 +225,8 @@ Deno.serve(async (req) => {
         method: "DELETE",
         body: JSON.stringify({ message: `chore(media): delete ${path}`, sha: current.sha, branch: BRANCH }),
       });
-      return out(req, { ok: true, deleted: path });
+      const counts = await syncMediaIndex();
+      return out(req, { ok: true, deleted: path, counts });
     }
 
     if (action === "rename") {
@@ -183,7 +247,8 @@ Deno.serve(async (req) => {
         method: "DELETE",
         body: JSON.stringify({ message: `chore(media): remove old name ${oldPath}`, sha: current.sha, branch: BRANCH }),
       });
-      return out(req, { ok: true, item: item(newPath, created.content?.size || 0, created.content?.sha || "") });
+      const counts = await syncMediaIndex();
+      return out(req, { ok: true, item: item(newPath, created.content?.size || 0, created.content?.sha || ""), counts });
     }
 
     if (action === "optimize") {
