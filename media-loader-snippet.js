@@ -6,7 +6,6 @@
 (function () {
   'use strict';
 
-  const MEDIA_CDN = 'https://media.githubusercontent.com/media/ibrahimFOH/Stagepulse.hatay/main/';
   const FALLBACK_DOCUMENTS = [
     { name:'Stagepulse-Ornek-3D-Sahne.pdf', path:'documents/Stagepulse-Ornek-3D-Sahne.pdf', title:'Stagepulse Ornek 3D Sahne' },
     { name:'Stagepulse-Ornek-Stage-Plot-Gorsel.pdf', path:'documents/Stagepulse-Ornek-Stage-Plot-Gorsel.pdf', title:'Stagepulse Ornek Stage Plot Gorsel' },
@@ -18,7 +17,9 @@
     if (/^https?:\/\//i.test(path)) return path;
     const clean = String(path).replace(/^\.\//, '').replace(/^\//, '');
     if (/^(images|documents|videos)\//i.test(clean)) {
-      return MEDIA_CDN + clean.split('/').map(encodeURIComponent).join('/');
+      // GitHub Pages/Cloudflare must serve repository media from the same origin.
+      // media.githubusercontent.com is not reliable for this public-site path.
+      return '/' + clean.split('/').map(encodeURIComponent).join('/');
     }
     return clean.split('/').map(encodeURIComponent).join('/');
   }
