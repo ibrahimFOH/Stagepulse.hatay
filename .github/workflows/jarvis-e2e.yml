@@ -2,6 +2,8 @@ name: JARVIS E2E
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,24 +14,37 @@ env:
   SUPABASE_URL: https://mtjcqqrogjqaxkagwkti.supabase.co
 
 jobs:
-  smoke:
+  contract:
+    name: JARVIS Runtime Contract
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.x
       - name: Validate JARVIS source contracts
         run: |
           set -euo pipefail
           test -s jarvis/admin/index.html
           test -s jarvis/core/config.js
-          test -s supabase/functions/patron-ai/index.ts
-          test -s supabase/functions/jarvis-tools/index.ts
-          test -s supabase/functions/jarvis-approve/index.ts
-          test -s supabase/functions/jarvis-audit/index.ts
-          grep -q 'patron-ai' jarvis/admin/index.html
-          grep -q 'jarvis-tools' jarvis/admin/index.html
-          grep -q 'jarvis-approve' jarvis/admin/index.html
-          grep -q 'jarvis_memory' jarvis/README.md supabase/migrations/*jarvis*.sql
+          test -s scripts/jarvis-e2e.mjs
+          deno check --quiet --no-lock supabase/functions/_shared/core.ts
+          deno check --quiet --no-lock supabase/functions/patron-ai/index.ts
+          deno check --quiet --no-lock supabase/functions/jarvis-tools/index.ts
+          deno check --quiet --no-lock supabase/functions/jarvis-approve/index.ts
+          deno check --quiet --no-lock supabase/functions/jarvis-audit/index.ts
+          grep -q 'withSupabase' supabase/functions/_shared/core.ts
+          grep -q 'tool_calls' supabase/functions/patron-ai/index.ts
+          grep -q 'dbDelete' supabase/functions/jarvis-approve/index.ts
+          grep -q 'dbUpdate' supabase/functions/jarvis-approve/index.ts
+          grep -q 'pricing' supabase/functions/jarvis-approve/index.ts
+          grep -q 'permission' supabase/functions/jarvis-approve/index.ts
+          grep -q 'quoteSend' supabase/functions/jarvis-approve/index.ts
+          grep -q 'async function deploy' supabase/functions/jarvis-approve/index.ts
+          grep -q 'agent.create' supabase/functions/jarvis-approve/index.ts
+          grep -q 'agent.delete' supabase/functions/jarvis-approve/index.ts
+          grep -q 'agent.grant_tool' supabase/functions/jarvis-approve/index.ts
       - name: Syntax check browser scripts
         run: |
           set -euo pipefail
@@ -49,3 +64,22 @@ jobs:
             code=$(curl -sS -L --max-time 20 -o /dev/null -w '%{http_code}' -X OPTIONS "$SUPABASE_URL/functions/v1/$fn" || true)
             case "$code" in 2*|3*|4*) ;; *) echo "$fn -> $code"; exit 1;; esac
           done
+
+  authenticated:
+    name: Patron Login -> JARVIS -> Tool -> Approval -> Execute
+    needs: contract
+    if: ${{ secrets.SUPABASE_E2E_EMAIL != '' && secrets.SUPABASE_E2E_PASSWORD != '' && secrets.SUPABASE_PUBLISHABLE_KEY != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - name: Run authenticated JARVIS E2E
+        env:
+          SUPABASE_URL: https://mtjcqqrogjqaxkagwkti.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_E2E_EMAIL: ${{ secrets.SUPABASE_E2E_EMAIL }}
+          SUPABASE_E2E_PASSWORD: ${{ secrets.SUPABASE_E2E_PASSWORD }}
+        run: node scripts/jarvis-e2e.mjs
