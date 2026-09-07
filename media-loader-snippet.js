@@ -1,18 +1,22 @@
 /* ============================================================
    STAGEPULSE — Customer Media Loader
    Public customer web only.
-   Never touches admin, personnel, portal or teklif form logic.
+   Repository media -> WebP gallery + PDF document publication.
    ============================================================ */
 (function () {
   'use strict';
 
   const MEDIA_CDN = 'https://media.githubusercontent.com/media/ibrahimFOH/Stagepulse.hatay/main/';
+  const FALLBACK_DOCUMENTS = [
+    { name:'Stagepulse-Ornek-3D-Sahne.pdf', path:'documents/Stagepulse-Ornek-3D-Sahne.pdf', title:'Stagepulse Ornek 3D Sahne' },
+    { name:'Stagepulse-Ornek-Stage-Plot-Gorsel.pdf', path:'documents/Stagepulse-Ornek-Stage-Plot-Gorsel.pdf', title:'Stagepulse Ornek Stage Plot Gorsel' },
+    { name:'Stagepulse-Ornek-Teknik-Kesit.pdf', path:'documents/Stagepulse-Ornek-Teknik-Kesit.pdf', title:'Stagepulse Ornek Teknik Kesit' }
+  ];
 
   function safeMediaUrl(path) {
     if (!path) return '';
     if (/^https?:\/\//i.test(path)) return path;
     const clean = String(path).replace(/^\.\//, '').replace(/^\//, '');
-    /* GitHub Pages serves Git-LFS pointer text; use the public LFS media CDN. */
     if (/^(images|documents|videos)\//i.test(clean)) {
       return MEDIA_CDN + clean.split('/').map(encodeURIComponent).join('/');
     }
@@ -27,11 +31,11 @@
       return {
         gallery: Array.isArray(data.gallery) ? data.gallery : [],
         videos: Array.isArray(data.videos) ? data.videos : [],
-        documents: Array.isArray(data.documents) ? data.documents : []
+        documents: Array.isArray(data.documents) && data.documents.length ? data.documents : FALLBACK_DOCUMENTS
       };
     } catch (err) {
       console.warn('Stagepulse media yükleme hatası:', err);
-      return { gallery: [], videos: [], documents: [] };
+      return { gallery: [], videos: [], documents: FALLBACK_DOCUMENTS };
     }
   }
 
@@ -74,9 +78,7 @@
     img.alt = alt || 'Stagepulse galeri görseli';
     img.loading = 'lazy';
     img.decoding = 'async';
-    img.addEventListener('error', () => {
-      figure.remove();
-    });
+    img.addEventListener('error', () => figure.remove());
     img.addEventListener('click', () => openLightbox(img.dataset.full || img.src, img.alt));
     figure.appendChild(img);
     return figure;
