@@ -15,9 +15,9 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 | Owner compatibility marker | `admin/owner-operating-system.js` |
 | Admin authentication | `supabase/functions/admin-login/index.ts` |
 | Admin data API | `supabase/functions/admin-data/index.ts` |
+| Organization / RBAC control API | `supabase/functions/org-admin-control/index.ts` |
 | Admin AI assistant | `supabase/functions/admin-ai/index.ts` + `admin/admin-ai.js` |
-| Staff authentication | `supabase/functions/staff-login/index.ts` |
-| Staff session | `supabase/functions/staff-session/index.ts` |
+| Staff authentication | `supabase/functions/staff-login/index.ts` + `supabase/functions/portal-login/index.ts` |
 | Staff AI assistant | `supabase/functions/staff-ai/index.ts` + `portal/staff-ai.js` |
 | Public quote intake | `supabase/functions/public-quote/index.ts` |
 | Public AI assistant | `supabase/functions/site-ai/index.ts` + `site-ai.js` |
@@ -28,6 +28,8 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 | CI / web / security gate | `.github/workflows/stagepulse-ci.yml` |
 | Regional SEO gate | `.github/workflows/regional-seo.yml` |
 | Signed APK release | `.github/workflows/apk-release.yml` |
+
+`supabase/functions/staff-session/index.ts` is deprecated compatibility code and is not a canonical runtime dependency.
 
 ## AI safety model
 
@@ -46,7 +48,8 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 ## RBAC authority
 
 - Patron / Owner is the only unconditional admin authority.
-- CEO, Super Admin and other delegated users are capability-based.
+- Super Admin is automatically resolved to the full active capability catalog; other delegated users remain capability-based.
+- CEO and other delegated users are capability-based.
 - `public.is_admin()` is an authenticated-only compatibility wrapper around `private.is_admin()`.
 - `private.is_admin()` delegates to the canonical organization-owner check.
 
