@@ -15,6 +15,7 @@
     { "name": "production-os", "verifyJwt": false },
     { "name": "public-quote", "verifyJwt": false },
     { "name": "register-android-device", "verifyJwt": true },
+    { "name": "self-password-change", "verifyJwt": true },
     { "name": "send-fcm-notification", "verifyJwt": false },
     { "name": "site-ai", "verifyJwt": false },
     { "name": "staff-ai", "verifyJwt": true },
