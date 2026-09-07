@@ -1,50 +1,52 @@
 # Stagepulse Media Management
 
 ## Amaç
-Admin panelindeki tek Medya ekranından fotoğraf ve video yönetilir.
+Admin panelindeki tek Medya ekranından fotoğraf, video ve PDF yönetilir. Repo medya akışı tek kanoniktir: `admin-github-media` Edge Function + GitHub Media Index workflow.
 
 ### Otomatik klasörler
 
 - Fotoğraf: `images/gallery/photo/`
 - Video: `images/gallery/video/`
-- Mevcut eski fotoğraflar: `images/gallery/` altında geriye dönük olarak desteklenir.
+- Doküman: `documents/`
+- Eski fotoğraflar: `images/gallery/` kökünde geriye dönük olarak desteklenir.
 
 ## İş akışı
 
-1. Admin Medya ekranından JPG/JPEG/PNG/WebP/GIF/AVIF veya MP4/WEBM/MOV seçilir.
-2. Dosya türüne göre hedef klasör otomatik seçilir.
-3. Admin yetkisi doğrulanır.
-4. Dosya geçici olarak Supabase Storage'a alınır.
-5. Sunucu tarafındaki `media-github` Edge Function dosyayı GitHub ana branch'ine gönderir.
-6. GitHub Actions medya işleme ve `media.json` indeks güncellemesini yapar.
-7. GitHub Pages/Cloudflare dağıtımı tamamlandığında dosya sitede yayınlanır.
+1. Admin Medya ekranından fotoğraf, video veya PDF seçilir.
+2. Admin oturumu ve yönetici yetkisi doğrulanır.
+3. `admin-github-media` Edge Function GitHub yazma yetkisini sunucu tarafındaki `GITHUB_TOKEN` secret'ından alır.
+4. Medya GitHub `main` dalındaki kanonik klasöre yazılır.
+5. GitHub Actions medya işleme workflow'u çalışır.
+6. Desteklenen raster fotoğraflar WebP'ye dönüştürülür ve `media.json` yeniden oluşturulur.
+7. GitHub Pages/Cloudflare dağıtımı tamamlandığında medya sitede yayınlanır.
 
-## Fotoğraf optimizasyonu
+Repo'ya fotoğrafı doğrudan yüklemek de desteklenir; aynı medya workflow'u otomatik WebP dönüşümü ve indeks üretimini yapar.
 
-Yüklenen JPEG/PNG/GIF gibi raster fotoğraflar GitHub Actions üzerinde WebP'ye dönüştürülür. Boyutlar korunur; kalite 90 seviyesinde tutulur. Büyük görseller için 480/960/1600/2400 px genişliklerde responsive varyantlar üretilebilir. Orijinal kaynak dosyası, WebP doğrulandıktan sonra kaldırılabilir.
+## Desteklenen fotoğraflar
 
-Amaç, dosya boyutunu düşürürken gözle görünür kalite kaybını sınırlamaktır.
+JPG/JPEG, PNG, WebP, GIF, AVIF, BMP, TIFF, HEIC ve HEIF desteklenir. WebP dışındaki desteklenen raster fotoğraflar WebP kalite 90 ile normalize edilir. HEIC/HEIF için `pillow-heif` kullanılır.
 
 ## Büyük video
 
-Git deposu sınırsız medya deposu olarak kullanılmaz. Büyük video dosyaları için Supabase Storage/Cloudflare R2 + CDN yolu korunur.
-
-Medya merkezi küçük/orta boyutlu repo varlıklarını GitHub'a yayınlar; büyük dosyalar için boyut eşiği aşıldığında Storage/CDN yoluna düşer.
+Git deposu sınırsız video deposu değildir. Küçük/orta boyutlu MP4/WEBM/MOV dosyaları medya indeksinde tutulabilir; büyük video varlıkları için Supabase Storage veya CDN tabanlı çözüm kullanılmalıdır.
 
 ## GitHub yetkisi
 
-GitHub erişim anahtarı tarayıcıya konulmaz. `media-github` Edge Function yalnızca sunucu tarafında saklanan `GITHUB_TOKEN` benzeri gizli değişkeni kullanır. Supabase Edge Functions gizli değişkenleri ortam değişkenlerinden okuyabilir ve bu bilgiler tarayıcıya konulmamalıdır.
+GitHub erişim anahtarı tarayıcıya konulmaz. `admin-github-media` Edge Function yalnızca sunucu tarafındaki `GITHUB_TOKEN` secret'ını kullanır.
 
-Önerilen değişkenler:
+Gerekli production değişkenleri:
 
 - `GITHUB_TOKEN`
-- `GITHUB_REPOSITORY=ibrahimFOH/Stagepulse.hatay`
-- `GITHUB_BRANCH=main`
+- `GITHUB_MEDIA_OWNER=ibrahimFOH`
+- `GITHUB_MEDIA_REPO=Stagepulse.hatay`
+- `GITHUB_MEDIA_BRANCH=main`
 
-## Silme ve değiştirme
+`GITHUB_TOKEN` tanımlı değilse Medya ekranı güvenli biçimde salt-okunur çalışır; dosya yükleme yapmaz.
 
-Medya ekranı GitHub'daki gerçek medya dosyasını ve `media.json` kaydını birlikte yönetir. Silme işlemi önce kullanım kontrolü yapar. Dosya aktif bir sayfada kullanılıyorsa kullanıcıya açık uyarı gösterilir.
+## Silme ve yeniden adlandırma
+
+Medya ekranı gerçek GitHub medya dosyasını yönetir ve işlem sonrasında `media.json` indeksini yeniden üretir. Fotoğrafın WebP dönüşümü GitHub Actions tarafından yapılır.
 
 ## Mevcut yapı
 
-Repo içinde `media.json` fotoğraf ve video listelerini tutuyor. Görseller `images/gallery/` altında, videolar ise medya işleme akışında yönetiliyor.
+`media.json` kanonik fotoğraf, video ve PDF indeksidir. Aynı mantıksal dosya adı birden fazla klasörde bulunsa bile indeks tekrarı engellenir. Medya bulunduğu halde indeksin boş üretilmesi workflow tarafından hata kabul edilir ve yayın durdurulur.
