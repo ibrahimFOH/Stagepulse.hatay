@@ -3,10 +3,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const cors = {
-  "Access-Control-Allow-Origin": "https://stagepulse.com.tr",
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Vary": "Origin",
+  "Access-Control-Max-Age": "86400",
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8" } });
 const options = () => new Response(null, { status: 204, headers: cors });
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     checks.ai = ["GROQ_API_KEY", "GOOGLE_AI_API_KEY", "HUGGINGFACE_API_KEY", "MISTRAL_API_KEY", "DEEPSEEK_API_KEY", "XAI_API_KEY", "NVIDIA_API_KEY", "OPENROUTER_API_KEY", "LLM7_API_KEY"].some((k) => Boolean(Deno.env.get(k)));
 
     const ok = checks.database === true;
-    return json({ ok, service: "jarvis-health", user: user.id, checks, latency_ms: Date.now() - started, version: "repo-v1" }, ok ? 200 : 503);
+    return json({ ok, service: "jarvis-health", user: user.id, checks, latency_ms: Date.now() - started, version: "repo-v2" }, ok ? 200 : 503);
   } catch (e) {
     const status = Number((e as any)?.status) || 500;
     return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, status);
