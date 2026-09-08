@@ -7,6 +7,7 @@ const P:any={
   mistral:{env:"MISTRAL_API_KEY",base:"https://api.mistral.ai/v1",modelEnv:"MISTRAL_MODEL",model:"mistral-small-latest"},
   deepseek:{env:"DEEPSEEK_API_KEY",base:"https://api.deepseek.com/v1",modelEnv:"DEEPSEEK_MODEL",model:"deepseek-chat"},
   xai:{env:"XAI_API_KEY",base:"https://api.x.ai/v1",modelEnv:"XAI_MODEL",model:"grok-4-1-fast"},
+  nvidia:{env:"NVIDIA_API_KEY",base:"https://integrate.api.nvidia.com/v1",modelEnv:"NVIDIA_MODEL",model:"openai/gpt-oss-120b"},
   openrouter:{env:"OPENROUTER_API_KEY",base:"https://openrouter.ai/api/v1",modelEnv:"OPENROUTER_MODEL",model:"openai/gpt-4o-mini"},
   llm7:{env:"LLM7_API_KEY",base:"https://api.llm7.io/v1",modelEnv:"LLM7_MODEL",model:"default",tools:false}
 };
@@ -26,11 +27,11 @@ const TOOLS:any=[
 {name:"db.delete",description:"Allowlist DB kaydını silmek için approval oluşturur",parameters:{type:"object",properties:{table:{type:"string",enum:["teklifler","event_projects","equipment","staff","services","price_rules"]},id:{type:"string",format:"uuid"}},required:["table","id"],additionalProperties:false}},
 {name:"db.bulk_update",description:"Allowlist DB güncellemesi için approval oluşturur",parameters:{type:"object",properties:{table:{type:"string",enum:["teklifler","event_projects","equipment","staff","services","price_rules"]},id:{type:"string",format:"uuid"},values:{type:"object"}},required:["table","id","values"],additionalProperties:false}},
 {name:"pricing.update",description:"Service veya price rule fiyatı için approval oluşturur",parameters:{type:"object",properties:{target:{type:"string",enum:["services","price_rules"]},id:{type:"string",format:"uuid"},field:{type:"string",enum:["base_price","daily_price","crew_unit_price","setup_fee","teardown_fee","margin_pct","value"]},value:{type:"number"}},required:["target","id","field","value"],additionalProperties:false}},
-{name:"permission.change",description:"Admin capability grant değişikliği için approval oluşturur",parameters:{type:"object",properties:{user_id:{type:"string",format:"uuid"},capability_key:{type:"string"},enabled:{type:"boolean"}},required:["user_id","capability_key","enabled"],additionalProperties:false}},
+{name:"permission.change",description:"Admin capability grant değişikliği için approval oluşturur",parameters:{type:"object",properties:{user_id:{type:"string",format:"uuid"},capability_key:{type:"string"},enabled:{type:"boolean"}},required:["user_id","capability_key","enabled"]}},
 {name:"agent.create",description:"JARVIS ajanı oluşturmak için approval oluşturur",parameters:{type:"object",properties:{name:{type:"string"},mode:{type:"string"},system_prompt:{type:"string"},tools:{type:"array",items:{type:"string"}}},required:["name"],additionalProperties:false}},
 {name:"agent.delete",description:"JARVIS ajanını emekliye ayırmak için approval oluşturur",parameters:{type:"object",properties:{id:{type:"string"}},required:["id"],additionalProperties:false}},
-{name:"agent.grant_tool",description:"JARVIS ajanına tool izni vermek için approval oluşturur",parameters:{type:"object",properties:{id:{type:"string"},tool:{type:"string"}},required:["id","tool"]}},
-{name:"quotes.send",description:"Teklif gönderimi için approval oluşturur",parameters:{type:"object",properties:{offer_id:{type:"string",format:"uuid"},channel:{type:"string",enum:["email","whatsapp","sms"]},message:{type:"string"}},required:["offer_id","channel","message"]}},
+{name:"agent.grant_tool",description:"JARVIS ajanına tool izni vermek için approval oluşturur",parameters:{type:"object",properties:{id:{type:"string"},tool:{type:"string"}},required:["id","tool"],additionalProperties:false}},
+{name:"quotes.send",description:"Teklif gönderimi için approval oluşturur",parameters:{type:"object",properties:{offer_id:{type:"string",format:"uuid"},channel:{type:"string",enum:["email","whatsapp","sms"]},message:{type:"string"}},required:["offer_id","channel","message"],additionalProperties:false}},
 {name:"deploy",description:"Allowlist deploy işlemi için approval oluşturur",parameters:{type:"object",properties:{target:{type:"string",enum:["pages","supabase"]},function:{type:"string"}},required:["target"]}}
 ];
 
