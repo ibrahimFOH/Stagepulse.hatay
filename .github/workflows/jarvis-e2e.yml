@@ -33,6 +33,7 @@ jobs:
           deno check --quiet --no-lock supabase/functions/jarvis-audit/index.ts
           grep -q 'withSupabase' supabase/functions/_shared/core.ts
           grep -q 'tool_calls' supabase/functions/patron-ai/index.ts
+          grep -q 'repo.propose_change' supabase/functions/patron-ai/index.ts
           grep -q 'github.file_write' supabase/functions/patron-ai/index.ts
           grep -q 'github.push' supabase/functions/patron-ai/index.ts
           grep -q 'github.merge' supabase/functions/patron-ai/index.ts
