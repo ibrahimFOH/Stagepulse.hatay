@@ -180,7 +180,7 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (!AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant)) { bridgeAllowed = false; return }
+                if (!AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant) && !url.startsWith(jarvisUrl())) { bridgeAllowed = false; return }
                 bridgeAllowed = true
                 installMinimalBridge()
                 readSupabaseSession()
@@ -255,7 +255,7 @@ class MainActivity : AppCompatActivity() {
                         speechRecognizer?.destroy(); speechRecognizer = null
                     }
                 })
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply { putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("tr", "TR")); putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "tr-TR"); putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false); putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3 }
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply { putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("tr", "TR")); putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "tr-TR"); putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false); putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3) }
                 sr.startListening(intent)
             }
         } catch (e: Exception) {
@@ -333,6 +333,6 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         if (::webView.isInitialized) { if (bridgeAllowed) readSupabaseSession(); registerDeviceIfReady(); appUpdater.checkOnResume(); AppUpdateWorker.schedule(this) }
     }
-    override fun onPause() { stopVoiceRecognition(); super.onPause() }
+    override fun onPause() { super.onPause() }
     override fun onDestroy() { pendingWebAudioRequest?.deny(); pendingWebAudioRequest = null; stopVoiceRecognition(); try { textToSpeech?.stop(); textToSpeech?.shutdown() } catch (_: Exception) {}; textToSpeech = null; ttsReady = false; removeMinimalBridge(); super.onDestroy() }
 }
