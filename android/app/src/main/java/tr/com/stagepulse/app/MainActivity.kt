@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -48,6 +49,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var secureTokenStore: SecureTokenStore
     private var jarvisButton: Button? = null
     private var speechRecognizer: SpeechRecognizer? = null
+    private var textToSpeech: TextToSpeech? = null
+    @Volatile private var ttsReady = false
     private var pendingWebAudioRequest: PermissionRequest? = null
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var fcmToken: String? = null
@@ -70,6 +73,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
         appUpdater = AppUpdater(this)
         secureTokenStore = SecureTokenStore(this)
+        initTextToSpeech()
         configureWebView()
         addJarvisSurface()
         requestNotificationPermission()
@@ -89,6 +93,18 @@ class MainActivity : AppCompatActivity() {
         }
         webView.loadUrl(notificationUrl(intent))
         appUpdater.checkOnStartup()
+    }
+
+    private fun initTextToSpeech() {
+        textToSpeech = TextToSpeech(this) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) {
+                val result = textToSpeech?.setLanguage(Locale("tr", "TR")) ?: TextToSpeech.ERROR
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    textToSpeech?.language = Locale.getDefault()
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -218,30 +234,58 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startVoiceRecognition() {
-        if (!bridgeAllowed) return
+        if (!bridgeAllowed) { sendVoiceError("JARVIS ses köprüsü hazır değil. Sayfa tamamen yüklendikten sonra tekrar deneyin."); return }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { requestAudioPermission(); sendVoiceError("Mikrofon izni gerekli."); return }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) { sendVoiceError("Cihazın konuşma tanıma servisi kullanılamıyor."); return }
-        speechRecognizer?.cancel(); speechRecognizer?.destroy()
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).also { sr ->
-            sr.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) = Unit
-                override fun onBeginningOfSpeech() = Unit
-                override fun onRmsChanged(rmsdB: Float) = Unit
-                override fun onBufferReceived(buffer: ByteArray?) = Unit
-                override fun onEndOfSpeech() = Unit
-                override fun onPartialResults(partialResults: Bundle?) = Unit
-                override fun onEvent(eventType: Int, params: Bundle?) = Unit
-                override fun onError(error: Int) { sendVoiceError("Konuşma tanıma hatası: $error"); speechRecognizer?.destroy(); speechRecognizer = null }
-                override fun onResults(results: Bundle?) {
-                    val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
-                    if (text.isBlank()) sendVoiceError("Konuşma anlaşılamadı.") else sendVoiceResult(text)
-                    speechRecognizer?.destroy(); speechRecognizer = null
-                }
-            })
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply { putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("tr", "TR")); putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "tr-TR"); putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false); putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3) }
-            sr.startListening(intent)
+        try {
+            speechRecognizer?.cancel(); speechRecognizer?.destroy()
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).also { sr ->
+                sr.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) { sendVoiceState("Dinliyor…") }
+                    override fun onBeginningOfSpeech() = Unit
+                    override fun onRmsChanged(rmsdB: Float) = Unit
+                    override fun onBufferReceived(buffer: ByteArray?) = Unit
+                    override fun onEndOfSpeech() = Unit
+                    override fun onPartialResults(partialResults: Bundle?) = Unit
+                    override fun onEvent(eventType: Int, params: Bundle?) = Unit
+                    override fun onError(error: Int) { sendVoiceError("Konuşma tanıma hatası: $error"); speechRecognizer?.destroy(); speechRecognizer = null }
+                    override fun onResults(results: Bundle?) {
+                        val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
+                        if (text.isBlank()) sendVoiceError("Konuşma anlaşılamadı.") else sendVoiceResult(text)
+                        speechRecognizer?.destroy(); speechRecognizer = null
+                    }
+                })
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply { putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("tr", "TR")); putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "tr-TR"); putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false); putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3 }
+                sr.startListening(intent)
+            }
+        } catch (e: Exception) {
+            speechRecognizer?.destroy(); speechRecognizer = null
+            sendVoiceError("Mikrofon başlatılamadı: ${e.message ?: "cihaz ses servisi hatası"}")
         }
     }
+
+    private fun stopVoiceRecognition() {
+        try { speechRecognizer?.cancel(); speechRecognizer?.destroy() } catch (_: Exception) {}
+        speechRecognizer = null
+        sendVoiceState("Ses hazır.")
+    }
+
+    private fun speak(text: String) {
+        val clean = text.trim()
+        if (clean.isBlank()) return
+        if (!ttsReady || textToSpeech == null) { sendVoiceError("Android seslendirme motoru hazır değil."); return }
+        try {
+            textToSpeech?.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "stagepulse-jarvis")
+            sendVoiceState("JARVIS konuşuyor…")
+        } catch (e: Exception) { sendVoiceError("Seslendirme hatası: ${e.message ?: "Android TTS"}") }
+    }
+
+    private fun stopSpeaking() {
+        try { textToSpeech?.stop() } catch (_: Exception) {}
+        sendVoiceState("Ses hazır.")
+    }
+
+    private fun sendVoiceState(text: String) { if (bridgeAllowed) runOnUiThread { webView.evaluateJavascript("window.StagepulseAndroidVoiceState(${JSONObject.quote(text)});", null) } }
     private fun sendVoiceResult(text: String) { if (bridgeAllowed) runOnUiThread { webView.evaluateJavascript("window.StagepulseAndroidVoiceResult(${JSONObject.quote(text)});", null) } }
     private fun sendVoiceError(text: String) { if (bridgeAllowed) runOnUiThread { webView.evaluateJavascript("window.StagepulseAndroidVoiceError(${JSONObject.quote(text)});", null) } }
 
@@ -267,6 +311,9 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface fun refreshSession() { runOnUiThread { if (bridgeAllowed) readSupabaseSession() } }
         @JavascriptInterface fun setAccessToken(token: String?) { runOnUiThread { if (!bridgeAllowed) return@runOnUiThread; accessToken = if (secureTokenStore.save(token)) token else null; if (accessToken != null) registerDeviceIfReady() } }
         @JavascriptInterface fun startVoiceRecognition() { runOnUiThread { startVoiceRecognition() } }
+        @JavascriptInterface fun stopVoiceRecognition() { runOnUiThread { stopVoiceRecognition() } }
+        @JavascriptInterface fun speak(text: String?) { runOnUiThread { if (!text.isNullOrBlank()) speak(text) } }
+        @JavascriptInterface fun stopSpeaking() { runOnUiThread { stopSpeaking() } }
     }
 
     @Deprecated("Deprecated in Android API")
@@ -286,5 +333,6 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         if (::webView.isInitialized) { if (bridgeAllowed) readSupabaseSession(); registerDeviceIfReady(); appUpdater.checkOnResume(); AppUpdateWorker.schedule(this) }
     }
-    override fun onDestroy() { pendingWebAudioRequest?.deny(); pendingWebAudioRequest = null; speechRecognizer?.cancel(); speechRecognizer?.destroy(); speechRecognizer = null; removeMinimalBridge(); super.onDestroy() }
+    override fun onPause() { stopVoiceRecognition(); super.onPause() }
+    override fun onDestroy() { pendingWebAudioRequest?.deny(); pendingWebAudioRequest = null; stopVoiceRecognition(); try { textToSpeech?.stop(); textToSpeech?.shutdown() } catch (_: Exception) {}; textToSpeech = null; ttsReady = false; removeMinimalBridge(); super.onDestroy() }
 }
