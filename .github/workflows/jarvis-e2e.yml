@@ -74,7 +74,12 @@ jobs:
           for fn in patron-ai jarvis-tools jarvis-approve jarvis-audit; do
             last_code=''
             for attempt in 1 2 3 4 5; do
-              last_code=$(curl -sS -L --max-time 20 -o "/tmp/${fn}.options" -w '%{http_code}' -X OPTIONS "$SUPABASE_URL/functions/v1/$fn" || true)
+              last_code=$(curl -sS -L --max-time 20 -o "/tmp/${fn}.options" -w '%{http_code}' \
+                -X OPTIONS \
+                -H 'Origin: https://stagepulse.com.tr' \
+                -H 'Access-Control-Request-Method: POST' \
+                -H 'Access-Control-Request-Headers: authorization,content-type' \
+                "$SUPABASE_URL/functions/v1/$fn" || true)
               case "$last_code" in
                 2*|3*|4*)
                   echo "$fn -> $last_code (attempt $attempt)"
