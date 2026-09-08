@@ -5,9 +5,10 @@
   const input = document.getElementById('input');
   const skillsPanel = document.getElementById('skillsPanel');
   const modeBadge = document.getElementById('modeBadge');
+  const base = () => String(window.STAGEPULSE_RUNTIME?.supabaseUrl || 'https://mtjcqqrogjqaxkagwkti.supabase.co').replace(/\/$/, '');
 
   function setOnline() {
-    modeBadge.textContent = navigator.onLine ? 'ONLINE (yerel + canlı)' : 'OFFLINE';
+    modeBadge.textContent = navigator.onLine ? 'ONLINE · canlı' : 'OFFLINE';
     modeBadge.className = 'badge ' + (navigator.onLine ? 'online' : 'offline');
   }
   setOnline();
@@ -15,7 +16,7 @@
   window.addEventListener('offline', setOnline);
 
   function safe(t) {
-    return String(t)
+    return String(t ?? '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -26,7 +27,7 @@
     const div = document.createElement('div');
     div.className = 'bubble ' + role;
     div.innerHTML = safe(text);
-    if (actions && actions.length) {
+    if (actions?.length) {
       const bar = document.createElement('div');
       bar.className = 'actions';
       actions.forEach(function (a) {
@@ -42,14 +43,9 @@
           btn.addEventListener('click', function () {
             navigator.clipboard.writeText(a.payload || '').then(function () {
               btn.textContent = 'Kopyalandı';
-              setTimeout(function () { btn.textContent = a.label; }, 1200);
-            }).catch(function () {});
+              setTimeout(() => { btn.textContent = a.label; }, 1200);
+            }).catch(() => {});
           });
-          bar.appendChild(btn);
-        } else if (a.type === 'live-summary') {
-          const btn = document.createElement('button');
-          btn.type = 'button'; btn.className = 'btn-link'; btn.textContent = a.label || 'Canlı özeti getir';
-          btn.addEventListener('click', loadLiveSummary);
           bar.appendChild(btn);
         }
       });
@@ -61,45 +57,49 @@
 
   async function getAccessToken() {
     const client = window.__stagepulseAdminClient || window.sb || window.supabaseClient || null;
-    if (!client || !client.auth) return null;
+    if (!client?.auth) return null;
     const result = await client.auth.getSession();
+    if (result.error) throw result.error;
     return result?.data?.session?.access_token || null;
   }
 
-  async function loadLiveSummary() {
-    if (!navigator.onLine) {
-      addBubble('bot', 'Canlı özet için internet bağlantısı gerekli.', []);
-      return;
-    }
-    addBubble('bot', 'Canlı operasyon özeti yetki ve erişim kontrolünden geçiriliyor…', []);
+  async function callCanonical(message, history) {
+    const token = await getAccessToken();
+    if (!token) throw new Error('Yönetici oturumu bulunamadı. Admin oturumunu yenileyin.');
+    const r = await fetch(base() + '/functions/v1/patron-ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ message, history: history.slice(-12) })
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+    return data;
+  }
+
+  async function sendCanonical(message, history, opts = {}) {
     try {
-      const token = await getAccessToken();
-      if (!token) {
-        addBubble('bot', 'Yönetici oturumu bulunamadı. Admin oturumunu yenileyin.', []);
-        return;
-      }
-      const base = String(window.STAGEPULSE_RUNTIME?.supabaseUrl || 'https://mtjcqqrogjqaxkagwkti.supabase.co').replace(/\/$/, '');
-      const url = base + '/functions/v1/admin-ai';
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ action: 'summary', message: 'Teklifler, işler, müşteriler, ekipman ve okunmamış bildirimlerin canlı yönetim özetini ver.' })
-      });
-      const data = await r.json().catch(function () { return {}; });
-      if (!r.ok || data.error) {
-        addBubble('bot', 'Canlı yönetim özeti alınamadı: ' + (data.error || ('HTTP ' + r.status)), []);
-        return;
-      }
-      if (data.reply) {
-        addBubble('bot', '**Canlı yönetim özeti**\n' + data.reply, []);
-        return;
-      }
-      const c = data.context || {};
-      const text = ['**Canlı yönetim özeti**', 'Teklifler: ' + (c.offers ?? '—'), 'İşler: ' + (c.jobs ?? '—'), 'Müşteriler: ' + (c.customers ?? '—'), 'Ekipman: ' + (c.equipment ?? '—'), 'Okunmamış: ' + (c.unread_notifications ?? '—'), 'Sağlayıcı: ' + (data.provider || '—')].join('\n');
+      const data = await callCanonical(message, history);
+      let text = data.reply || 'JARVIS yanıt vermedi.';
+      if (data.tool?.name) text += '\n\nAraç: ' + data.tool.name + (data.tool.result ? ' · ' + data.tool.result : '');
+      if (data.provider) text += '\nSağlayıcı: ' + data.provider;
       addBubble('bot', text, []);
+      if (!opts.skipHistory) {
+        history.push({ role: 'bot', text });
+        saveHist(history);
+      }
+      return data;
     } catch (e) {
-      addBubble('bot', 'JARVIS canlı servisine ulaşılamadı: ' + (e?.message || 'Bağlantı hatası') + '\nYerel Jarvis komutları kullanılabilir.', []);
+      const msg = 'JARVIS canlı servisine ulaşılamadı: ' + (e?.message || 'Bağlantı hatası');
+      addBubble('bot', msg + '\nYerel Jarvis komutları kullanılabilir.', []);
+      return null;
     }
+  }
+
+  async function loadLiveSummary() {
+    const text = 'Teklifler, işler, müşteriler, ekipman ve okunmamış bildirimlerin canlı yönetim özetini ver.';
+    addBubble('bot', 'Canlı yönetim özeti canonical JARVIS üzerinden çalıştırılıyor…', []);
+    const h = loadHist();
+    await sendCanonical(text, h, { skipHistory: true });
   }
 
   function loadHist() {
@@ -110,8 +110,8 @@
   }
 
   const hist = loadHist();
-  if (hist.length) hist.forEach(function (h) { addBubble(h.role === 'bot' ? 'bot' : h.role, h.text, h.actions); });
-  else addBubble('bot', '**Admin Jarvis Pro** hazır.\nToken bağımlı olmayan yerel komutlar + yetkili canlı yönetim özeti.', []);
+  if (hist.length) hist.forEach(h => addBubble(h.role === 'bot' ? 'bot' : h.role, h.text, h.actions));
+  else addBubble('bot', '**Admin Jarvis Pro** hazır.\nCanlı işlemler canonical Patron JARVIS endpointi üzerinden yürütülür.', []);
 
   function renderSkills() {
     skillsPanel.innerHTML = '';
@@ -124,25 +124,37 @@
   }
   renderSkills();
 
-  document.getElementById('btnSkills').addEventListener('click', function () { skillsPanel.classList.toggle('hidden'); });
-  const jobsBtn = document.getElementById('btnJobs');
-  if (jobsBtn) jobsBtn.addEventListener('click', function () { input.value = 'işler'; form.requestSubmit(); });
-  document.getElementById('btnClear').addEventListener('click', function () {
+  document.getElementById('btnSkills')?.addEventListener('click', () => skillsPanel.classList.toggle('hidden'));
+  document.getElementById('btnJobs')?.addEventListener('click', () => { input.value = 'işler'; form.requestSubmit(); });
+  document.getElementById('btnClear')?.addEventListener('click', function () {
     sessionStorage.removeItem(window.SPAdminAgent.HIST_KEY);
     msgs.innerHTML = '';
     addBubble('bot', 'Sohbet temizlendi.', []);
   });
 
-  form.addEventListener('submit', function (e) {
+  form.addEventListener('submit', async function (e) {
     e.preventDefault();
     const q = input.value.trim();
     if (!q) return;
     input.value = '';
     addBubble('user', q, []);
     hist.push({ role: 'user', text: q });
-    const res = window.SPAdminAgent.run(q);
-    addBubble('bot', res.text, res.actions || []);
-    hist.push({ role: 'bot', text: res.text, actions: res.actions || [] });
     saveHist(hist);
+
+    const local = window.SPAdminAgent.run(q);
+    if (local.text === 'LIVE_SUMMARY_REQUEST') {
+      await loadLiveSummary();
+      return;
+    }
+
+    // Deterministic local commands stay local; general natural-language requests go to canonical JARVIS.
+    const isLocal = /^(yardım|help|komut|beceri|not\b|notlar|kayıtlı not|işler$|fiyat not|pricing|fiyatlandırma|bölge|region|etkinlik checklist|checklist etkinlik|foh checklist|checklist foh|ışık checklist|checklist ışık|süreç|sop|paket|wa\b|whatsapp|mesaj|taslak|takip|teyit|kurulum mesaj|brifing|brief|saha\b|gün planı|gun plani|day plan|teklif\b)/i.test(q.trim());
+    if (isLocal) {
+      addBubble('bot', local.text, local.actions || []);
+      hist.push({ role: 'bot', text: local.text, actions: local.actions || [] });
+      saveHist(hist);
+      return;
+    }
+    await sendCanonical(q, hist);
   });
 })();
