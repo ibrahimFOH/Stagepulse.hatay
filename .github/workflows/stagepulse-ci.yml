@@ -121,7 +121,7 @@ jobs:
           import re
           from pathlib import Path
           sitemap=Path('sitemap.xml').read_text(encoding='utf-8')
-          urls=re.findall(r'<loc>(https://stagepulse\\.com\\.tr(?:/[^<]*)?)</loc>',sitemap)
+          urls=re.findall(r'<loc>(https://stagepulse\.com\.tr(?:/[^<]*)?)</loc>',sitemap)
           assert urls and len(urls)==len(set(urls)), 'Invalid or duplicate sitemap URLs'
           for url in urls:
               p=url.removeprefix('https://stagepulse.com.tr/').rstrip('/')
@@ -130,7 +130,7 @@ jobs:
               assert file.is_file(), f'Missing sitemap file: {file}'
               html=file.read_text(encoding='utf-8',errors='ignore')
               assert re.search(r'<title>[^<]+</title>',html,re.I)
-              assert re.search(r'<meta[^>]+name=[\"\']description[\"\']',html,re.I)
+              assert re.search(r'<meta[^>]+name=["\']description["\']',html,re.I)
           print(f'Validated {len(urls)} sitemap pages.')
           PY
       - name: Verify public navigation controller
@@ -252,7 +252,7 @@ jobs:
           test -n "$SUPABASE_PROJECT_REF"
           if [ "$APPLY_MISSING" = "true" ]; then python3 scripts/sync-supabase-migrations.py; fi
           if [ "$FUNCTION" = "all" ]; then
-            find supabase/functions -mindepth 1 -maxdepth 1 -type d ! -name _shared -printf '%f\\n' | sort | while read -r fn; do
+            find supabase/functions -mindepth 1 -maxdepth 1 -type d ! -name _shared -printf '%f\n' | sort | while read -r fn; do
               supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
             done
           else
@@ -265,7 +265,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@11d5960a326750d1f99cc633dbcf757c94c7933a
       - name: Audit migration state
         env:
           APPLY_MISSING: ${{ inputs.apply_missing }}
