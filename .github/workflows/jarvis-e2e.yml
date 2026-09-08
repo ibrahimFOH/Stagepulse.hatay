@@ -33,6 +33,16 @@ jobs:
           deno check --quiet --no-lock supabase/functions/jarvis-audit/index.ts
           grep -q 'withSupabase' supabase/functions/_shared/core.ts
           grep -q 'tool_calls' supabase/functions/patron-ai/index.ts
+          grep -q 'github.file_write' supabase/functions/patron-ai/index.ts
+          grep -q 'github.push' supabase/functions/patron-ai/index.ts
+          grep -q 'github.merge' supabase/functions/patron-ai/index.ts
+          grep -q 'github.open_pr' supabase/functions/patron-ai/index.ts
+          grep -q 'deploy' supabase/functions/patron-ai/index.ts
+          grep -q 'permission.change' supabase/functions/patron-ai/index.ts
+          grep -q 'quotes.send' supabase/functions/patron-ai/index.ts
+          grep -q 'agent.create' supabase/functions/patron-ai/index.ts
+          grep -q 'agent.delete' supabase/functions/patron-ai/index.ts
+          grep -q 'agent.grant_tool' supabase/functions/patron-ai/index.ts
           grep -q 'dbDelete' supabase/functions/jarvis-approve/index.ts
           grep -q 'dbUpdate' supabase/functions/jarvis-approve/index.ts
           grep -q 'pricing' supabase/functions/jarvis-approve/index.ts
