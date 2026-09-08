@@ -13,6 +13,13 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 | Admin bootstrap / runtime | `admin/admin-runtime.js` |
 | Admin management navigation | `admin/admin-management-nav.js` |
 | Patron executive center | `admin/patron-center.js` |
+| Patron JARVIS cockpit | `jarvis/admin/index.html` |
+| Patron JARVIS core config | `jarvis/core/config.js` + `shared/runtime-config.js` |
+| Patron JARVIS AI gateway | `supabase/functions/patron-ai/index.ts` |
+| Patron JARVIS tools | `supabase/functions/jarvis-tools/index.ts` |
+| Patron JARVIS approvals | `supabase/functions/jarvis-approve/index.ts` |
+| Patron JARVIS audit | `supabase/functions/jarvis-audit/index.ts` |
+| Patron JARVIS health | `supabase/functions/jarvis-health/index.ts` |
 | Admin authentication | `supabase/functions/admin-login/index.ts` |
 | Admin data API | `supabase/functions/admin-data/index.ts` |
 | Organization / RBAC control API | `supabase/functions/org-admin-control/index.ts` |
@@ -31,14 +38,17 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 | Regional SEO gate | `.github/workflows/regional-seo.yml` |
 | Signed APK release | `.github/workflows/apk-release.yml` |
 
+`/admin/jarvis/` is a compatibility redirect only. It contains no second JARVIS runtime. The canonical cockpit is `/jarvis/admin/`.
+
 `supabase/functions/staff-session/index.ts` is deprecated compatibility code and is not a canonical runtime dependency.
 
 ## AI safety model
 
 - Public AI is unauthenticated, rate-limited, knowledge-grounded and must not expose private company data.
 - Admin AI requires a valid authenticated admin membership; it is analysis/proposal-only and cannot directly execute database changes.
+- Patron JARVIS requires a valid authenticated Patron/Owner/Admin identity, reads live company data through its controlled tools, and routes critical writes through the approval/audit layer.
 - Staff AI requires a valid authenticated active organization membership and is restricted to the user's own operational context.
-- AI execution remains governed by the existing AI-agent capability model and approval/audit layer. `can_execute` stays disabled for conversational assistants.
+- AI execution remains governed by the existing AI-agent capability model and approval/audit layer.
 
 ## Media model
 
@@ -61,6 +71,7 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 - CEO and other delegated users are capability-based.
 - `public.is_admin()` is an authenticated-only compatibility wrapper around `private.is_admin()`.
 - `private.is_admin()` delegates to the canonical organization-owner check.
+- High-level command RPCs are authenticated-only and retain internal owner/capability checks.
 
 ## Production requirements
 
