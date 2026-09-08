@@ -72,8 +72,28 @@ jobs:
         run: |
           set -euo pipefail
           for fn in patron-ai jarvis-tools jarvis-approve jarvis-audit; do
-            code=$(curl -sS -L --max-time 20 -o /dev/null -w '%{http_code}' -X OPTIONS "$SUPABASE_URL/functions/v1/$fn" || true)
-            case "$code" in 2*|3*|4*) ;; *) echo "$fn -> $code"; exit 1;; esac
+            last_code=''
+            for attempt in 1 2 3 4 5; do
+              last_code=$(curl -sS -L --max-time 20 -o "/tmp/${fn}.options" -w '%{http_code}' -X OPTIONS "$SUPABASE_URL/functions/v1/$fn" || true)
+              case "$last_code" in
+                2*|3*|4*)
+                  echo "$fn -> $last_code (attempt $attempt)"
+                  break
+                  ;;
+                *)
+                  echo "$fn -> $last_code (attempt $attempt), retrying..."
+                  sleep 3
+                  ;;
+              esac
+            done
+            case "$last_code" in
+              2*|3*|4*) ;;
+              *)
+                echo "${fn} endpoint remained unavailable after 5 attempts: HTTP ${last_code}"
+                sed -n '1,20p' "/tmp/${fn}.options" || true
+                exit 1
+                ;;
+            esac
           done
   authenticated:
     name: Patron Login -> JARVIS -> Tool -> Approval -> Execute
