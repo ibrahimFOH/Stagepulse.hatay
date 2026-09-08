@@ -37,9 +37,12 @@ jobs:
           grep -q 'getUserFromRequest' supabase/functions/_shared/core.ts
           grep -q 'withPatron' supabase/functions/_shared/core.ts
           grep -q 'Access-Control-Allow-Origin' supabase/functions/_shared/core.ts
-          grep -q 'status: 204' supabase/functions/_shared/core.ts
+          grep -q 'status:204' supabase/functions/_shared/core.ts || grep -q 'status: 204' supabase/functions/_shared/core.ts
           grep -q 'tool_calls' supabase/functions/patron-ai/index.ts
           grep -q 'repo.propose_change' supabase/functions/patron-ai/index.ts
+          grep -q 'jarvis_memory' supabase/functions/patron-ai/index.ts
+          grep -q 'select("content,created_at")' supabase/functions/patron-ai/index.ts
+          grep -q 'content:{role:"user"' supabase/functions/patron-ai/index.ts
           for tool in github.file_write github.push github.merge github.open_pr deploy permission.change quotes.send agent.create agent.delete agent.grant_tool db.bulk_update pricing.update; do grep -q "$tool" supabase/functions/patron-ai/index.ts; done
           grep -q 'dbDelete' supabase/functions/jarvis-approve/index.ts
           grep -q 'dbUpdate' supabase/functions/jarvis-approve/index.ts
