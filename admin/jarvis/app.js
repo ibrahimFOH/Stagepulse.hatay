@@ -7,7 +7,7 @@
   const modeBadge = document.getElementById('modeBadge');
 
   function setOnline() {
-    modeBadge.textContent = navigator.onLine ? 'ONLINE (ajan offline)' : 'OFFLINE';
+    modeBadge.textContent = navigator.onLine ? 'ONLINE (yerel + canlı)' : 'OFFLINE';
     modeBadge.className = 'badge ' + (navigator.onLine ? 'online' : 'offline');
   }
   setOnline();
@@ -59,6 +59,13 @@
     msgs.scrollTop = msgs.scrollHeight;
   }
 
+  async function getAccessToken() {
+    const client = window.__stagepulseAdminClient || window.sb || window.supabaseClient || null;
+    if (!client || !client.auth) return null;
+    const result = await client.auth.getSession();
+    return result?.data?.session?.access_token || null;
+  }
+
   async function loadLiveSummary() {
     if (!navigator.onLine) {
       addBubble('bot', 'Canlı özet için internet bağlantısı gerekli.', []);
@@ -66,23 +73,32 @@
     }
     addBubble('bot', 'Canlı operasyon özeti yetki ve erişim kontrolünden geçiriliyor…', []);
     try {
-      const url = 'https://mtjcqqrogjqaxkagwkti.supabase.co/functions/v1/production-os';
-      const token = localStorage.getItem('sb-access-token') || sessionStorage.getItem('sb-access-token');
+      const token = await getAccessToken();
       if (!token) {
-        addBubble('bot', 'Oturum doğrulaması bulunamadı. Canlı iç veri açılmadı.', []);
+        addBubble('bot', 'Yönetici oturumu bulunamadı. Admin oturumunu yenileyin.', []);
         return;
       }
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ action: 'live_summary' }) });
+      const base = String(window.STAGEPULSE_RUNTIME?.supabaseUrl || 'https://mtjcqqrogjqaxkagwkti.supabase.co').replace(/\/$/, '');
+      const url = base + '/functions/v1/admin-ai';
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ action: 'summary', message: 'Teklifler, işler, müşteriler, ekipman ve okunmamış bildirimlerin canlı yönetim özetini ver.' })
+      });
       const data = await r.json().catch(function () { return {}; });
       if (!r.ok || data.error) {
-        addBubble('bot', 'Canlı özet alınamadı. Yetki veya servis durumu kontrol edilmeli.', []);
+        addBubble('bot', 'Canlı yönetim özeti alınamadı: ' + (data.error || ('HTTP ' + r.status)), []);
         return;
       }
-      const d = data.data || data;
-      const text = ['**Canlı operasyon özeti**', 'İşler: ' + (d.jobs ?? d.job_count ?? '—'), 'Bekleyenler: ' + (d.pending ?? d.pending_count ?? '—'), 'Hazırlık: ' + (d.readiness ?? '—'), 'Son güncelleme: ' + new Date().toLocaleString('tr-TR')].join('\n');
+      if (data.reply) {
+        addBubble('bot', '**Canlı yönetim özeti**\n' + data.reply, []);
+        return;
+      }
+      const c = data.context || {};
+      const text = ['**Canlı yönetim özeti**', 'Teklifler: ' + (c.offers ?? '—'), 'İşler: ' + (c.jobs ?? '—'), 'Müşteriler: ' + (c.customers ?? '—'), 'Ekipman: ' + (c.equipment ?? '—'), 'Okunmamış: ' + (c.unread_notifications ?? '—'), 'Sağlayıcı: ' + (data.provider || '—')].join('\n');
       addBubble('bot', text, []);
-    } catch (_) {
-      addBubble('bot', 'Canlı özet servisine ulaşılamadı. Yerel Jarvis çalışmaya devam ediyor.', []);
+    } catch (e) {
+      addBubble('bot', 'JARVIS canlı servisine ulaşılamadı: ' + (e?.message || 'Bağlantı hatası') + '\nYerel Jarvis komutları kullanılabilir.', []);
     }
   }
 
@@ -95,7 +111,7 @@
 
   const hist = loadHist();
   if (hist.length) hist.forEach(function (h) { addBubble(h.role === 'bot' ? 'bot' : h.role, h.text, h.actions); });
-  else addBubble('bot', '**Admin Jarvis Pro** hazır.\nToken yok · checklist · WA · teklif özeti · iş kaydı.\n**yardım** veya beceri seç.', []);
+  else addBubble('bot', '**Admin Jarvis Pro** hazır.\nToken bağımlı olmayan yerel komutlar + yetkili canlı yönetim özeti.', []);
 
   function renderSkills() {
     skillsPanel.innerHTML = '';
