@@ -75,21 +75,25 @@ jobs:
   authenticated:
     name: Patron Login -> JARVIS -> Tool -> Approval -> Execute
     needs: contract
-    if: ${{ secrets.SUPABASE_E2E_EMAIL != '' && secrets.SUPABASE_E2E_PASSWORD != '' && secrets.SUPABASE_PUBLISHABLE_KEY != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      E2E_ENABLED: ${{ secrets.SUPABASE_E2E_EMAIL != '' && secrets.SUPABASE_E2E_PASSWORD != '' && secrets.SUPABASE_PUBLISHABLE_KEY != '' }}
+      SUPABASE_URL: https://mtjcqqrogjqaxkagwkti.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_E2E_EMAIL: ${{ secrets.SUPABASE_E2E_EMAIL }}
+      SUPABASE_E2E_PASSWORD: ${{ secrets.SUPABASE_E2E_PASSWORD }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
       - name: Run authenticated JARVIS E2E
-        env:
-          SUPABASE_URL: https://mtjcqqrogjqaxkagwkti.supabase.co
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_E2E_EMAIL: ${{ secrets.SUPABASE_E2E_EMAIL }}
-          SUPABASE_E2E_PASSWORD: ${{ secrets.SUPABASE_E2E_PASSWORD }}
+        if: ${{ env.E2E_ENABLED == 'true' }}
         run: node scripts/jarvis-e2e.mjs
+      - name: Report authentication E2E status
+        if: ${{ env.E2E_ENABLED != 'true' }}
+        run: echo 'Authenticated E2E credentials are not configured; contract checks remain enforced.'
   credentials_notice:
     name: Auth E2E Credential Status
     needs: contract
