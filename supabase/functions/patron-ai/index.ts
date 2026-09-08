@@ -12,7 +12,7 @@ const P:any={
   llm7:{env:"LLM7_API_KEY",base:"https://api.llm7.io/v1",modelEnv:"LLM7_MODEL",model:"default",tools:false}
 };
 const TABLES:any={leads:["teklifler","leads","contacts"],events:["event_projects","events","etkinlikler"],equipment:["equipment","ekipman","technical_specs"],staff:["staff","personnel","personel"]};
-const WRITE=new Set(["github.file_write","github.push","github.merge","github.open_pr","db.delete","db.bulk_update","pricing.update","deploy","permission.change","agent.create","agent.delete","agent.grant_tool","quotes.send"]);
+const WRITE=new Set(["repo.propose_change","github.file_write","github.push","github.merge","github.open_pr","db.delete","db.bulk_update","pricing.update","deploy","permission.change","agent.create","agent.delete","agent.grant_tool","quotes.send"]);
 const TOOLS:any=[
 {name:"leads.list",description:"Canlı teklif/lead kayıtlarını listeler",parameters:{type:"object",properties:{limit:{type:"integer",minimum:1,maximum:50}},additionalProperties:false}},
 {name:"events.list",description:"Canlı etkinlik kayıtlarını listeler",parameters:{type:"object",properties:{limit:{type:"integer",minimum:1,maximum:50}},additionalProperties:false}},
