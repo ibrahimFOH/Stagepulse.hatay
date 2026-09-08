@@ -7,7 +7,7 @@ const email = process.env.SUPABASE_E2E_EMAIL;
 const password = process.env.SUPABASE_E2E_PASSWORD;
 
 async function api(path, init = {}) {
-  const headers = { apikey: pub, "content-type": "application/json", ...(init.headers || {}) };
+  const headers = { apikey: pub, ...(init.body ? { "content-type": "application/json" } : {}), ...(init.headers || {}) };
   const r = await fetch(`${base}${path}`, { ...init, headers });
   const text = await r.text();
   let body;
@@ -21,7 +21,7 @@ if (!session.access_token) throw new Error("Login did not return access_token");
 const auth = { Authorization: `Bearer ${session.access_token}` };
 
 const health = await api("/functions/v1/patron-ai", { method: "POST", headers: auth, body: JSON.stringify({ health: true }) });
-if (health.ok !== true || health.auth !== "@supabase/server") throw new Error(`patron-ai health failed: ${JSON.stringify(health)}`);
+if (health.ok !== true || health.service !== "patron-ai" || !health.user) throw new Error(`patron-ai health failed: ${JSON.stringify(health)}`);
 
 const chat = await api("/functions/v1/patron-ai", { method: "POST", headers: auth, body: JSON.stringify({ message: "Teklifleri canlı veritabanından listele ve kaç kayıt olduğunu söyle." }) });
 if (!chat.reply || chat.provider === "fallback") throw new Error(`patron-ai model path failed: ${JSON.stringify(chat)}`);
