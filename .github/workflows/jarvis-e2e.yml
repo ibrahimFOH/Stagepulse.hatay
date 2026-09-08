@@ -26,11 +26,13 @@ jobs:
           test -s jarvis/admin/index.html
           test -s jarvis/core/config.js
           test -s scripts/jarvis-e2e.mjs
+          test -s supabase/functions/jarvis-health/index.ts
           deno check --quiet --no-lock supabase/functions/_shared/core.ts
           deno check --quiet --no-lock supabase/functions/patron-ai/index.ts
           deno check --quiet --no-lock supabase/functions/jarvis-tools/index.ts
           deno check --quiet --no-lock supabase/functions/jarvis-approve/index.ts
           deno check --quiet --no-lock supabase/functions/jarvis-audit/index.ts
+          deno check --quiet --no-lock supabase/functions/jarvis-health/index.ts
           grep -q 'createClient' supabase/functions/_shared/core.ts
           grep -q 'getUserFromRequest' supabase/functions/_shared/core.ts
           grep -q 'withPatron' supabase/functions/_shared/core.ts
@@ -38,9 +40,7 @@ jobs:
           grep -q 'status: 204' supabase/functions/_shared/core.ts
           grep -q 'tool_calls' supabase/functions/patron-ai/index.ts
           grep -q 'repo.propose_change' supabase/functions/patron-ai/index.ts
-          for tool in github.file_write github.push github.merge github.open_pr deploy permission.change quotes.send agent.create agent.delete agent.grant_tool db.bulk_update pricing.update; do
-            grep -q "$tool" supabase/functions/patron-ai/index.ts
-          done
+          for tool in github.file_write github.push github.merge github.open_pr deploy permission.change quotes.send agent.create agent.delete agent.grant_tool db.bulk_update pricing.update; do grep -q "$tool" supabase/functions/patron-ai/index.ts; done
           grep -q 'dbDelete' supabase/functions/jarvis-approve/index.ts
           grep -q 'dbUpdate' supabase/functions/jarvis-approve/index.ts
           grep -q 'pricing' supabase/functions/jarvis-approve/index.ts
@@ -50,6 +50,9 @@ jobs:
           grep -q 'agent.create' supabase/functions/jarvis-approve/index.ts
           grep -q 'agent.delete' supabase/functions/jarvis-approve/index.ts
           grep -q 'agent.grant_tool' supabase/functions/jarvis-approve/index.ts
+          grep -q 'jarvis-health' jarvis/core/config.js
+          grep -q 'auth' supabase/functions/jarvis-health/index.ts
+          grep -q 'database' supabase/functions/jarvis-health/index.ts
       - name: Syntax check browser scripts
         run: |
           set -euo pipefail
@@ -60,49 +63,20 @@ jobs:
           set -euo pipefail
           code=$(curl -sS -L --max-time 25 -A 'Mozilla/5.0 (compatible; Stagepulse-JARVIS-E2E/1.0)' -o /tmp/jarvis.html -w '%{http_code}' "$JARVIS_URL" || true)
           case "$code" in
-            2*|3*)
-              grep -q 'Stagepulse' /tmp/jarvis.html
-              grep -q 'JARVIS' /tmp/jarvis.html
-              ;;
-            403)
-              echo 'Public JARVIS page is protected by the edge/WAF (HTTP 403). Treating this as an infrastructure access policy, not an application failure.'
-              ;;
-            *)
-              echo "JARVIS page HTTP $code"
-              exit 1
-              ;;
+            2*|3*) grep -q 'Stagepulse' /tmp/jarvis.html; grep -q 'JARVIS' /tmp/jarvis.html ;;
+            403) echo 'Public JARVIS page is protected by the edge/WAF (HTTP 403). Treating this as infrastructure access policy.' ;;
+            *) echo "JARVIS page HTTP $code"; exit 1 ;;
           esac
       - name: Check function endpoints exist
         run: |
           set -euo pipefail
-          for fn in patron-ai jarvis-tools jarvis-approve jarvis-audit; do
+          for fn in patron-ai jarvis-tools jarvis-approve jarvis-audit jarvis-health; do
             last_code=''
             for attempt in 1 2 3 4 5; do
-              last_code=$(curl -sS -L --max-time 20 -o "/tmp/${fn}.options" -w '%{http_code}' \
-                -X OPTIONS \
-                -H 'Origin: https://stagepulse.com.tr' \
-                -H 'Access-Control-Request-Method: POST' \
-                -H 'Access-Control-Request-Headers: authorization,content-type' \
-                "$SUPABASE_URL/functions/v1/$fn" || true)
-              case "$last_code" in
-                2*|3*|4*)
-                  echo "$fn -> $last_code (attempt $attempt)"
-                  break
-                  ;;
-                *)
-                  echo "$fn -> $last_code (attempt $attempt), retrying..."
-                  sleep 3
-                  ;;
-              esac
+              last_code=$(curl -sS -L --max-time 20 -o "/tmp/${fn}.options" -w '%{http_code}' -X OPTIONS -H 'Origin: https://stagepulse.com.tr' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization,content-type' "$SUPABASE_URL/functions/v1/$fn" || true)
+              case "$last_code" in 2*|3*|4*) echo "$fn -> $last_code (attempt $attempt)"; break;; *) echo "$fn -> $last_code (attempt $attempt), retrying..."; sleep 3;; esac
             done
-            case "$last_code" in
-              2*|3*|4*) ;;
-              *)
-                echo "${fn} endpoint remained unavailable after 5 attempts: HTTP ${last_code}"
-                sed -n '1,20p' "/tmp/${fn}.options" || true
-                exit 1
-                ;;
-            esac
+            case "$last_code" in 2*|3*|4*) ;; *) echo "${fn} endpoint remained unavailable after 5 attempts: HTTP ${last_code}"; sed -n '1,20p' "/tmp/${fn}.options" || true; exit 1;; esac
           done
   authenticated:
     name: Patron Login -> JARVIS -> Tool -> Approval -> Execute
@@ -118,8 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: 24
+        with: { node-version: 24 }
       - name: Run authenticated JARVIS E2E
         if: ${{ env.E2E_ENABLED == 'true' }}
         run: node scripts/jarvis-e2e.mjs
@@ -138,8 +111,4 @@ jobs:
           KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
           set -euo pipefail
-          if [ -n "$EMAIL" ] && [ -n "$PASSWORD" ] && [ -n "$KEY" ]; then
-            echo 'Authenticated E2E credentials configured.'
-          else
-            echo 'Authenticated E2E credentials are not configured; runtime contract remains enforced.'
-          fi
+          if [ -n "$EMAIL" ] && [ -n "$PASSWORD" ] && [ -n "$KEY" ]; then echo 'Authenticated E2E credentials configured.'; else echo 'Authenticated E2E credentials are not configured; runtime contract remains enforced.'; fi
