@@ -16,10 +16,7 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 | Admin authentication | `supabase/functions/admin-login/index.ts` |
 | Admin data API | `supabase/functions/admin-data/index.ts` |
 | Organization / RBAC control API | `supabase/functions/org-admin-control/index.ts` |
-| Admin AI assistant | `supabase/functions/admin-ai/index.ts` + `admin/admin-ai.js` |
-| AI provider management | `supabase/functions/ai-manage/index.ts` + `admin/admin-ai-providers.js` |
 | Staff authentication | `supabase/functions/staff-login/index.ts` + `supabase/functions/portal-login/index.ts` |
-| Staff AI assistant | `supabase/functions/staff-ai/index.ts` + `portal/staff-ai.js` |
 | Public quote intake | `supabase/functions/public-quote/index.ts` |
 | Media administration | `supabase/functions/admin-github-media/index.ts` |
 | Media normalization / index | `scripts/process_media.py` + `.github/workflows/media-index.yml` |
@@ -31,12 +28,6 @@ For each operation, keep one authoritative runtime entrypoint. Supporting styles
 | Signed APK release | `.github/workflows/apk-release.yml` |
 
 `supabase/functions/staff-session/index.ts` is deprecated compatibility code and is not a canonical runtime dependency.
-
-## AI safety model
-
-- Admin AI requires a valid authenticated admin membership; it is analysis/proposal-only and cannot directly execute database changes.
-- Staff AI requires a valid authenticated active organization membership and is restricted to the user's own operational context.
-- AI provider configuration remains isolated from public client code and backend secrets remain server-side.
 
 ## Media model
 
