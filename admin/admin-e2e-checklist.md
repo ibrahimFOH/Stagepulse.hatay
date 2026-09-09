@@ -35,13 +35,6 @@ This checklist is intentionally non-destructive. It defines real-user acceptance
 - [ ] Relevant operational events create notifications
 - [ ] User can only access their permitted notifications
 
-## AI
-- [ ] AI panel loads without schema errors
-- [ ] Action request uses the current schema
-- [ ] Admin can approve/reject an action request
-- [ ] AI cannot execute an action without the required approval
-- [ ] Approved action produces an auditable result
-
 ## Security / RLS
 - [ ] Staff cannot read another user's restricted records
 - [ ] Staff cannot call admin-only mutations
@@ -57,6 +50,6 @@ This checklist is intentionally non-destructive. It defines real-user acceptance
 - [ ] Browser console has no blocking Admin errors
 
 ## Final acceptance
-- [ ] Customer → Offer → Job → Event → Staff → Equipment → Finance → Approval → Notification → AI chain passes
+- [ ] Customer → Offer → Job → Event → Staff → Equipment → Finance → Approval → Notification chain passes
 - [ ] CI passes after the final change
 - [ ] No production test data remains
