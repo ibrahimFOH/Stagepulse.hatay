@@ -23,6 +23,7 @@ function ensureCoreNavigationLinks() {
   }
   ensure('dokumanlar.html', 'Dokümanlar', 'referanslar.html');
   ensure('bolgeler.html', 'Bölgeler', 'referanslar.html');
+  ensure('teknik-rehber.html', 'Teknik Rehber', 'referanslar.html');
 }
 ensureCoreNavigationLinks();
 
@@ -77,7 +78,7 @@ ensureLanguageSwitcher();
   if (!document.getElementById('sp-public-nav-fix')) {
     var st = document.createElement('style');
     st.id = 'sp-public-nav-fix';
-    st.textContent = '@media (max-width:899px){.hamburger,#hamburger{display:flex!important;visibility:visible!important;pointer-events:auto!important;width:40px!important;height:40px!important;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:transparent;color:#fff;flex-shrink:0;z-index:10002;opacity:1!important;cursor:pointer;font-size:16px}.nav-right{margin-left:auto!important;display:flex!important;align-items:center;gap:6px;flex-shrink:0}.nav-inner{display:flex!important;align-items:center;gap:8px;width:100%;min-width:0}.nav-links{display:none;position:absolute;top:64px;left:0;width:100%;background:#0a0a0a;flex-direction:column;padding:14px 18px 20px;z-index:10001;border-bottom:1px solid rgba(255,255,255,.08)}.nav-links.active{display:flex!important}.nav-links a{color:#ccc;text-decoration:none;padding:10px 12px;border-radius:8px}}@media (min-width:900px){.hamburger,#hamburger{display:none!important;visibility:hidden!important;pointer-events:none!important}.nav-links{display:flex!important;position:static!important;width:auto!important;background:transparent!important;flex-direction:row!important;padding:0!important}}';
+    st.textContent = '@media(max-width:899px){.hamburger,#hamburger{display:flex!important;visibility:visible!important;pointer-events:auto!important;width:40px!important;height:40px!important;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:transparent;color:#fff;flex-shrink:0;z-index:10002;opacity:1!important;cursor:pointer;font-size:16px}.nav-right{margin-left:auto!important;display:flex!important;align-items:center;gap:6px;flex-shrink:0}.nav-inner{display:flex!important;align-items:center;gap:8px;width:100%;min-width:0}.nav-links{display:none;position:absolute;top:64px;left:0;width:100%;background:#0a0a0a;flex-direction:column;padding:14px 18px 20px;z-index:10001;border-bottom:1px solid rgba(255,255,255,.08)}.nav-links.active{display:flex!important}.nav-links a{color:#ccc;text-decoration:none;padding:10px 12px;border-radius:8px}}@media (min-width:900px){.hamburger,#hamburger{display:none!important;visibility:hidden!important;pointer-events:none!important}.nav-links{display:flex!important;position:static!important;width:auto!important;background:transparent!important;flex-direction:row!important;padding:0!important}}';
     document.head.appendChild(st);
   }
   if (!document.getElementById('sp-mobile-nav-css')) {
