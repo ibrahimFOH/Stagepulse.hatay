@@ -60,8 +60,9 @@ async function membershipRole(userId: string) {
     .limit(20);
   if (error) throw error;
   const memberships = Array.isArray(data) ? data : [];
-  const membership = memberships.find((m: any) => m?.role?.active !== false && m?.role?.code);
-  return membership?.role ?? null;
+  const membership: any = memberships.find((m: any) => Array.isArray(m?.role) ? m.role[0]?.code : m?.role?.code);
+  const role = Array.isArray(membership?.role) ? membership.role[0] : membership?.role;
+  return role ?? null;
 }
 
 export async function isPatron(ctxOrUser: any) {
