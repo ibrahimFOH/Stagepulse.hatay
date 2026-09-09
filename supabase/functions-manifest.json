@@ -17,7 +17,6 @@
     { "name": "register-android-device", "verifyJwt": true },
     { "name": "self-password-change", "verifyJwt": true },
     { "name": "send-fcm-notification", "verifyJwt": false },
-    { "name": "site-ai", "verifyJwt": false },
     { "name": "staff-ai", "verifyJwt": true },
     { "name": "staff-login", "verifyJwt": false },
     { "name": "staff-session", "verifyJwt": false }
