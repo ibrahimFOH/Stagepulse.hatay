@@ -7,12 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
 import android.util.Log
-import android.view.Gravity
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
@@ -21,7 +16,6 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -30,7 +24,6 @@ import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.Locale
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
@@ -38,7 +31,6 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS = "stagepulse"
         private const val FCM_TOKEN = "fcm_token"
         private const val FCM_PENDING_TOKEN = "fcm_pending_token"
-        private const val AUDIO_REQUEST = 2002
         private const val NOTIFICATION_REQUEST = 2001
         private const val FILE_CHOOSER_REQUEST = 4101
     }
@@ -47,10 +39,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var root: FrameLayout
     private lateinit var appUpdater: AppUpdater
     private lateinit var secureTokenStore: SecureTokenStore
-    private var jarvisButton: Button? = null
-    private var speechRecognizer: SpeechRecognizer? = null
-    private var textToSpeech: TextToSpeech? = null
-    @Volatile private var ttsReady = false
     private var pendingWebAudioRequest: PermissionRequest? = null
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var fcmToken: String? = null
@@ -62,7 +50,6 @@ class MainActivity : AppCompatActivity() {
     private val appVariant: String get() = BuildConfig.APP_VARIANT
 
     private fun expectedUrl(): String = "https://stagepulse.com.tr$portalPath?apk=$appVariant-rbac-v10"
-    private fun jarvisUrl(): String = "https://stagepulse.com.tr/jarvis/admin/"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,11 +60,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
         appUpdater = AppUpdater(this)
         secureTokenStore = SecureTokenStore(this)
-        initTextToSpeech()
         configureWebView()
-        addJarvisSurface()
         requestNotificationPermission()
-        requestAudioPermission()
 
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         fcmToken = prefs.getString(FCM_PENDING_TOKEN, null) ?: prefs.getString(FCM_TOKEN, null)
@@ -93,18 +77,6 @@ class MainActivity : AppCompatActivity() {
         }
         webView.loadUrl(notificationUrl(intent))
         appUpdater.checkOnStartup()
-    }
-
-    private fun initTextToSpeech() {
-        textToSpeech = TextToSpeech(this) { status ->
-            ttsReady = status == TextToSpeech.SUCCESS
-            if (ttsReady) {
-                val result = textToSpeech?.setLanguage(Locale("tr", "TR")) ?: TextToSpeech.ERROR
-                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    textToSpeech?.language = Locale.getDefault()
-                }
-            }
-        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -142,7 +114,7 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         pendingWebAudioRequest?.deny()
                         pendingWebAudioRequest = request
-                        requestAudioPermission()
+                        ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.RECORD_AUDIO), 2002)
                     }
                 }
             }
@@ -168,7 +140,6 @@ class MainActivity : AppCompatActivity() {
                 super.onPageStarted(view, url, favicon)
                 bridgeAllowed = false
                 removeMinimalBridge()
-                updateJarvisSurface(url)
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
@@ -180,43 +151,24 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (!AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant) && !url.startsWith(jarvisUrl())) { bridgeAllowed = false; return }
+                if (!AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant)) { bridgeAllowed = false; return }
                 bridgeAllowed = true
                 installMinimalBridge()
                 readSupabaseSession()
-                updateJarvisSurface(url)
             }
         }
     }
-
-    private fun addJarvisSurface() {
-        if (appVariant != "admin") return
-        jarvisButton = Button(this).apply {
-            textSize = 12f
-            text = "JARVIS"
-            setOnClickListener {
-                val isJarvis = webView.url?.contains("/jarvis/admin") == true
-                webView.loadUrl(if (isJarvis) expectedUrl() else jarvisUrl())
-            }
-        }
-        val lp = FrameLayout.LayoutParams(-2, -2).apply { gravity = Gravity.BOTTOM or Gravity.END; setMargins(0, 0, 18, 22) }
-        root.addView(jarvisButton, lp)
-    }
-
-    private fun updateJarvisSurface(url: String?) { if (appVariant == "admin") jarvisButton?.text = if (url?.contains("/jarvis/admin") == true) "ADMİN" else "JARVIS" }
 
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_REQUEST)
     }
-    private fun requestAudioPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), AUDIO_REQUEST)
-    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != AUDIO_REQUEST) return
+        if (requestCode != 2002) return
         val request = pendingWebAudioRequest
         pendingWebAudioRequest = null
-        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) request?.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) else { request?.deny(); sendVoiceError("Mikrofon izni gerekli.") }
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) request?.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) else request?.deny()
     }
 
     private fun installMinimalBridge() {
@@ -224,70 +176,26 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(AndroidBridge(), "StagepulseAndroid")
         bridgeInstalled = true
     }
-    private fun removeMinimalBridge() { if (bridgeInstalled) { webView.removeJavascriptInterface("StagepulseAndroid"); bridgeInstalled = false } }
+
+    private fun removeMinimalBridge() {
+        if (bridgeInstalled) {
+            webView.removeJavascriptInterface("StagepulseAndroid")
+            bridgeInstalled = false
+        }
+    }
 
     private fun readSupabaseSession() {
         webView.evaluateJavascript("""(function(){try{for(const store of [localStorage,sessionStorage])for(let i=0;i<store.length;i++){const k=store.key(i)||'';if(k.startsWith('sb-')&&k.endsWith('-auth-token')){const v=JSON.parse(store.getItem(k)||'{}');if(v.access_token)return v.access_token;}}}catch(e){}return '';})();""".trimIndent()) { value ->
             val token = value.trim('"').replace("\\\"", "\"")
-            if (token.isNotBlank() && secureTokenStore.isUsable(token)) { if (token != accessToken && secureTokenStore.save(token)) accessToken = token; registerDeviceIfReady() } else { accessToken = null; secureTokenStore.clear() }
-        }
-    }
-
-    private fun startVoiceRecognition() {
-        if (!bridgeAllowed) { sendVoiceError("JARVIS ses köprüsü hazır değil. Sayfa tamamen yüklendikten sonra tekrar deneyin."); return }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { requestAudioPermission(); sendVoiceError("Mikrofon izni gerekli."); return }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) { sendVoiceError("Cihazın konuşma tanıma servisi kullanılamıyor."); return }
-        try {
-            speechRecognizer?.cancel(); speechRecognizer?.destroy()
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).also { sr ->
-                sr.setRecognitionListener(object : RecognitionListener {
-                    override fun onReadyForSpeech(params: Bundle?) { sendVoiceState("Dinliyor…") }
-                    override fun onBeginningOfSpeech() = Unit
-                    override fun onRmsChanged(rmsdB: Float) = Unit
-                    override fun onBufferReceived(buffer: ByteArray?) = Unit
-                    override fun onEndOfSpeech() = Unit
-                    override fun onPartialResults(partialResults: Bundle?) = Unit
-                    override fun onEvent(eventType: Int, params: Bundle?) = Unit
-                    override fun onError(error: Int) { sendVoiceError("Konuşma tanıma hatası: $error"); speechRecognizer?.destroy(); speechRecognizer = null }
-                    override fun onResults(results: Bundle?) {
-                        val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
-                        if (text.isBlank()) sendVoiceError("Konuşma anlaşılamadı.") else sendVoiceResult(text)
-                        speechRecognizer?.destroy(); speechRecognizer = null
-                    }
-                })
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply { putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("tr", "TR")); putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "tr-TR"); putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false); putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3) }
-                sr.startListening(intent)
+            if (token.isNotBlank() && secureTokenStore.isUsable(token)) {
+                if (token != accessToken && secureTokenStore.save(token)) accessToken = token
+                registerDeviceIfReady()
+            } else {
+                accessToken = null
+                secureTokenStore.clear()
             }
-        } catch (e: Exception) {
-            speechRecognizer?.destroy(); speechRecognizer = null
-            sendVoiceError("Mikrofon başlatılamadı: ${e.message ?: "cihaz ses servisi hatası"}")
         }
     }
-
-    private fun stopVoiceRecognition() {
-        try { speechRecognizer?.cancel(); speechRecognizer?.destroy() } catch (_: Exception) {}
-        speechRecognizer = null
-        sendVoiceState("Ses hazır.")
-    }
-
-    private fun speak(text: String) {
-        val clean = text.trim()
-        if (clean.isBlank()) return
-        if (!ttsReady || textToSpeech == null) { sendVoiceError("Android seslendirme motoru hazır değil."); return }
-        try {
-            textToSpeech?.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "stagepulse-jarvis")
-            sendVoiceState("JARVIS konuşuyor…")
-        } catch (e: Exception) { sendVoiceError("Seslendirme hatası: ${e.message ?: "Android TTS"}") }
-    }
-
-    private fun stopSpeaking() {
-        try { textToSpeech?.stop() } catch (_: Exception) {}
-        sendVoiceState("Ses hazır.")
-    }
-
-    private fun sendVoiceState(text: String) { if (bridgeAllowed) runOnUiThread { webView.evaluateJavascript("window.StagepulseAndroidVoiceState(${JSONObject.quote(text)});", null) } }
-    private fun sendVoiceResult(text: String) { if (bridgeAllowed) runOnUiThread { webView.evaluateJavascript("window.StagepulseAndroidVoiceResult(${JSONObject.quote(text)});", null) } }
-    private fun sendVoiceError(text: String) { if (bridgeAllowed) runOnUiThread { webView.evaluateJavascript("window.StagepulseAndroidVoiceError(${JSONObject.quote(text)});", null) } }
 
     private fun registerDeviceIfReady() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
@@ -296,24 +204,32 @@ class MainActivity : AppCompatActivity() {
         thread {
             var connection: HttpURLConnection? = null
             try {
-                connection = (URL("$supabaseUrl/functions/v1/register-android-device").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; doOutput = true; connectTimeout = 15000; readTimeout = 15000; setRequestProperty("Authorization", "Bearer $auth"); setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY); setRequestProperty("Content-Type", "application/json") }
+                connection = (URL("$supabaseUrl/functions/v1/register-android-device").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                    setRequestProperty("Authorization", "Bearer $auth")
+                    setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
+                    setRequestProperty("Content-Type", "application/json")
+                }
                 val safeToken = token.replace("\\", "\\\\").replace("\"", "\\\"")
                 connection.outputStream.use { it.write("{\"token\":\"$safeToken\",\"app_variant\":\"$appVariant\"}".toByteArray()) }
                 val status = connection.responseCode
                 (if (status in 200..299) connection.inputStream else connection.errorStream)?.close()
                 if (status in 200..299 && prefs.getString(FCM_PENDING_TOKEN, null) == token) prefs.edit().remove(FCM_PENDING_TOKEN).apply()
                 else if (status == HttpURLConnection.HTTP_UNAUTHORIZED) { accessToken = null; secureTokenStore.clear() }
-            } catch (e: Exception) { Log.w("StagepulseFCM", "register failed: ${e.message}") } finally { connection?.disconnect() }
+            } catch (e: Exception) {
+                Log.w("StagepulseFCM", "register failed: ${e.message}")
+            } finally {
+                connection?.disconnect()
+            }
         }
     }
 
     inner class AndroidBridge {
         @JavascriptInterface fun refreshSession() { runOnUiThread { if (bridgeAllowed) readSupabaseSession() } }
         @JavascriptInterface fun setAccessToken(token: String?) { runOnUiThread { if (!bridgeAllowed) return@runOnUiThread; accessToken = if (secureTokenStore.save(token)) token else null; if (accessToken != null) registerDeviceIfReady() } }
-        @JavascriptInterface fun startVoiceRecognition() { runOnUiThread { startVoiceRecognition() } }
-        @JavascriptInterface fun stopVoiceRecognition() { runOnUiThread { stopVoiceRecognition() } }
-        @JavascriptInterface fun speak(text: String?) { runOnUiThread { if (!text.isNullOrBlank()) speak(text) } }
-        @JavascriptInterface fun stopSpeaking() { runOnUiThread { stopSpeaking() } }
     }
 
     @Deprecated("Deprecated in Android API")
@@ -331,8 +247,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::webView.isInitialized) { if (bridgeAllowed) readSupabaseSession(); registerDeviceIfReady(); appUpdater.checkOnResume(); AppUpdateWorker.schedule(this) }
+        if (::webView.isInitialized) {
+            if (bridgeAllowed) readSupabaseSession()
+            registerDeviceIfReady()
+            appUpdater.checkOnResume()
+            AppUpdateWorker.schedule(this)
+        }
     }
+
     override fun onPause() { super.onPause() }
-    override fun onDestroy() { pendingWebAudioRequest?.deny(); pendingWebAudioRequest = null; stopVoiceRecognition(); try { textToSpeech?.stop(); textToSpeech?.shutdown() } catch (_: Exception) {}; textToSpeech = null; ttsReady = false; removeMinimalBridge(); super.onDestroy() }
+
+    override fun onDestroy() {
+        pendingWebAudioRequest?.deny()
+        pendingWebAudioRequest = null
+        removeMinimalBridge()
+        super.onDestroy()
+    }
 }
