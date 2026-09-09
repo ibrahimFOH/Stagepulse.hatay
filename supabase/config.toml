@@ -8,10 +8,6 @@ verify_jwt = false
 verify_jwt = false
 [functions.admin-password-reset]
 verify_jwt = false
-[functions.admin-ai]
-verify_jwt = true
-[functions.ai-manage]
-verify_jwt = false
 [functions.offer-pdf]
 verify_jwt = false
 [functions.org-admin-control]
@@ -26,21 +22,7 @@ verify_jwt = false
 verify_jwt = true
 [functions.send-fcm-notification]
 verify_jwt = false
-[functions.site-ai]
-verify_jwt = false
-[functions.staff-ai]
-verify_jwt = true
 [functions.staff-login]
 verify_jwt = false
 [functions.staff-session]
-verify_jwt = false
-[functions.patron-ai]
-verify_jwt = false
-[functions.jarvis-tools]
-verify_jwt = false
-[functions.jarvis-approve]
-verify_jwt = false
-[functions.jarvis-audit]
-verify_jwt = false
-[functions.jarvis-health]
 verify_jwt = false
