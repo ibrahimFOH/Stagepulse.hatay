@@ -45,11 +45,7 @@ internal object AndroidUrlPolicy {
         } ?: false
     }
 
-    fun isTrustedPortalNavigation(value: String, portalPath: String, appVariant: String = ""): Boolean {
-        if (isCanonicalPortalUrl(value, portalPath)) return true
-        if (appVariant != "admin") return false
-        return isCanonicalJarvisUrl(value)
-    }
+    fun isTrustedPortalNavigation(value: String, portalPath: String, appVariant: String = ""): Boolean = isCanonicalPortalUrl(value, portalPath)
 
     fun canonicalNotificationUrl(value: String, portalPath: String): String? {
         val trimmed = value.trim()
@@ -57,18 +53,6 @@ internal object AndroidUrlPolicy {
         val uri = parseHttps(trimmed) ?: return null
         val query = uri.rawQuery?.let { "?$it" }.orEmpty()
         return "https://$PORTAL_HOST${uri.rawPath ?: "/"}$query"
-    }
-
-    private fun isCanonicalJarvisUrl(value: String): Boolean {
-        return parseHttps(value)?.let { uri ->
-            if (!uri.host.equals(PORTAL_HOST, ignoreCase = true)) return false
-            if (uri.rawFragment != null || !isSafeQuery(uri.rawQuery)) return false
-            val path = uri.rawPath ?: return false
-            if (path.contains('%') || path.contains("//") || path.contains('\\')) return false
-            val parts = safePathSegments(path) ?: return false
-            val normalized = "/" + parts.drop(1).joinToString("/")
-            normalized == "/jarvis/admin" || normalized.startsWith("/jarvis/admin/")
-        } ?: false
     }
 
     private fun parseHttps(value: String): URI? {
@@ -96,5 +80,3 @@ internal object AndroidUrlPolicy {
         return decoded.none { it == '\u0000' || it == '\r' || it == '\n' || it.code < 0x20 }
     }
 }
-
-// JARVIS repair pipeline trigger 3.
