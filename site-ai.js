@@ -1,4 +1,4 @@
-/* Stagepulse Jarvis Pro public customer agent v3 — resilient, syntax-safe, AI handoff */
+/* Stagepulse Teknik Asistan public customer agent v3 — resilient, syntax-safe, AI handoff */
 (function () {
   'use strict';
 
@@ -75,7 +75,7 @@
     if (!knowledge) {
       knowledge = {
         brand: 'Stagepulse',
-        assistant_name: 'Stagepulse Jarvis',
+        assistant_name: 'Stagepulse Teknik Asistan',
         contact: { phone: '+90 532 068 3012', whatsapp: 'https://wa.me/' + WA_NUMBER, email: 'teklifal@stagepulse.com.tr' },
         regions: ['Hatay', 'Antalya', 'Adana', 'Gaziantep', 'Şanlıurfa', 'Mersin'],
         quick_chips: [
@@ -152,7 +152,7 @@
   }
 
   function buildWhatsAppUrl(note) {
-    const prefix = (knowledge && knowledge.handoff && knowledge.handoff.whatsapp_prefix) || 'Merhaba Stagepulse,\nSite Jarvis üzerinden yazıyorum.\n\n';
+    const prefix = (knowledge && knowledge.handoff && knowledge.handoff.whatsapp_prefix) || 'Merhaba Stagepulse,\nSite Teknik Asistan üzerinden yazıyorum.\n\n';
     let body = prefix;
     const lines = leadSummaryLines();
     if (lines.length) body += lines.join('\n') + '\n\n';
@@ -182,9 +182,9 @@
     const email = data.email || 'teklifal@stagepulse.com.tr';
     const regions = (data.regions || []).join(', ');
     mergeLead(extractSlots(query));
-    if (!text) return 'Stagepulse Jarvis — ses, FOH, ışık ve teklif. Ne için yazıyorsunuz?';
+    if (!text) return 'Stagepulse Teknik Asistan — ses, FOH, ışık ve teklif. Ne için yazıyorsunuz?';
     if (/personel|insan|canlı\s*destek|görüşmek|konuşmak istiyorum|birisiyle|operatör/.test(text)) return 'Sizi personele yönlendirebilirim. **WhatsApp** butonu bu sohbet özetini de ekler.\nTel: ' + phone + '\n' + wa;
-    if (/merhaba|selam|hello|iyi gün|hey\b/.test(text)) return 'Merhaba — **Stagepulse Jarvis**.\nSes sistemi, FOH, bölgeler ve teklif için buradayım.\n' + nextQuestion();
+    if (/merhaba|selam|hello|iyi gün|hey\b/.test(text)) return 'Merhaba — **Stagepulse Teknik Asistan**.\nSes sistemi, FOH, bölgeler ve teklif için buradayım.\n' + nextQuestion();
     if (/fiyat|ücret|kaç para|bütçe|price|cost/.test(text)) return 'Net fiyat tür, tarih, şehir, mekan ve kapasiteye göre çıkar.\n' + nextQuestion() + '\nForm: /teklif.html · WA: ' + wa;
     if (/teklif|quote|rezervasyon|başvuru/.test(text)) return missingSlots().length <= 2 ? 'Teklif özeti:\n' + (leadSummaryLines().length ? leadSummaryLines().map((line) => '• ' + line).join('\n') : '• Detay henüz yok') + '\n\n/teklif.html · WA: ' + wa + '\n' + (missingSlots().length ? nextQuestion() : '') : 'Teklif için adım adım gidelim.\n' + nextQuestion();
     if (/bölge|şehir|hatay|adana|gaziantep|mersin|şanlıurfa|urfa|antalya/.test(text)) return 'Hizmet bölgeleri: ' + regions + '.\n/bolgeler.html\n' + (lead.city ? '' : nextQuestion());
@@ -227,7 +227,7 @@
     const panel = el('div', 'sp-ai-panel');
     root.id = 'sp-ai-root';
     panel.innerHTML = [
-      '<div class="sp-ai-head"><div><strong>Stagepulse Jarvis</strong><span>Teknik asistan · teklif</span></div>',
+      '<div class="sp-ai-head"><div><strong>Stagepulse Teknik Asistan</strong><span>Teknik asistan · teklif</span></div>',
       '<div class="sp-ai-head-actions"><button type="button" class="sp-ai-icon-btn" id="sp-ai-clear" title="Temizle">↺</button>',
       '<button type="button" class="sp-ai-close" aria-label="Kapat">×</button></div></div>',
       '<div class="sp-ai-progress"><i id="sp-ai-prog"></i></div>',
@@ -243,7 +243,7 @@
 
     const toggle = el('button', 'sp-ai-toggle', '✦');
     toggle.type = 'button';
-    toggle.setAttribute('aria-label', 'Stagepulse Jarvis');
+    toggle.setAttribute('aria-label', 'Stagepulse Teknik Asistan');
     root.appendChild(panel);
     root.appendChild(toggle);
     document.body.appendChild(root);
@@ -285,7 +285,7 @@
     }
 
     if (history.length) history.forEach((item) => addBubble(item.role === 'assistant' ? 'bot' : 'user', item.content));
-    else addBubble('bot', 'Merhaba — **Stagepulse Jarvis**.\nSes, FOH, bölgeler ve teklif için yazın.');
+    else addBubble('bot', 'Merhaba — **Stagepulse Teknik Asistan**.\nSes, FOH, bölgeler ve teklif için yazın.');
 
     refreshUI();
     loadKnowledge().then(() => { renderChips(); refreshUI(); });
