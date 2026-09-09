@@ -1,5 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const ALLOWED_ORIGINS = new Set([
+  "https://stagepulse.com.tr",
+  "https://www.stagepulse.com.tr",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
+
 export const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-idempotency-key",
@@ -7,13 +14,24 @@ export const cors = {
   "Access-Control-Max-Age": "86400",
 };
 
-export const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json; charset=utf-8" },
-  });
+export function corsFor(req?: Request) {
+  if (!req) return cors;
+  const origin = req.headers.get("origin");
+  return origin && ALLOWED_ORIGINS.has(origin)
+    ? { ...cors, "Access-Control-Allow-Origin": origin, "Vary": "Origin" }
+    : { ...cors, "Access-Control-Allow-Origin": "null" };
+}
 
-export const options = () => new Response(null, { status: 204, headers: cors });
+export function json(body: unknown, status = 200, req?: Request) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsFor(req), "Content-Type": "application/json; charset=utf-8" },
+  });
+}
+
+export function options(req?: Request) {
+  return new Response(null, { status: 204, headers: corsFor(req) });
+}
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -33,32 +51,44 @@ export async function getUserFromRequest(req: Request) {
   return data.user;
 }
 
-export function isPatron(ctxOrRole: any) {
-  const claims = ctxOrRole?.userClaims ?? ctxOrRole;
-  const app = claims?.app_metadata ?? {};
-  const meta = claims?.user_metadata ?? {};
-  const role = String(app.role ?? meta.role ?? "").toLowerCase();
-  return ["patron", "owner", "admin"].includes(role) ||
-    meta.admin_access === true ||
-    ["owner", "admin"].includes(String(meta.organization_role ?? "").toLowerCase());
+async function membershipRole(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("org_memberships")
+    .select("role:role_id(code,is_admin_role,active),active")
+    .eq("user_id", userId)
+    .eq("active", true)
+    .limit(20);
+  if (error) throw error;
+  const memberships = Array.isArray(data) ? data : [];
+  const membership = memberships.find((m: any) => m?.role?.active !== false && m?.role?.code);
+  return membership?.role ?? null;
 }
 
-export function patronGuard(ctx: any) {
+export async function isPatron(ctxOrUser: any) {
+  const user = ctxOrUser?.userClaims ?? ctxOrUser;
+  const userId = String(user?.id ?? "");
+  if (!userId) return false;
+  const role = await membershipRole(userId);
+  const code = String(role?.code ?? "").toLowerCase();
+  return role?.is_admin_role === true || ["patron", "owner", "admin"].includes(code);
+}
+
+export async function patronGuard(ctx: any) {
   if (!ctx?.userClaims?.id) throw new Error("AUTH_REQUIRED");
-  if (!isPatron(ctx)) throw new Error("PATRON_REQUIRED");
+  if (!(await isPatron(ctx))) throw new Error("PATRON_REQUIRED");
   return ctx.userClaims;
 }
 
 export const withPatron = (handler: any) => async (req: Request) => {
-  if (req.method === "OPTIONS") return options();
+  if (req.method === "OPTIONS") return options(req);
   const user = await getUserFromRequest(req);
-  if (!user) return err("AUTH_REQUIRED");
+  if (!user) return err("AUTH_REQUIRED", undefined, req);
   const ctx = { supabaseAdmin, userClaims: user };
   try {
-    patronGuard(ctx);
+    await patronGuard(ctx);
     return await handler(req, ctx, user);
   } catch (e) {
-    return err(e);
+    return err(e, undefined, req);
   }
 };
 
@@ -79,7 +109,7 @@ export async function sha256(v: unknown) {
   return "sha256:" + [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
 }
 
-export function err(e: unknown, status?: number) {
+export function err(e: unknown, status?: number, req?: Request) {
   const msg = e instanceof Error ? e.message : String(e);
   const map: Record<string, [number, string]> = {
     AUTH_REQUIRED: [401, "Oturum gerekli"],
@@ -89,5 +119,5 @@ export function err(e: unknown, status?: number) {
     NOT_FOUND: [404, "Kayıt bulunamadı"],
   };
   const [mappedStatus, text] = map[msg] ?? [500, msg];
-  return json({ error: text }, status ?? mappedStatus);
+  return json({ error: text }, status ?? mappedStatus, req);
 }
