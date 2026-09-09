@@ -8,8 +8,6 @@
   var DEFAULTS = {
     supabaseUrl: 'https://mtjcqqrogjqaxkagwkti.supabase.co',
     supabasePublishableKey: 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6',
-    adminAiUrl: null,
-    staffAiUrl: null,
     fcm: {
       apiKey: 'AIzaSyBZbLD2hpnrCDy4KJh9FUbwgBbI0m-jdeo', authDomain: 'stagepulse-905be.firebaseapp.com', projectId: 'stagepulse-905be', storageBucket: 'stagepulse-905be.firebasestorage.app', messagingSenderId: '163274034334', appId: '1:163274034334:web:844791f51bef484d33bf8f', measurementId: 'G-4BFSFS0SGM', vapidKey: 'BOPkjOlp10RVFRaJQtDx2l8v2uzLVrBTcv2EgTthRiSNGA3IbOAc6f24mGJJrQuice0FQtG3dxbB6Ae54gQS7tE'
     }
@@ -17,12 +15,9 @@
   function pick(key) { return OVERRIDE[key] != null && OVERRIDE[key] !== '' ? OVERRIDE[key] : null; }
   var url = pick('supabaseUrl') || DEFAULTS.supabaseUrl;
   var key = pick('supabasePublishableKey') || DEFAULTS.supabasePublishableKey;
-  var base = url ? url.replace(/\/$/, '') : DEFAULTS.supabaseUrl;
-  var adminAi = pick('adminAiUrl') || base + '/functions/v1/admin-ai';
-  var staffAi = pick('staffAiUrl') || base + '/functions/v1/staff-ai';
   var fcm = {
     apiKey:(OVERRIDE.fcm&&OVERRIDE.fcm.apiKey)||DEFAULTS.fcm.apiKey, authDomain:(OVERRIDE.fcm&&OVERRIDE.fcm.authDomain)||DEFAULTS.fcm.authDomain, projectId:(OVERRIDE.fcm&&OVERRIDE.fcm.projectId)||DEFAULTS.fcm.projectId, storageBucket:(OVERRIDE.fcm&&OVERRIDE.fcm.storageBucket)||DEFAULTS.fcm.storageBucket, messagingSenderId:(OVERRIDE.fcm&&OVERRIDE.fcm.messagingSenderId)||DEFAULTS.fcm.messagingSenderId, appId:(OVERRIDE.fcm&&OVERRIDE.fcm.appId)||DEFAULTS.fcm.appId, measurementId:(OVERRIDE.fcm&&OVERRIDE.fcm.measurementId)||DEFAULTS.fcm.measurementId, vapidKey:(OVERRIDE.fcm&&OVERRIDE.fcm.vapidKey)||DEFAULTS.fcm.vapidKey
   };
-  global.STAGEPULSE_RUNTIME = Object.freeze({supabaseUrl:url,supabasePublishableKey:key,adminAiUrl:adminAi,staffAiUrl:staffAi,fcm:Object.freeze(fcm)});
+  global.STAGEPULSE_RUNTIME = Object.freeze({supabaseUrl:url,supabasePublishableKey:key,fcm:Object.freeze(fcm)});
   global.STAGEPULSE_FCM_CONFIG = Object.freeze(Object.assign({},fcm));
 })(typeof globalThis !== 'undefined' ? globalThis : window);
