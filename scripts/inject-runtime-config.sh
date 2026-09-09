@@ -6,11 +6,6 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/shared/runtime-config.js"
 : "${SUPABASE_URL:?}"
 : "${SUPABASE_PUBLISHABLE_KEY:?}"
-python3 - <<'PY'
-import json, os, pathlib
-out = pathlib.Path(os.environ["OUT"] if "OUT" in os.environ else pathlib.Path.cwd() / "shared/runtime-config.js")
-# OUT passed via env below
-PY
 OUT_PATH="$OUT" \
 SUPABASE_URL="$SUPABASE_URL" \
 SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
@@ -32,7 +27,6 @@ js = f"""(function (global) {{
   var runtime = Object.freeze({{
     supabaseUrl: {j('SUPABASE_URL')},
     supabasePublishableKey: {j('SUPABASE_PUBLISHABLE_KEY')},
-    siteAiUrl: null,
     fcm: Object.freeze({{
       apiKey: {j('FIREBASE_API_KEY')},
       authDomain: {j('FIREBASE_AUTH_DOMAIN')},
