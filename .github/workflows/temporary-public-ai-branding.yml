@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   rename-public-ai:
-    if: ${{ !contains(github.event.head_commit.message, 'apply public AI branding') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +28,7 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
           git diff --check
-      - name: Commit public AI branding
+      - name: Commit only when needed
         run: |
           git config user.name 'Stagepulse Automation'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
