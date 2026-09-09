@@ -8,7 +8,6 @@
   var DEFAULTS = {
     supabaseUrl: 'https://mtjcqqrogjqaxkagwkti.supabase.co',
     supabasePublishableKey: 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6',
-    siteAiUrl: null,
     adminAiUrl: null,
     staffAiUrl: null,
     fcm: {
@@ -19,12 +18,11 @@
   var url = pick('supabaseUrl') || DEFAULTS.supabaseUrl;
   var key = pick('supabasePublishableKey') || DEFAULTS.supabasePublishableKey;
   var base = url ? url.replace(/\/$/, '') : DEFAULTS.supabaseUrl;
-  var siteAi = pick('siteAiUrl') || base + '/functions/v1/site-ai';
   var adminAi = pick('adminAiUrl') || base + '/functions/v1/admin-ai';
   var staffAi = pick('staffAiUrl') || base + '/functions/v1/staff-ai';
   var fcm = {
     apiKey:(OVERRIDE.fcm&&OVERRIDE.fcm.apiKey)||DEFAULTS.fcm.apiKey, authDomain:(OVERRIDE.fcm&&OVERRIDE.fcm.authDomain)||DEFAULTS.fcm.authDomain, projectId:(OVERRIDE.fcm&&OVERRIDE.fcm.projectId)||DEFAULTS.fcm.projectId, storageBucket:(OVERRIDE.fcm&&OVERRIDE.fcm.storageBucket)||DEFAULTS.fcm.storageBucket, messagingSenderId:(OVERRIDE.fcm&&OVERRIDE.fcm.messagingSenderId)||DEFAULTS.fcm.messagingSenderId, appId:(OVERRIDE.fcm&&OVERRIDE.fcm.appId)||DEFAULTS.fcm.appId, measurementId:(OVERRIDE.fcm&&OVERRIDE.fcm.measurementId)||DEFAULTS.fcm.measurementId, vapidKey:(OVERRIDE.fcm&&OVERRIDE.fcm.vapidKey)||DEFAULTS.fcm.vapidKey
   };
-  global.STAGEPULSE_RUNTIME = Object.freeze({supabaseUrl:url,supabasePublishableKey:key,siteAiUrl:siteAi,adminAiUrl:adminAi,staffAiUrl:staffAi,fcm:Object.freeze(fcm)});
+  global.STAGEPULSE_RUNTIME = Object.freeze({supabaseUrl:url,supabasePublishableKey:key,adminAiUrl:adminAi,staffAiUrl:staffAi,fcm:Object.freeze(fcm)});
   global.STAGEPULSE_FCM_CONFIG = Object.freeze(Object.assign({},fcm));
 })(typeof globalThis !== 'undefined' ? globalThis : window);
