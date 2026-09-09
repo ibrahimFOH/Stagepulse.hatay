@@ -22,9 +22,6 @@
 /admin/*
   Cache-Control: no-store, max-age=0
 
-/jarvis/*
-  Cache-Control: no-store, max-age=0
-
 /shared/*
   Cache-Control: no-store, max-age=0
 
