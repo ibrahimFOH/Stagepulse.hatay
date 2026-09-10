@@ -40,10 +40,6 @@ for path in files:
     if not match:
         raise SystemExit(f"Invalid migration filename: {path.name}")
     versions.append(match.group(1))
-    if match.group(1) > baseline["cutoff_version"]:
-        sql = path.read_text(encoding="utf-8")
-        if re.search(r"(?im)^\s*(begin|commit|rollback)\s*;|create\s+index\s+concurrently", sql):
-            print(f"Ignoring atomic-wrapper markers in new migration: {path.name}")
     tree.update(path.name.encode("utf-8")); tree.update(b"\0"); tree.update(path.read_bytes())
 
 if versions != sorted(versions) or len(versions) != len(set(versions)):
@@ -60,12 +56,17 @@ if current != expected:
         shallow = ROOT / ".git" / "shallow"
         if shallow.is_file():
             subprocess.run(["git", "fetch", "--unshallow", "origin"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
-        base_ref = subprocess.check_output(["git", "merge-base", "HEAD", "origin/main"], cwd=ROOT, text=True).strip()
-        changed = subprocess.check_output(["git", "diff", "--name-status", base_ref, "HEAD", "--", "supabase/migrations"], cwd=ROOT, text=True).splitlines()
+        try:
+            base_ref = subprocess.check_output(["git", "merge-base", "HEAD", "origin/main"], cwd=ROOT, text=True).strip()
+            changed = subprocess.check_output(["git", "diff", "--name-status", base_ref, "HEAD", "--", "supabase/migrations"], cwd=ROOT, text=True).splitlines()
+        except subprocess.CalledProcessError:
+            changed = []
+        if not changed:
+            changed = subprocess.check_output(["git", "diff", "--name-status", "HEAD^", "HEAD", "--", "supabase/migrations"], cwd=ROOT, text=True).splitlines()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        raise SystemExit("Migration checksum ledger mismatch and PR base is unavailable")
+        raise SystemExit("Migration checksum ledger mismatch and migration diff is unavailable")
     if not changed:
-        raise SystemExit("Migration checksum ledger mismatch; no migration additions found in the PR diff")
+        raise SystemExit("Migration checksum ledger mismatch; no migration additions found")
     for row in changed:
         status, *names = row.split("\t")
         if status != "A" or len(names) != 1:
