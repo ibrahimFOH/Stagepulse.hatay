@@ -21,7 +21,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessaging
-import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.concurrent.thread
@@ -43,13 +42,11 @@ class MainActivity : AppCompatActivity() {
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var fcmToken: String? = null
     private var accessToken: String? = null
-    @Volatile private var bridgeAllowed = false
     private var bridgeInstalled = false
     private val supabaseUrl = "https://mtjcqqrogjqaxkagwkti.supabase.co"
     private val portalPath: String get() = BuildConfig.PORTAL_PATH
     private val appVariant: String get() = BuildConfig.APP_VARIANT
-
-    private fun expectedUrl(): String = "https://stagepulse.com.tr$portalPath?apk=$appVariant-rbac-v10"
+    private fun expectedUrl(): String = "https://stagepulse.com.tr$portalPath?apk=$appVariant-rbac-v11"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,6 +58,7 @@ class MainActivity : AppCompatActivity() {
         appUpdater = AppUpdater(this)
         secureTokenStore = SecureTokenStore(this)
         configureWebView()
+        installMinimalBridge()
         requestNotificationPermission()
 
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
@@ -138,22 +136,17 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                bridgeAllowed = false
-                removeMinimalBridge()
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
                 val url = request.url.toString()
                 if (AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant)) return false
-                bridgeAllowed = false
                 try { startActivity(Intent(Intent.ACTION_VIEW, request.url)) } catch (e: Exception) { Log.w("StagepulseWebView", "Harici bağlantı açılamadı", e) }
                 return true
             }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (!AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant)) { bridgeAllowed = false; return }
-                bridgeAllowed = true
-                installMinimalBridge()
+                if (!AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant)) return
                 readSupabaseSession()
             }
         }
@@ -177,12 +170,7 @@ class MainActivity : AppCompatActivity() {
         bridgeInstalled = true
     }
 
-    private fun removeMinimalBridge() {
-        if (bridgeInstalled) {
-            webView.removeJavascriptInterface("StagepulseAndroid")
-            bridgeInstalled = false
-        }
-    }
+    private fun isBridgePortalContext(): Boolean = AndroidUrlPolicy.isTrustedPortalNavigation(webView.url ?: "", portalPath, appVariant)
 
     private fun readSupabaseSession() {
         webView.evaluateJavascript("""(function(){try{for(const store of [localStorage,sessionStorage])for(let i=0;i<store.length;i++){const k=store.key(i)||'';if(k.startsWith('sb-')&&k.endsWith('-auth-token')){const v=JSON.parse(store.getItem(k)||'{}');if(v.access_token)return v.access_token;}}}catch(e){}return '';})();""".trimIndent()) { value ->
@@ -221,15 +209,13 @@ class MainActivity : AppCompatActivity() {
                 else if (status == HttpURLConnection.HTTP_UNAUTHORIZED) { accessToken = null; secureTokenStore.clear() }
             } catch (e: Exception) {
                 Log.w("StagepulseFCM", "register failed: ${e.message}")
-            } finally {
-                connection?.disconnect()
-            }
+            } finally { connection?.disconnect() }
         }
     }
 
     inner class AndroidBridge {
-        @JavascriptInterface fun refreshSession() { runOnUiThread { if (bridgeAllowed) readSupabaseSession() } }
-        @JavascriptInterface fun setAccessToken(token: String?) { runOnUiThread { if (!bridgeAllowed) return@runOnUiThread; accessToken = if (secureTokenStore.save(token)) token else null; if (accessToken != null) registerDeviceIfReady() } }
+        @JavascriptInterface fun refreshSession() { runOnUiThread { if (isBridgePortalContext()) readSupabaseSession() } }
+        @JavascriptInterface fun setAccessToken(token: String?) { runOnUiThread { if (!isBridgePortalContext()) return@runOnUiThread; accessToken = if (secureTokenStore.save(token)) token else null; if (accessToken != null) registerDeviceIfReady() } }
     }
 
     @Deprecated("Deprecated in Android API")
@@ -248,7 +234,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (::webView.isInitialized) {
-            if (bridgeAllowed) readSupabaseSession()
+            readSupabaseSession()
             registerDeviceIfReady()
             appUpdater.checkOnResume()
             AppUpdateWorker.schedule(this)
@@ -260,7 +246,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         pendingWebAudioRequest?.deny()
         pendingWebAudioRequest = null
-        removeMinimalBridge()
+        if (bridgeInstalled) webView.removeJavascriptInterface("StagepulseAndroid")
+        bridgeInstalled = false
         super.onDestroy()
     }
 }
