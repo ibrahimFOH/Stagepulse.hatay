@@ -48,9 +48,9 @@ for path in files:
 
 if versions != sorted(versions) or len(versions) != len(set(versions)):
     raise SystemExit("Migration versions must be unique and strictly ordered")
-archived_count = sum(version < baseline["cutoff_version"] for version in versions)
+archived_count = sum(version <= baseline["last_version"] for version in versions)
 if archived_count != baseline["archived_repository_migration_count"]:
-    raise SystemExit("Historical repository migration count changed below the sealed baseline cutoff")
+    raise SystemExit("Historical repository migration count changed below the sealed baseline version")
 if not LEDGER.is_file():
     raise SystemExit("Missing supabase/migrations.sha256 integrity ledger")
 expected = LEDGER.read_text(encoding="utf-8").strip()
