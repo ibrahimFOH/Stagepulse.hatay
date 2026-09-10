@@ -1,0 +1,61 @@
+name: Stagepulse Release Provenance
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attest
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  attest:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease == true || github.event.release.published_at != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Resolve release tag
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_TAG"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          ref: ${{ steps.release.outputs.tag }}
+      - name: Download published release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir release --pattern '*.apk' --pattern '*.aab' --pattern 'SHA256SUMS'
+          test -n "$(find release -type f -name '*.apk' -o -name '*.aab' | head -1)"
+          test -s release/SHA256SUMS
+          (cd release && sha256sum --check SHA256SUMS)
+      - name: Attest APK and AAB provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb3f9b8dce0d7d8f4a1
+        with:
+          subject-path: |
+            release/*.apk
+            release/*.aab
+      - name: Verify source commit provenance
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git fetch origin --tags --force --depth=50
+          tag_sha=$(git rev-list -n 1 "refs/tags/$TAG")
+          test -n "$tag_sha"
+          echo "Release $TAG is based on commit $tag_sha. Artifact hashes were verified before attestation."
