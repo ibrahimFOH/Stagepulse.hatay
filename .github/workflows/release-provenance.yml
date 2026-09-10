@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   attest:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease == true || github.event.release.published_at != '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.published_at != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -41,11 +41,11 @@ jobs:
           set -euo pipefail
           mkdir -p release
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir release --pattern '*.apk' --pattern '*.aab' --pattern 'SHA256SUMS'
-          test -n "$(find release -type f -name '*.apk' -o -name '*.aab' | head -1)"
+          test -n "$(find release -type f \( -name '*.apk' -o -name '*.aab' \) -print -quit)"
           test -s release/SHA256SUMS
           (cd release && sha256sum --check SHA256SUMS)
       - name: Attest APK and AAB provenance
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb3f9b8dce0d7d8f4a1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             release/*.apk
