@@ -29,7 +29,7 @@ if not re.fullmatch(r"[0-9a-f]{64}", str(baseline["ledger_sha256"])):
     raise SystemExit("Invalid migration baseline ledger hash")
 if (not isinstance(baseline["migration_count"], int) or baseline["migration_count"] < 1 or not isinstance(baseline["archived_repository_migration_count"], int) or baseline["archived_repository_migration_count"] < 1):
     raise SystemExit("Invalid migration baseline counts")
-if not (baseline["first_version"] <= baseline["last_version"] <= baseline["cutoff_version"]):
+if not (baseline["first_version"] <= baseline["last_version"] < baseline["cutoff_version"]):
     raise SystemExit("Migration baseline versions are not ordered")
 
 versions = []
@@ -48,7 +48,7 @@ for path in files:
 
 if versions != sorted(versions) or len(versions) != len(set(versions)):
     raise SystemExit("Migration versions must be unique and strictly ordered")
-archived_count = sum(version <= baseline["cutoff_version"] for version in versions)
+archived_count = sum(version < baseline["cutoff_version"] for version in versions)
 if archived_count != baseline["archived_repository_migration_count"]:
     raise SystemExit("Historical repository migration count changed below the sealed baseline cutoff")
 if not LEDGER.is_file():
