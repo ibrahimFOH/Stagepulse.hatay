@@ -52,6 +52,7 @@ if not LEDGER.is_file():
 expected = LEDGER.read_text(encoding="utf-8").strip()
 current = tree.hexdigest()
 if current != expected:
+    print(f"Migration tree hash: current={current} ledger={expected}")
     try:
         shallow = ROOT / ".git" / "shallow"
         if shallow.is_file():
