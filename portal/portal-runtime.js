@@ -18,12 +18,14 @@
     const s=document.createElement('script'); s.src=src; s.async=false; s.onload=onload; s.onerror=()=>fail(new Error(`Portal modülü yüklenemedi: ${src}`)); document.body.appendChild(s);
   };
   const tag=document.createElement('script');
-  tag.src='portal-bundle.js?v=20260907-canonical';
+  tag.src='portal-bundle.js?v=20260910-portal-fix1';
   tag.async=false;
   tag.onload=()=>{
-    if(!window.loadView){ fail(new Error('Canonical portal bundle did not expose loadView')); return; }
-    loadAfterBundle('portal-navigation-integrity.js?v=20260907-canonical',()=>{
-      loadAfterBundle('analytics.js?v=20260907-canonical',()=>{
+    // loadView is intentionally installed after a successful staff login by the RBAC layer.
+    // The old boot gate incorrectly required it before login, which made the APK show
+    // “Personel çekirdeği başlatılamadı” on every cold start.
+    loadAfterBundle('portal-navigation-integrity.js?v=20260910-portal-fix1',()=>{
+      loadAfterBundle('analytics.js?v=20260910-portal-fix1',()=>{
         window.STAGEPULSE_PORTAL_READY=true;
         window.dispatchEvent(new CustomEvent('stagepulse:portal-ready'));
         window.dispatchEvent(new CustomEvent('stagepulse-portal-ready'));
