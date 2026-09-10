@@ -6,7 +6,10 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 fetch() {
-  local path="$1" expected="$2" out="$TMP/$(echo "$path" | tr '/?' '__')"
+  local path="$1"
+  local expected="$2"
+  local out="$TMP/$(echo "$path" | tr '/?' '__')"
+
   curl --fail --silent --show-error --location --max-time 20 \
     -H 'Cache-Control: no-cache' \
     "$BASE_URL$path" -o "$out"
