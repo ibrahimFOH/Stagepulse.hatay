@@ -17,10 +17,10 @@ Deno.serve(async(req)=>{
     const {data:isAdmin,error:roleError}=await userClient.rpc('is_admin');
     if(roleError||isAdmin!==true)return json({error:'Admin capability required'},403,req);
     const count=async(table:string)=>{const r=await admin.from(table).select('*',{count:'exact',head:true});return r.error?null:r.count??0;};
-    const [jobs,timesheets,availability,scans,proofs,readiness,purchases,recommendations]=await Promise.all([
-      count('jobs'),count('sp_staff_timesheets'),count('sp_staff_availability'),count('sp_equipment_scans'),count('sp_field_proofs'),count('sp_event_readiness'),count('sp_purchase_orders'),count('sp_ai_recommendations')
+    const [jobs,timesheets,availability,scans,proofs,readiness,purchases]=await Promise.all([
+      count('jobs'),count('sp_staff_timesheets'),count('sp_staff_availability'),count('sp_equipment_scans'),count('sp_field_proofs'),count('sp_event_readiness'),count('sp_purchase_orders')
     ]);
-    return json({ok:true,data:{jobs,timesheets,availability,scans,field_proofs:proofs,readiness,purchase_orders:purchases,ai_recommendations:recommendations,generated_at:new Date().toISOString()}},200,req);
+    return json({ok:true,data:{jobs,timesheets,availability,scans,field_proofs:proofs,readiness,purchase_orders:purchases,generated_at:new Date().toISOString()}},200,req);
   }
 
   if(body.action==='timesheet_checkin'||body.action==='timesheet_checkout'){
@@ -32,6 +32,5 @@ Deno.serve(async(req)=>{
   if(body.action==='equipment_scan'){const code=typeof body.code==='string'?body.code.trim().slice(0,160):'';if(!code)return json({error:'code is required'},400,req);const r=await insertIdempotent('sp_equipment_scans',{code,action:typeof body.scan_action==='string'?body.scan_action:'inspect',equipment_id:typeof body.equipment_id==='string'?body.equipment_id:null,job_id:typeof body.job_id==='string'?body.job_id:null,scanned_by:userId,client_event_id:eventId,latitude:typeof body.latitude==='number'?body.latitude:null,longitude:typeof body.longitude==='number'?body.longitude:null,note:typeof body.note==='string'?body.note.slice(0,1000):null},'scanned_by');if(r.error)return json({error:r.error.message},400,req);return json({ok:true,data:r.data},200,req);}
   if(body.action==='field_proof'){const r=await insertIdempotent('sp_field_proofs',{job_id:typeof body.job_id==='string'?body.job_id:null,user_id:userId,proof_type:typeof body.proof_type==='string'?body.proof_type:'checklist',file_path:typeof body.file_path==='string'?body.file_path.slice(0,1000):null,payload:typeof body.payload==='object'&&body.payload!==null?body.payload:{},client_event_id:eventId},'user_id');if(r.error)return json({error:r.error.message},400,req);return json({ok:true,data:r.data},200,req);}
   if(body.action==='readiness'){const jobId=typeof body.job_id==='string'?body.job_id:null;if(!jobId)return json({error:'job_id is required'},400,req);const r=await admin.from('sp_event_readiness').select('*').eq('job_id',jobId).maybeSingle();if(r.error)return json({error:r.error.message},400,req);return json({ok:true,data:r.data},200,req);}
-  if(body.action==='ai_recommendations'){const {data:isAdmin}=await userClient.rpc('is_admin');if(isAdmin!==true)return json({error:'Admin capability required'},403,req);const r=await admin.from('sp_ai_recommendations').select('*').in('status',['pending','approved']).order('created_at',{ascending:false}).limit(25);if(r.error)return json({error:r.error.message},400,req);return json({ok:true,data:r.data},200,req);}
   return json({error:'Unsupported action'},400,req);
 });
