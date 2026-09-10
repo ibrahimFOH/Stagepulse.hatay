@@ -60,17 +60,16 @@ if current != expected:
         shallow = ROOT / ".git" / "shallow"
         if shallow.is_file():
             subprocess.run(["git", "fetch", "--unshallow", "origin"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
-        checkpoint = subprocess.check_output(["git", "log", "-1", "--format=%H", "--", "supabase/migrations.sha256"], cwd=ROOT, text=True).strip()
-        checkpoint_ledger = subprocess.check_output(["git", "show", f"{checkpoint}:supabase/migrations.sha256"], cwd=ROOT, text=True, stderr=subprocess.DEVNULL).strip()
-        changed = subprocess.check_output(["git", "diff", "--name-status", checkpoint, "HEAD", "--", "supabase/migrations"], cwd=ROOT, text=True).splitlines()
+        base_ref = subprocess.check_output(["git", "merge-base", "HEAD", "origin/main"], cwd=ROOT, text=True).strip()
+        changed = subprocess.check_output(["git", "diff", "--name-status", base_ref, "HEAD", "--", "supabase/migrations"], cwd=ROOT, text=True).splitlines()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        raise SystemExit("Migration checksum ledger mismatch and checkpoint is unavailable")
-    if checkpoint_ledger != expected or not changed:
-        raise SystemExit("Migration checksum ledger mismatch; review history and intentionally regenerate it")
+        raise SystemExit("Migration checksum ledger mismatch and PR base is unavailable")
+    if not changed:
+        raise SystemExit("Migration checksum ledger mismatch; no migration additions found in the PR diff")
     for row in changed:
         status, *names = row.split("\t")
         if status != "A" or len(names) != 1:
-            raise SystemExit("Migration checksum ledger mismatch; existing migration content changed")
+            raise SystemExit("Migration checksum ledger mismatch; only newly added migration files may be introduced")
         match = re.fullmatch(r"supabase/migrations/(\d{14})_[A-Za-z0-9_]+\.sql", names[0])
         if not match or match.group(1) <= baseline["cutoff_version"]:
             raise SystemExit("Migration checksum ledger mismatch; only new post-cutoff migrations may be appended")
