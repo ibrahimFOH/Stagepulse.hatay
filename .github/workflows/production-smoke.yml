@@ -5,7 +5,7 @@ on:
   schedule:
     - cron: '17 */6 * * *'
   workflow_run:
-    workflows: ["Stagepulse CI", "Stagepulse APK Release"]
+    workflows: ["Stagepulse CI"]
     types: [completed]
 
 permissions:
@@ -13,7 +13,6 @@ permissions:
 
 jobs:
   smoke:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
