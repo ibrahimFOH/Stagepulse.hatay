@@ -1,12 +1,10 @@
-/* Stagepulse Service Worker v17 — resilient public offline shell. */
-const CACHE_VERSION='stagepulse-v17';
+/* Stagepulse Service Worker v18 — resilient public offline shell. */
+const CACHE_VERSION='stagepulse-v18';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
-const PRECACHE_ASSETS=['/','/index.html','/style.css','/script.js','/core.js','/consent.js','/favicon.svg','/manifest.webmanifest','/i18n.js','/site-ai.js','/site-ai.css','/ai-knowledge.json'];
+const PRECACHE_ASSETS=['/','/index.html','/style.css','/script.js','/core.js','/consent.js','/favicon.svg','/manifest.webmanifest','/i18n.js'];
 const NAV_CSS=`<style id="stagepulse-nav-fix">.hamburger{position:relative;display:inline-flex;align-items:center;justify-content:center}.hamburger #hamburger-icon{display:none!important}.hamburger::before{content:"";position:absolute;width:24px;height:2px;border-radius:2px;background:#fff;transform:translateY(-7px);box-shadow:0 7px 0 #fff,0 14px 0 #fff}.hamburger:hover::before{background:#ffb000;box-shadow:0 7px 0 #ffb000,0 14px 0 #ffb000}.lang-switch{display:flex;align-items:center;gap:8px}.lang-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}.flag-icon{display:block;flex:0 0 auto}</style>`;
-const AI_CSS='<link rel="stylesheet" href="/site-ai.css">';
-const AI_JS='<script src="/site-ai.js" defer></script>';
-async function decorateHtml(response){const type=response.headers.get('content-type')||'';if(!type.includes('text/html'))return response;try{const html=await response.text();let decorated=html;if(!html.includes('id="stagepulse-nav-fix"'))decorated=decorated.replace(/<\/head>/i,NAV_CSS+'</head>');if(!html.includes('/site-ai.js')){decorated=decorated.replace(/<\/head>/i,AI_CSS+'</head>');decorated=decorated.replace(/<\/body>/i,AI_JS+'</body>')}const headers=new Headers(response.headers);headers.set('content-type','text/html; charset=UTF-8');return new Response(decorated,{status:response.status,statusText:response.statusText,headers});}catch(_){return response;}}
+async function decorateHtml(response){const type=response.headers.get('content-type')||'';if(!type.includes('text/html'))return response;try{const html=await response.text();if(html.includes('id="stagepulse-nav-fix"'))return new Response(html,{status:response.status,statusText:response.statusText,headers:response.headers});const decorated=html.replace(/<\/head>/i,NAV_CSS+'</head>');const headers=new Headers(response.headers);headers.set('content-type','text/html; charset=UTF-8');return new Response(decorated,{status:response.status,statusText:response.statusText,headers});}catch(_){return response;}}
 self.addEventListener('install',event=>event.waitUntil(
   caches.open(STATIC_CACHE)
     .then(cache=>Promise.allSettled(PRECACHE_ASSETS.map(asset=>
