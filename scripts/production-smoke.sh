@@ -40,6 +40,7 @@ fetch "/dokumanlar.html" "Dokümanlar"
 fetch "/teklif.html" "Teklif"
 fetch "/robots.txt" "Sitemap"
 fetch "/sitemap.xml" "stagepulse.com.tr"
+fetch "/llms.txt" "Stagepulse"
 fetch "/manifest.webmanifest" "start_url"
 fetch "/admin/" "STAGEPULSE YÖNETİM"
 
