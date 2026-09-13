@@ -6,7 +6,6 @@ import json
 import re
 import sys
 import urllib.request
-import xml.etree.ElementTree as ET
 
 BASE = "https://stagepulse.com.tr"
 UA = "Stagepulse-AI-Discovery/1.0"
@@ -44,12 +43,12 @@ if "User-agent: GPTBot" not in robots or "User-agent: ClaudeBot" not in robots:
     fail("robots.txt is missing explicit AI crawler directives")
 
 sitemap = get("/sitemap.xml")
-urls = re.findall(r"<loc>(https://stagepulse\\.com\\.tr(?:/[^<]*)?)</loc>", sitemap)
+urls = re.findall(r"<loc>(https://stagepulse\.com\.tr(?:/[^<]*)?)</loc>", sitemap)
 if not urls or len(urls) != len(set(urls)):
     fail("sitemap has no valid URLs or contains duplicates")
 
 html = get("/")
-if "<title>Hatay Ses Sistemi Kiralama &amp; FOH Engineer | Stagepulse</title>" not in html and "<title>Hatay Ses Sistemi Kiralama & FOH Engineer | Stagepulse</title>" not in html:
+if "<title>Hatay Ses Sistemi Kiralama & FOH Engineer | Stagepulse</title>" not in html:
     fail("homepage title does not identify Stagepulse and its core service")
 if 'name="description"' not in html or "Hatay / Antakya" not in html:
     fail("homepage description is missing regional/service identity")
