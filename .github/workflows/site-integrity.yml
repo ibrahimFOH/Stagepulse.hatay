@@ -1,0 +1,52 @@
+name: Stagepulse Site Integrity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  admin-security:
+    name: Admin Security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - name: Check admin JavaScript syntax
+        run: |
+          set -euo pipefail
+          find admin -type f -name '*.js' -print0 | while IFS= read -r -d '' file; do node --check "$file"; done
+      - name: Run admin security gate
+        run: python3 scripts/validate-admin-security.py
+
+  route-link-audit:
+    name: Complete Route / Link Audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Run complete route and link audit
+        run: python3 scripts/validate-route-links.py
+
+  regional-seo:
+    name: Regional SEO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - name: Validate regional SEO
+        run: node scripts/validate-regional-seo.mjs
