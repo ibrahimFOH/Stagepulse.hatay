@@ -1,0 +1,21 @@
+name: Stagepulse AI Discovery
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Stagepulse CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: AI / Search Discovery Integrity
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate public AI discovery signals
+        run: python3 scripts/validate-ai-discovery.py
