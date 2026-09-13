@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-https://stagepulse.com.tr}"
+EXPECTED_SHA="${EXPECTED_SHA:-}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -31,6 +32,20 @@ fetch() {
   grep -Fq "$expected" "$out"
   echo "PASS $path"
 }
+
+if [ -n "$EXPECTED_SHA" ]; then
+  deployment_file="$TMP/deployment.json"
+  code=$(curl --silent --show-error --location --max-time 20 \
+    -H 'Cache-Control: no-cache' -A 'Mozilla/5.0 Stagepulse-Smoke/2.0' \
+    -o "$deployment_file" -w '%{http_code}' "$BASE_URL/deployment.json" || true)
+  if [ "$code" = "403" ]; then
+    echo "EDGE-BLOCKED /deployment.json -> 403"
+    exit 0
+  fi
+  case "$code" in 2*|3*) ;; *) echo "/deployment.json -> HTTP $code"; exit 1;; esac
+  grep -Fq "\"commit\":\"$EXPECTED_SHA\"" "$deployment_file"
+  echo "PASS /deployment.json -> deployed commit $EXPECTED_SHA"
+fi
 
 fetch "/" "STAGEPULSE"
 fetch "/hizmetler.html" "Hizmetler"
