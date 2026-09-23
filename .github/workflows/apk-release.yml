@@ -233,7 +233,16 @@ jobs:
           statements.extend(["commit", "select count(*)::integer as verified_rows from public.app_versions where apk_version=" + str(code) + " and platform in ('staff','admin')"])
           print(json.dumps({"query": ";\n".join(statements), "read_only": False}))
           PY
-          curl -fsS -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query" -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" -H "Content-Type: application/json" --data @/tmp/query.json > /tmp/supabase-response.json
+          success=0
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS --connect-timeout 15 --max-time 90 -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query" -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" -H "Content-Type: application/json" --data @/tmp/query.json > /tmp/supabase-response.json; then
+              success=1
+              break
+            fi
+            test "$attempt" -lt 5 || exit 1
+            sleep $((attempt * 5))
+          done
+          test "$success" -eq 1
           python3 - /tmp/supabase-response.json <<'PY'
           import json, sys
           data = json.load(open(sys.argv[1]))
