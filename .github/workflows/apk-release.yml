@@ -1,11 +1,6 @@
 name: Stagepulse APK Release
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'latest.json'
-      - 'app-update.json'
   workflow_dispatch:
     inputs:
       minimum_version_code:
@@ -20,8 +15,8 @@ on:
         type: boolean
 
 env:
-  MINIMUM_VERSION_INPUT: ${{ github.event_name == 'push' && 'preserve' || inputs.minimum_version_code }}
-  PUBLISH_RELEASE: ${{ github.event_name == 'push' && 'true' || inputs.publish }}
+  MINIMUM_VERSION_INPUT: ${{ inputs.minimum_version_code }}
+  PUBLISH_RELEASE: ${{ inputs.publish }}
 
 permissions:
   contents: write
