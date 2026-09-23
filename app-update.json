@@ -1,23 +1,23 @@
 {
-  "release": "v7.1.9-build.488",
-  "updated_at": "2026-09-23T21:50:27.822310Z",
+  "release": "v7.2.9-build.489",
+  "updated_at": "2026-09-23T21:55:05.751716Z",
   "status": "verified",
   "staff": {
     "platform": "staff",
-    "apk_version": 7001009,
-    "web_version": "7.1.9",
+    "apk_version": 7002009,
+    "web_version": "7.2.9",
     "minimum_version": 0,
-    "apk_url": "https://github.com/ibrahimFOH/Stagepulse.hatay/releases/download/v7.1.9-build.488/Stagepulse-Personel-v7.1.9.apk",
-    "apk_sha256": "7ce5e7369f2e8f2f6e2d81b0ba67d3b9208129316d738f169ebea35f81b0316d",
-    "notes": "Stagepulse 7.1.9"
+    "apk_url": "https://github.com/ibrahimFOH/Stagepulse.hatay/releases/download/v7.2.9-build.489/Stagepulse-Personel-v7.2.9.apk",
+    "apk_sha256": "c1d8a298723f709862aa6bc247a1a13b4f9292843948ac633eefa50088b4eea8",
+    "notes": "Stagepulse 7.2.9"
   },
   "admin": {
     "platform": "admin",
-    "apk_version": 7001009,
-    "web_version": "7.1.9",
+    "apk_version": 7002009,
+    "web_version": "7.2.9",
     "minimum_version": 0,
-    "apk_url": "https://github.com/ibrahimFOH/Stagepulse.hatay/releases/download/v7.1.9-build.488/Stagepulse-Admin-v7.1.9.apk",
-    "apk_sha256": "9654abff416c89081b2541a21fbfd579706bad14ae6d8d27bdb3f588f826dd8a",
-    "notes": "Stagepulse 7.1.9"
+    "apk_url": "https://github.com/ibrahimFOH/Stagepulse.hatay/releases/download/v7.2.9-build.489/Stagepulse-Admin-v7.2.9.apk",
+    "apk_sha256": "890a670750c2d60c43438a7b1c4dbb44176c98e25325d3231716192d0e1a532a",
+    "notes": "Stagepulse 7.2.9"
   }
 }
