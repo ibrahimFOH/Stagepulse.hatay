@@ -16,8 +16,11 @@ class Parser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.links = []
+        self.base_href = None
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if tag == "base" and attrs.get("href"):
+            self.base_href = attrs["href"].strip()
         if tag in {"a", "area", "link", "script", "img", "iframe", "source", "video", "audio"}:
             key = "href" if tag in {"a", "area", "link"} else "src"
             if attrs.get(key):
@@ -37,7 +40,19 @@ for page in html_files:
         target = unquote(parsed.path)
         if not target:
             continue
-        candidate = (ROOT / target.lstrip("/") if target.startswith("/") else page.parent / target).resolve()
+        if target.startswith("/cdn-cgi/"):
+            continue
+        if target.startswith("/"):
+            candidate = (ROOT / target.lstrip("/")).resolve()
+        elif parser.base_href:
+            base = urlparse(parser.base_href)
+            if base.scheme.lower() in IGNORED_SCHEMES or base.netloc:
+                candidate = page.parent / target
+            else:
+                base_path = base.path or "/"
+                candidate = (ROOT / base_path.lstrip("/") / target).resolve()
+        else:
+            candidate = (page.parent / target).resolve()
         try:
             candidate.relative_to(ROOT.resolve())
         except ValueError:
