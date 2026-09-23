@@ -119,7 +119,7 @@
   async function initMediaSections() {
     const data = await loadMediaJson();
     const galleryContainer = document.getElementById('gallery') || document.getElementById('gallery-grid') || document.querySelector('.gallery-grid');
-    if (galleryContainer) {
+    if (galleryContainer && data.gallery.length) {
       galleryContainer.innerHTML = '';
       data.gallery.forEach(item => galleryContainer.appendChild(createGalleryItem(item)));
     }
