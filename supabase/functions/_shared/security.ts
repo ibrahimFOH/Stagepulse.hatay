@@ -59,15 +59,18 @@ export function isRateLimited(key: string): boolean {
 }
 
 export async function isDistributedRateLimited(
-  db: { rpc: (fn: string, args: Record<string, unknown>) => unknown },
+  db: { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }> },
   key: string,
   max = RATE_LIMIT_MAX,
 ): Promise<boolean> {
   try {
-    const { data, error } = await db.rpc("check_login_rate_limit", {
+    const result = await db.rpc("check_login_rate_limit", {
       p_key: key,
       p_max: max,
     });
+    if (!result || typeof result !== "object") return true;
+    const data = (result as { data?: unknown }).data;
+    const error = (result as { error?: unknown }).error;
     if (error) return true;
     return data !== true;
   } catch {
