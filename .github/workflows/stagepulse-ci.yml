@@ -126,7 +126,8 @@ jobs:
           urls=re.findall(r'<loc>(https://stagepulse\.com\.tr(?:/[^<]*)?)</loc>',sitemap)
           assert urls and len(urls)==len(set(urls)), 'Invalid or duplicate sitemap URLs'
           for url in urls:
-              p=url.removeprefix('https://stagepulse.com.tr/').rstrip('/')
+              p=url.removeprefix('https://stagepulse.com.tr/')
+              p=p.strip('/')
               file=Path('index.html') if not p else Path(p)
               if file.is_dir(): file=file/'index.html'
               assert file.is_file(), f'Missing sitemap file: {file}'
