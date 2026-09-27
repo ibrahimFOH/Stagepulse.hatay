@@ -121,21 +121,35 @@ jobs:
           grep -q 'bolgeler.html' script.js
           python3 - <<'PY'
           import re
+          import xml.etree.ElementTree as ET
           from pathlib import Path
-          sitemap=Path('sitemap.xml').read_text(encoding='utf-8')
-          urls=re.findall(r'<loc>(https://stagepulse\.com\.tr(?:/[^<]*)?)</loc>',sitemap)
-          assert urls and len(urls)==len(set(urls)), 'Invalid or duplicate sitemap URLs'
+
+          root=ET.fromstring(Path('sitemap.xml').read_text(encoding='utf-8'))
+          ns={'sm':'http://www.sitemaps.org/schemas/sitemap/0.9'}
+          urls=[node.text.strip() for node in root.findall('sm:url/sm:loc',ns) if node.text and node.text.strip()]
+          assert urls, 'Sitemap contains no URLs.'
+          assert len(urls)==len(set(urls)), 'Sitemap contains duplicate URLs.'
+
+          failures=[]
           for url in urls:
-              p=url.removeprefix('https://stagepulse.com.tr/')
-              p=p.strip('/')
-              file=Path('index.html') if not p else Path(p)
-              if file.is_dir(): file=file/'index.html'
-              assert file.is_file(), f'Missing sitemap file: {file}'
+              if not url.startswith('https://stagepulse.com.tr/'):
+                  failures.append(f'Invalid sitemap URL: {url}')
+                  continue
+              rel=url.removeprefix('https://stagepulse.com.tr/')
+              file=Path('index.html') if not rel else Path(rel)
+              if file.is_dir():
+                  file=file/'index.html'
+              if not file.is_file():
+                  failures.append(f'Missing sitemap file: {file}')
+                  continue
               html=file.read_text(encoding='utf-8',errors='ignore')
-              assert re.search(r'<title>[^<]+</title>',html,re.I), f'Missing title: {url}'
-              metas = re.findall(r'<meta\s+[^>]*>', html, re.I)
-              normalized = [re.sub(r'\s+', ' ', m).lower() for m in metas]
-              assert any('name="description"' in m and 'content=' in m for m in normalized), f'Missing description: {url}'
+              if not re.search(r'<title>[^<]+</title>',html,re.I|re.S):
+                  failures.append(f'Missing title: {url}')
+                  continue
+              if not re.search(r'<meta\b(?=[^>]*\bname=["\']description["\'])(?=[^>]*\bcontent=)[^>]*>',html,re.I|re.S):
+                  failures.append(f'Missing description: {url}')
+          if failures:
+              raise SystemExit('\n'.join(failures))
           print(f'Validated {len(urls)} sitemap pages.')
           PY
       - name: Verify public navigation controller
