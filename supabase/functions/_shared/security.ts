@@ -58,6 +58,23 @@ export function isRateLimited(key: string): boolean {
   return arr.length > RATE_LIMIT_MAX;
 }
 
+export async function isDistributedRateLimited(
+  db: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> },
+  key: string,
+  max = RATE_LIMIT_MAX,
+): Promise<boolean> {
+  try {
+    const { data, error } = await db.rpc("check_login_rate_limit", {
+      p_key: key,
+      p_max: max,
+    });
+    if (error) return true;
+    return data !== true;
+  } catch {
+    return true;
+  }
+}
+
 export function isStrongPassword(password: string): boolean {
   if (typeof password !== "string" || password.length < 10) return false;
   const hasLetter = /[a-zA-ZğüşıöçĞÜŞİÖÇ]/.test(password);
