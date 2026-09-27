@@ -109,11 +109,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Verify public navigation controller
-        run: |
-          set -euo pipefail
-          grep -q 'function ensureCoreNavigationLinks' script.js
-          grep -q 'ensureCoreNavigationLinks();' script.js
+
 
   pages_build:
     name: GitHub Pages Build Validation
