@@ -133,8 +133,8 @@ jobs:
               assert file.is_file(), f'Missing sitemap file: {file}'
               html=file.read_text(encoding='utf-8',errors='ignore')
               assert re.search(r'<title>[^<]+</title>',html,re.I), f'Missing title: {url}'
-              metas = re.findall(r'<meta\\s+[^>]*>', html, re.I)
-              normalized = [re.sub(r'\\s+', ' ', m).lower() for m in metas]
+              metas = re.findall(r'<meta\s+[^>]*>', html, re.I)
+              normalized = [re.sub(r'\s+', ' ', m).lower() for m in metas]
               assert any('name="description"' in m and 'content=' in m for m in normalized), f'Missing description: {url}'
           print(f'Validated {len(urls)} sitemap pages.')
           PY
