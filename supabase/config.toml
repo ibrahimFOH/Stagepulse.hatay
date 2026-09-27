@@ -1,28 +1,14 @@
-[functions.admin-data]
-verify_jwt = true
-[functions.admin-github-media]
-verify_jwt = true
-[functions.admin-login]
+# Stagepulse Supabase config
+# Edge Function JWT doğrulaması kapalı — auth fonksiyon içinde yapılıyor
+
+[functions.staff-manage]
 verify_jwt = false
-[functions.admin-offer-runtime]
-verify_jwt = false
-[functions.admin-password-reset]
-verify_jwt = false
-[functions.offer-pdf]
-verify_jwt = false
-[functions.org-admin-control]
-verify_jwt = false
-[functions.portal-login]
-verify_jwt = false
-[functions.production-os]
-verify_jwt = false
-[functions.public-quote]
-verify_jwt = false
-[functions.register-android-device]
-verify_jwt = true
-[functions.send-fcm-notification]
-verify_jwt = false
+
 [functions.staff-login]
 verify_jwt = false
-[functions.staff-session]
+
+[functions.admin-login]
+verify_jwt = false
+
+[functions.admin-password-reset]
 verify_jwt = false

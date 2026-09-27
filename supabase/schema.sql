@@ -267,9 +267,8 @@ end $$;
 
 
 -- Automatically upsert a customer record and calculate an internal estimate for new leads.
--- people = seyirci/katılımcı (bilgi); fiyata çarpılmaz. Lead'lerde total genelde 0, admin yazar.
 create or replace function public.on_quote_insert_enrich() returns trigger language plpgsql security definer set search_path=public as $$
-declare c_id uuid; svc public.services; margin_pct numeric:=35; min_quote numeric:=0; base numeric:=0; price numeric:=0; explicit_total boolean;
+declare c_id uuid; svc public.services; margin_pct numeric:=35; min_quote numeric:=0; base numeric:=0; price numeric:=0; per_person numeric:=0;
 begin
  select id into c_id from public.customers where phone=new.phone limit 1;
  if c_id is null then
@@ -278,26 +277,26 @@ begin
    update public.customers set name=coalesce(nullif(new.name,''),name), company=coalesce(nullif(new.company,''),company), email=coalesce(nullif(new.email,''),email), last_contact_at=now(), updated_at=now() where id=c_id;
  end if;
  new.customer_id:=c_id;
- explicit_total := coalesce(new.total,0) > 0 or coalesce(new.estimated_price,0) > 0;
- if not explicit_total then
-   select * into svc from public.services where name=new.type and active=true limit 1;
-   if found then base:=coalesce(svc.base_price,0); end if;
-   select value into margin_pct from public.price_rules where name='Varsayılan kâr marjı' and active=true limit 1;
-   select value into min_quote from public.price_rules where name='Minimum teklif' and active=true limit 1;
-   price:=base;
-   if price > 0 and price < coalesce(min_quote,0) then price:=coalesce(min_quote,0); end if;
-   new.estimated_price:=round(price,2);
-   new.total:=new.estimated_price;
-   if margin_pct is not null and margin_pct>0 and price>0 then new.estimated_cost:=round(price/(1+(margin_pct/100)),2); else new.estimated_cost:=coalesce(svc.base_cost,0); end if;
-   new.margin:=coalesce(new.total,0)-coalesce(new.estimated_cost,0);
- end if;
+ select * into svc from public.services where name=new.type and active=true limit 1;
+ if found then base:=coalesce(svc.base_price,0); end if;
+ select value into margin_pct from public.price_rules where name='Varsayılan kâr marjı' and active=true limit 1;
+ select value into min_quote from public.price_rules where name='Minimum teklif' and active=true limit 1;
+ select value into per_person from public.price_rules where name='Kişi başı ek ücret' and active=true limit 1;
+ if per_person is null then per_person:=0; end if;
+ price:=base + coalesce(new.people,0)*per_person;
+ if price < coalesce(min_quote,0) then price:=coalesce(min_quote,0); end if;
+ if price=0 and base>0 then price:=base; end if;
+ new.estimated_price:=round(price,2);
+ if margin_pct is not null and margin_pct>0 then new.estimated_cost:=round(price/(1+(margin_pct/100)),2); else new.estimated_cost:=coalesce(svc.base_cost,0); end if;
+ new.total:=new.estimated_price;
+ new.margin:=new.total-new.estimated_cost;
  insert into public.notifications(kind,title,body,offer_id) values('new_quote','Yeni teklif talebi',coalesce(new.quote_number,'Yeni teklif')||' - '||coalesce(new.name,''),new.id);
  return new;
 end $$;
 drop trigger if exists trg_quote_insert_enrich on public.teklifler;
 create trigger trg_quote_insert_enrich before insert on public.teklifler for each row execute function public.on_quote_insert_enrich();
 
-insert into public.price_rules(name,rule_type,value,notes) values('Kişi başı ek ücret','per_person',0,'Kullanılmıyor: people seyirci bilgisidir, fiyat çarpanı değildir.') on conflict(name) do nothing;
+insert into public.price_rules(name,rule_type,value,notes) values('Kişi başı ek ücret','per_person',0,'İstersen kişi sayısına göre ek ücret belirle') on conflict(name) do nothing;
 
 -- RLS
 alter table public.admin_profiles add column if not exists singleton boolean not null default true;
