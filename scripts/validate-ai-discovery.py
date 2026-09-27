@@ -63,7 +63,12 @@ for block in blocks:
         data = json.loads(block.strip())
     except json.JSONDecodeError:
         continue
-    candidates = data.get("@graph", [data]) if isinstance(data, dict) else []
+    if isinstance(data, dict):
+        candidates = data.get("@graph") or [data]
+    elif isinstance(data, list):
+        candidates = data
+    else:
+        candidates = []
     for item in candidates:
         if not isinstance(item, dict) or item.get("@type") != "Organization":
             continue
