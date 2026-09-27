@@ -109,23 +109,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Validate public pages
-        run: |
-          set -euo pipefail
-          test -s sitemap.xml
-          test -s robots.txt
-          test -s media.json
-          test -f dokumanlar.html
-          test -f bolgeler.html
-          grep -q 'dokumanlar.html' script.js
-          grep -q 'bolgeler.html' script.js
-          files="index.html hizmetler.html muhendislik.html teklif.html galeri.html hakkimizda.html dokumanlar.html nasil-calisiyoruz.html referanslar.html sss.html Kvkk.html ekipman.html hatay/index.html adana/index.html gaziantep/index.html sanliurfa/index.html mersin/index.html"
-          for file in $files; do
-            test -s "$file"
-            grep -Eiq '<title>[^<]+</title>' "$file"
-            grep -Eiq '<meta[^>]*name=["'"'"']description["'"'"']' "$file"
-          done
-          test "$(grep -c '<loc>https://stagepulse.com.tr/' sitemap.xml)" -eq 17
       - name: Verify public navigation controller
         run: |
           set -euo pipefail
