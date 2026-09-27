@@ -59,7 +59,7 @@ export function isRateLimited(key: string): boolean {
 }
 
 export async function isDistributedRateLimited(
-  db: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> },
+  db: { rpc: (fn: string, args: Record<string, unknown>) => unknown },
   key: string,
   max = RATE_LIMIT_MAX,
 ): Promise<boolean> {
