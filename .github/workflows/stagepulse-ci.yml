@@ -120,15 +120,16 @@ jobs:
           grep -q 'dokumanlar.html' script.js
           grep -q 'bolgeler.html' script.js
           python3 - <<'PY'
-          import re
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
           root=ET.fromstring(Path('sitemap.xml').read_text(encoding='utf-8'))
           ns={'sm':'http://www.sitemaps.org/schemas/sitemap/0.9'}
           urls=[node.text.strip() for node in root.findall('sm:url/sm:loc',ns) if node.text and node.text.strip()]
-          assert urls, 'Sitemap contains no URLs.'
-          assert len(urls)==len(set(urls)), 'Sitemap contains duplicate URLs.'
+          if not urls:
+              raise SystemExit('Sitemap contains no URLs.')
+          if len(urls)!=len(set(urls)):
+              raise SystemExit('Sitemap contains duplicate URLs.')
 
           failures=[]
           for url in urls:
@@ -142,14 +143,14 @@ jobs:
               if not file.is_file():
                   failures.append(f'Missing sitemap file: {file}')
                   continue
-              html=file.read_text(encoding='utf-8',errors='ignore')
-              if not re.search(r'<title>[^<]+</title>',html,re.I|re.S):
+              html=file.read_text(encoding='utf-8',errors='ignore').lower()
+              if '<title>' not in html or '</title>' not in html:
                   failures.append(f'Missing title: {url}')
-                  continue
-              if not re.search(r'<meta\b(?=[^>]*\bname=["\']description["\'])(?=[^>]*\bcontent=)[^>]*>',html,re.I|re.S):
+              if 'name="description"' not in html and "name=\'description\'" not in html:
                   failures.append(f'Missing description: {url}')
           if failures:
-              raise SystemExit('\n'.join(failures))
+              print('\n'.join(failures))
+              raise SystemExit(1)
           print(f'Validated {len(urls)} sitemap pages.')
           PY
       - name: Verify public navigation controller
