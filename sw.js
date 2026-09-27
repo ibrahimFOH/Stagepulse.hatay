@@ -1,21 +1,116 @@
-/* Stagepulse Service Worker v18 — resilient public offline shell. */
-const CACHE_VERSION='stagepulse-v18';
-const STATIC_CACHE=`static-${CACHE_VERSION}`;
-const MEDIA_CACHE=`media-${CACHE_VERSION}`;
-const PRECACHE_ASSETS=['/','/index.html','/style.css','/script.js','/core.js','/consent.js','/favicon.svg','/manifest.webmanifest','/i18n.js'];
-const NAV_CSS=`<style id="stagepulse-nav-fix">.hamburger{position:relative;display:inline-flex;align-items:center;justify-content:center}.hamburger #hamburger-icon{display:none!important}.hamburger::before{content:"";position:absolute;width:24px;height:2px;border-radius:2px;background:#fff;transform:translateY(-7px);box-shadow:0 7px 0 #fff,0 14px 0 #fff}.hamburger:hover::before{background:#ffb000;box-shadow:0 7px 0 #ffb000,0 14px 0 #ffb000}.lang-switch{display:flex;align-items:center;gap:8px}.lang-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}.flag-icon{display:block;flex:0 0 auto}</style>`;
-async function decorateHtml(response){const type=response.headers.get('content-type')||'';if(!type.includes('text/html'))return response;try{const html=await response.text();if(html.includes('id="stagepulse-nav-fix"'))return new Response(html,{status:response.status,statusText:response.statusText,headers:response.headers});const decorated=html.replace(/<\/head>/i,NAV_CSS+'</head>');const headers=new Headers(response.headers);headers.set('content-type','text/html; charset=UTF-8');return new Response(decorated,{status:response.status,statusText:response.statusText,headers});}catch(_){return response;}}
-self.addEventListener('install',event=>event.waitUntil(
-  caches.open(STATIC_CACHE)
-    .then(cache=>Promise.allSettled(PRECACHE_ASSETS.map(asset=>
-      fetch(asset,{cache:'reload'}).then(response=>{
-        if(!response.ok)throw new Error(`Precache failed: ${asset}`);
-        return cache.put(asset,response);
-      })
-    )))
-    .then(()=>self.skipWaiting())
-));
-self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==STATIC_CACHE&&k!==MEDIA_CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('push',event=>{let payload={};try{payload=event.data?event.data.json():{}}catch(_){payload={notification:{body:event.data?event.data.text():''}}}const n=payload.notification||{},d=payload.data||{},title=n.title||d.title||'Stagepulse',body=n.body||d.body||'',url=d.url||n.click_action||'/';event.waitUntil(self.registration.showNotification(title,{body,icon:n.icon||'/icon-192.png',badge:n.badge||'/favicon-32.png',tag:d.tag||`stagepulse-${d.notification_id||title}`,renotify:false,data:{url}}))});
-self.addEventListener('notificationclick',event=>{event.notification.close();const target=event.notification?.data?.url||'/';event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(clients=>{const existing=clients.find(c=>'focus'in c);if(existing){if('navigate'in existing&&existing.url!==new URL(target,self.location.origin).href)return existing.navigate(new URL(target,self.location.origin).href).then(()=>existing.focus());return existing.focus()}return self.clients.openWindow(new URL(target,self.location.origin).href)}))});
-self.addEventListener('fetch',event=>{const {request}=event,url=new URL(request.url);if(url.origin!==self.location.origin)return;const isAuthenticatedPath=url.pathname==='/admin'||url.pathname.startsWith('/admin/')||url.pathname==='/portal'||url.pathname.startsWith('/portal/');if(isAuthenticatedPath){event.respondWith(fetch(request,{cache:'no-store'}));return}const offlineResponse=()=>new Response('Çevrimdışı içerik kullanılamıyor.',{status:503,headers:{'Content-Type':'text/plain; charset=UTF-8','Cache-Control':'no-store'}});const networkFirst=request.destination==='document'||url.pathname.endsWith('.html')||url.pathname.endsWith('.css')||url.pathname.endsWith('script.js')||url.pathname.endsWith('i18n.js')||url.pathname.endsWith('media.json')||url.pathname.endsWith('app-update.json');if(networkFirst){event.respondWith(fetch(request).then(response=>{if(response&&response.status===200&&request.method==='GET'){caches.open(STATIC_CACHE).then(c=>c.put(request,response.clone()));return request.destination==='document'?decorateHtml(response):response}return response}).catch(async()=>{const exact=await caches.match(request);if(exact)return exact;if(request.destination==='document'){const shell=await caches.match('/index.html')||await caches.match('/');if(shell)return decorateHtml(shell)}return offlineResponse()}));return}event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{if(response&&response.status===200&&request.method==='GET'){const clone=response.clone(),targetCache=request.destination==='video'||url.pathname.match(/\.(mp4|webm|mov|m4v)$/i)?MEDIA_CACHE:STATIC_CACHE;caches.open(targetCache).then(c=>c.put(request,clone))}return response}).catch(()=>request.destination==='image'?new Response('',{status:404}):offlineResponse())))});
+/* ============================================
+   STAGEPULSE – Service Worker v5
+   Network-first for HTML/JS
+   Cache-first for images, videos, fonts, CSS
+   Video ve büyük medya için hazır
+   ============================================ */
+
+const CACHE_VERSION = 'stagepulse-v6';
+const STATIC_CACHE = `static-${CACHE_VERSION}`;
+const MEDIA_CACHE = `media-${CACHE_VERSION}`;
+
+const PRECACHE_ASSETS = [
+  '/favicon.svg',
+  '/manifest.webmanifest',
+  '/i18n.js'
+];
+
+const NETWORK_FIRST_PATHS = [
+  '/',
+  '/index.html',
+  '/style.css',
+  '/script.js',
+  '/i18n.js',
+  '/teklif.html',
+  '/hizmetler.html',
+  '/muhendislik.html',
+  '/galeri.html',
+  '/dokumanlar.html',
+  '/hakkimizda.html',
+  '/referanslar.html',
+  '/nasil-calisiyoruz.html',
+  '/sss.html',
+  '/ekipman.html',
+  '/Kvkk.html',
+  '/media.json'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(STATIC_CACHE)
+      .then((cache) => cache.addAll(PRECACHE_ASSETS))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys
+          .filter((key) => key !== STATIC_CACHE && key !== MEDIA_CACHE)
+          .map((key) => caches.delete(key))
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Sadece same-origin
+  if (url.origin !== self.location.origin) return;
+
+  // HTML + kritik JS + media.json → Network First
+  const isNetworkFirst =
+    NETWORK_FIRST_PATHS.some((p) => url.pathname === p || url.pathname.endsWith(p)) ||
+    request.destination === 'document' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('script.js') ||
+    url.pathname.endsWith('i18n.js') ||
+    url.pathname.endsWith('media.json');
+
+  if (isNetworkFirst) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request).then((cached) => {
+            return cached || caches.match('/index.html') || caches.match('/');
+          });
+        })
+    );
+    return;
+  }
+
+  // Görsel, video, font, CSS → Cache First (video için de uygun)
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+
+      return fetch(request).then((response) => {
+        if (response && response.status === 200 && request.method === 'GET') {
+          const clone = response.clone();
+          // Videoları ayrı cache'e koy (büyük dosya yönetimi)
+          const targetCache = request.destination === 'video' || url.pathname.match(/\.(mp4|webm|mov|m4v)$/i)
+            ? MEDIA_CACHE
+            : STATIC_CACHE;
+          caches.open(targetCache).then((cache) => cache.put(request, clone));
+        }
+        return response;
+      }).catch(() => {
+        if (request.destination === 'image') {
+          return new Response('', { status: 404 });
+        }
+        return caches.match('/index.html');
+      });
+    })
+  );
+});

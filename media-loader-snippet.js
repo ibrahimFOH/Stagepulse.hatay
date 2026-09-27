@@ -1,140 +1,114 @@
 /* ============================================================
-   STAGEPULSE — Customer Media Loader
-   Public customer web only.
-   Repository media -> WebP gallery + PDF document publication.
+   STAGEPULSE – Sağlam Medya Yükleyici (script.js içine ekle)
+   - Türkçe, boşluk, özel karakterli dosya adlarını destekler
+   - gallery / videos / documents otomatik okur
+   - WebP varsa tercih eder
+   - Video için hazır
    ============================================================ */
-(function () {
-  'use strict';
 
-  const FALLBACK_DOCUMENTS = [
-    { name:'Stagepulse-Ornek-3D-Sahne.pdf', path:'documents/Stagepulse-Ornek-3D-Sahne.pdf', title:'Stagepulse Ornek 3D Sahne' },
-    { name:'Stagepulse-Ornek-Stage-Plot-Gorsel.pdf', path:'documents/Stagepulse-Ornek-Stage-Plot-Gorsel.pdf', title:'Stagepulse Ornek Stage Plot Gorsel' },
-    { name:'Stagepulse-Ornek-Teknik-Kesit.pdf', path:'documents/Stagepulse-Ornek-Teknik-Kesit.pdf', title:'Stagepulse Ornek Teknik Kesit' }
-  ];
+function safeMediaUrl(path) {
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path)) return path;
+  return path
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+}
 
-  function safeMediaUrl(path) {
-    if (!path) return '';
-    if (/^https?:\/\//i.test(path)) return path;
-    const clean = String(path).replace(/^\.\//, '').replace(/^\//, '');
-    if (/^(images|documents|videos)\//i.test(clean)) {
-      // GitHub Pages/Cloudflare must serve repository media from the same origin.
-      // media.githubusercontent.com is not reliable for this public-site path.
-      return '/' + clean.split('/').map(encodeURIComponent).join('/');
-    }
-    return clean.split('/').map(encodeURIComponent).join('/');
+async function loadMediaJson() {
+  try {
+    const res = await fetch('media.json?_=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('media.json yüklenemedi');
+    return await res.json();
+  } catch (err) {
+    console.warn('Media yükleme hatası:', err);
+    return { gallery: [], videos: [], documents: [] };
+  }
+}
+
+function createGalleryItem(item) {
+  const src = item.webp ? safeMediaUrl(item.webp) : safeMediaUrl(item.path);
+  const fallback = safeMediaUrl(item.path);
+
+  const figure = document.createElement('figure');
+  figure.className = 'gallery-item';
+  figure.innerHTML = `
+    <img 
+      src="${src}" 
+      data-full="${fallback}"
+      alt="${item.name.replace(/\.[^/.]+$/, '')}"
+      loading="lazy"
+      decoding="async"
+      onerror="this.src='${fallback}'"
+    >
+  `;
+  return figure;
+}
+
+function createVideoItem(item) {
+  const src = safeMediaUrl(item.path);
+  const wrap = document.createElement('div');
+  wrap.className = 'video-item';
+  wrap.innerHTML = `
+    <video 
+      src="${src}" 
+      controls 
+      playsinline 
+      preload="metadata"
+      poster=""
+    ></video>
+    <p class="video-title">${item.name}</p>
+  `;
+  return wrap;
+}
+
+function createDocItem(item) {
+  const href = safeMediaUrl(item.path);
+  const a = document.createElement('a');
+  a.className = 'doc-item';
+  a.href = href;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.innerHTML = `
+    <i class="fa-solid fa-file-pdf"></i>
+    <span>${item.name}</span>
+    <small>${item.size_human || ''}</small>
+  `;
+  return a;
+}
+
+async function initMediaSections() {
+  const data = await loadMediaJson();
+
+  // Galeri
+  const galleryContainer = document.getElementById('gallery-grid') || document.querySelector('.gallery-grid');
+  if (galleryContainer && data.gallery) {
+    galleryContainer.innerHTML = '';
+    data.gallery.forEach(item => {
+      galleryContainer.appendChild(createGalleryItem(item));
+    });
   }
 
-  async function loadMediaJson() {
-    try {
-      const res = await fetch('/media.json?_=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' });
-      if (!res.ok) throw new Error('media.json HTTP ' + res.status);
-      const data = await res.json();
-      return {
-        gallery: Array.isArray(data.gallery) ? data.gallery : [],
-        videos: Array.isArray(data.videos) ? data.videos : [],
-        documents: Array.isArray(data.documents) && data.documents.length ? data.documents : FALLBACK_DOCUMENTS
-      };
-    } catch (err) {
-      console.warn('Stagepulse media yükleme hatası:', err);
-      return { gallery: [], videos: [], documents: FALLBACK_DOCUMENTS };
-    }
+  // Videolar
+  const videoContainer = document.getElementById('video-grid') || document.querySelector('.video-grid');
+  if (videoContainer && data.videos) {
+    videoContainer.innerHTML = '';
+    data.videos.forEach(item => {
+      videoContainer.appendChild(createVideoItem(item));
+    });
   }
 
-  function ensureLightbox() {
-    let box = document.getElementById('customerLightbox');
-    if (box) return box;
-    box = document.createElement('div');
-    box.id = 'customerLightbox';
-    box.className = 'lightbox';
-    box.setAttribute('role', 'dialog');
-    box.setAttribute('aria-modal', 'true');
-    box.innerHTML = '<button class="lightbox-close" type="button" aria-label="Kapat">×</button><img alt="">';
-    document.body.appendChild(box);
-    const close = () => { box.classList.remove('open'); document.body.style.overflow = ''; };
-    box.querySelector('.lightbox-close')?.addEventListener('click', close);
-    box.addEventListener('click', event => { if (event.target === box) close(); });
-    document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
-    return box;
+  // Dokümanlar
+  const docContainer = document.getElementById('docs-list') || document.querySelector('.docs-list');
+  if (docContainer && data.documents) {
+    docContainer.innerHTML = '';
+    data.documents.forEach(item => {
+      docContainer.appendChild(createDocItem(item));
+    });
   }
+}
 
-  function openLightbox(src, alt) {
-    if (!src) return;
-    const box = ensureLightbox();
-    const image = box.querySelector('img');
-    if (!image) return;
-    image.src = src;
-    image.alt = alt || 'Stagepulse galeri görseli';
-    box.classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function createGalleryItem(item) {
-    const src = safeMediaUrl(item.webp || item.path);
-    const alt = String(item.name || '').replace(/\.[^/.]+$/, '');
-    const figure = document.createElement('figure');
-    figure.className = 'gallery-item';
-    const img = document.createElement('img');
-    img.src = src;
-    img.dataset.full = src;
-    img.alt = alt || 'Stagepulse galeri görseli';
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    img.addEventListener('error', () => figure.remove());
-    img.addEventListener('click', () => openLightbox(img.dataset.full || img.src, img.alt));
-    figure.appendChild(img);
-    return figure;
-  }
-
-  function createVideoItem(item) {
-    const wrap = document.createElement('div');
-    wrap.className = 'video-item';
-    const video = document.createElement('video');
-    video.src = safeMediaUrl(item.path);
-    video.controls = true;
-    video.playsInline = true;
-    video.preload = 'metadata';
-    const title = document.createElement('p');
-    title.className = 'video-title';
-    title.textContent = item.title || item.name || '';
-    wrap.append(video, title);
-    return wrap;
-  }
-
-  function createDocItem(item) {
-    const link = document.createElement('a');
-    link.className = 'doc-item';
-    link.href = safeMediaUrl(item.path);
-    link.target = '_blank';
-    link.rel = 'noopener';
-    link.dataset.title = item.title || '';
-    link.innerHTML = '<i class="fa-solid fa-file-pdf"></i>';
-    const name = document.createElement('span');
-    name.textContent = item.title || item.name || '';
-    const size = document.createElement('small');
-    size.textContent = item.size_human || '';
-    link.append(name, size);
-    return link;
-  }
-
-  async function initMediaSections() {
-    const data = await loadMediaJson();
-    const galleryContainer = document.getElementById('gallery') || document.getElementById('gallery-grid') || document.querySelector('.gallery-grid');
-    if (galleryContainer && data.gallery.length) {
-      galleryContainer.innerHTML = '';
-      data.gallery.forEach(item => galleryContainer.appendChild(createGalleryItem(item)));
-    }
-    const videoContainer = document.getElementById('videos') || document.getElementById('video-grid') || document.querySelector('.video-grid');
-    if (videoContainer) {
-      videoContainer.innerHTML = '';
-      data.videos.forEach(item => videoContainer.appendChild(createVideoItem(item)));
-    }
-    const docContainer = document.getElementById('docs-list') || document.querySelector('.docs-list');
-    if (docContainer) {
-      docContainer.innerHTML = '';
-      data.documents.forEach(item => docContainer.appendChild(createDocItem(item)));
-    }
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initMediaSections, { once: true });
-  else initMediaSections();
-})();
+// DOM hazır olduğunda çalıştır
+document.addEventListener('DOMContentLoaded', () => {
+  initMediaSections();
+});
