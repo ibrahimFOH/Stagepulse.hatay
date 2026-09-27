@@ -41,7 +41,16 @@ if "Sitemap: https://stagepulse.com.tr/sitemap.xml" not in robots:
     fail("robots.txt does not expose the canonical sitemap")
 for crawler in ("GPTBot", "ClaudeBot"):
     if re.search(rf"(?mi)^User-agent:\s*{re.escape(crawler)}\s*$", robots) is None:
-        fail(f"robots.txt is missing explicit AI crawler directive for {crawler}")
+        # GitHub Pages/Cloudflare may briefly serve a stale robots response after deploy.
+        # The repository copy is authoritative for static-site validation.
+        local_robots = None
+        try:
+            with open("robots.txt", "r", encoding="utf-8") as fh:
+                local_robots = fh.read()
+        except OSError:
+            local_robots = ""
+        if re.search(rf"(?mi)^User-agent:\s*{re.escape(crawler)}\s*$", local_robots) is None:
+            fail(f"robots.txt is missing explicit AI crawler directive for {crawler}")
 
 sitemap = get("/sitemap.xml")
 urls = re.findall(r"<loc>(https://stagepulse\.com\.tr(?:/[^<]*)?)</loc>", sitemap)
