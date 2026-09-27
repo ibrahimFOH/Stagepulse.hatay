@@ -39,8 +39,9 @@ for required in (
 robots = get("/robots.txt")
 if "Sitemap: https://stagepulse.com.tr/sitemap.xml" not in robots:
     fail("robots.txt does not expose the canonical sitemap")
-if "User-agent: GPTBot" not in robots or "User-agent: ClaudeBot" not in robots:
-    fail("robots.txt is missing explicit AI crawler directives")
+for crawler in ("GPTBot", "ClaudeBot"):
+    if re.search(rf"(?mi)^User-agent:\s*{re.escape(crawler)}\s*$", robots) is None:
+        fail(f"robots.txt is missing explicit AI crawler directive for {crawler}")
 
 sitemap = get("/sitemap.xml")
 urls = re.findall(r"<loc>(https://stagepulse\.com\.tr(?:/[^<]*)?)</loc>", sitemap)
