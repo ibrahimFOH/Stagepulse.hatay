@@ -64,7 +64,7 @@ requireMatch(!quoteFunction.includes("select('id,quote_number,status,event_date"
 
 requireMatch(serviceWorker.includes("url.pathname==='/admin'"), 'Service worker must recognize the admin root as authenticated.');
 requireMatch(serviceWorker.includes("url.pathname==='/portal'"), 'Service worker must recognize the portal root as authenticated.');
-requireMatch(/if\(isAuthenticatedPath\)\{event\.respondWith\(fetch\(request,\{cache:'no-store'\}\)\);return\}/.test(serviceWorker), 'Authenticated paths must bypass all service-worker caches.');
+requireMatch(/if \(isAuthenticatedPath\(url\.pathname\)\) \{[\s\S]*fetch\(request, \{ cache: 'no-store' \}\)/.test(serviceWorker), 'Authenticated paths must bypass all service-worker caches.');
 requireMatch(serviceWorker.includes("'/index.html'") && serviceWorker.includes('Promise.allSettled'), 'Service worker install must build a resilient offline shell.');
 requireMatch(serviceWorker.includes("status:503"), 'Service worker must return an explicit offline failure response when no shell exists.');
 
