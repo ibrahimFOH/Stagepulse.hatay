@@ -58,7 +58,7 @@ for step in (
     "Sync verified release metadata and notifications",
     "Promote verified prerelease to latest release",
 ):
-    pattern = rf"- name: {re.escape(step)}\n\s+if: \$\{\{ env\.PUBLISH_RELEASE == 'true' \}\}"
+    pattern = r"- name: " + re.escape(step) + r"\n\s+if: \$\{\{ env\.PUBLISH_RELEASE == 'true' \}\}"
     if not re.search(pattern, release):
         errors.append(f"Android publishing step is not explicitly guarded: {step}")
 
