@@ -13,7 +13,7 @@ known_action_commits = {
     },
     "actions/setup-node": {"49933ea5288caeca8642d1e84afbd3f7d6820020"},
     "actions/setup-java": {"cf277c60eb25467037889841efdb72551f06f6c3"},
-    "android-actions/setup-android": {"9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407"},
+    "android-actions/setup-android": {"9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407", "035682743ab223ec9c6169af09811dff8247e520"},
     "gradle/actions/setup-gradle": {"ed408507eac070d1f99cc633dbcf757c94c7933a"},
     "actions/setup-python": {"82c7e631bb3cdc910f68e0081d67478d79c6982d"},
     "supabase/setup-cli": {"45a513f8c64c0bc8e0e3dfe572b5c95be85f6359"},
@@ -58,7 +58,7 @@ for step in (
     "Sync verified release metadata and notifications",
     "Promote verified prerelease to latest release",
 ):
-    pattern = rf"- name: {re.escape(step)}\n\s+if: \${{{{ inputs\.publish }}}}"
+    pattern = rf"- name: {re.escape(step)}\n\s+if: \$\{\{ env\.PUBLISH_RELEASE == 'true' \}\}"
     if not re.search(pattern, release):
         errors.append(f"Android publishing step is not explicitly guarded: {step}")
 
