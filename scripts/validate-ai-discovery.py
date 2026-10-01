@@ -32,6 +32,9 @@ for required in (
     "https://stagepulse.com.tr/",
     "https://stagepulse.com.tr/ses-sistemi-kiralama.html",
     "https://stagepulse.com.tr/muhendislik.html",
+    "https://stagepulse.com.tr/ekipman.html",
+    "Ses, Işık, LED",
+    "Elde Bulunan",
 ):
     if required not in llms:
         fail(f"llms.txt missing: {required}")
@@ -94,6 +97,8 @@ for block in blocks:
         area = item.get("areaServed", {})
         if area.get("@type") not in {"Country", "City", "AdministrativeArea"}:
             fail("Organization areaServed is missing")
+        if item.get("@id") != BASE + "/#stagepulse":
+            fail("Organization @id is missing or inconsistent")
         if not item.get("serviceType"):
             fail("Organization serviceType is missing")
 

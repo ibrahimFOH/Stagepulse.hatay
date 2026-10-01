@@ -8,3 +8,5 @@ User-agent: ClaudeBot
 Allow: /
 
 Sitemap: https://stagepulse.com.tr/sitemap.xml
+
+# Public AI/search discovery: public pages are intentionally crawlable.

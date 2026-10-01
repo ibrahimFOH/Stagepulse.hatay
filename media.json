@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-27T14:52:57.414265+00:00",
+  "generated_at": "2026-10-01T00:00:00+00:00",
   "gallery": [
     {
       "name": "0EAAE007-14C6-468D-80CB-6C5275CB6827.webp",
@@ -140,6 +140,36 @@
       "modified": "2026-09-27T14:52:55.190009+00:00",
       "type": "gallery",
       "optimized": true
+    },
+    {
+      "name": "IMG_1260.webp",
+      "path": "images/gallery/IMG_1260.webp",
+      "file": "images/gallery/IMG_1260.webp",
+      "size": 4676,
+      "size_human": "4.6 KB",
+      "modified": "2026-10-01T00:00:00+00:00",
+      "type": "gallery",
+      "optimized": true
+    },
+    {
+      "name": "IMG_1261.webp",
+      "path": "images/gallery/IMG_1261.webp",
+      "file": "images/gallery/IMG_1261.webp",
+      "size": 1652,
+      "size_human": "1.6 KB",
+      "modified": "2026-10-01T00:00:00+00:00",
+      "type": "gallery",
+      "optimized": true
+    },
+    {
+      "name": "IMG_1271.webp",
+      "path": "images/gallery/IMG_1271.webp",
+      "file": "images/gallery/IMG_1271.webp",
+      "size": 4108,
+      "size_human": "4.0 KB",
+      "modified": "2026-10-01T00:00:00+00:00",
+      "type": "gallery",
+      "optimized": true
     }
   ],
   "videos": [],
@@ -189,10 +219,13 @@
     "images/gallery/photo/668E9605-0CDE-435F-A8DF-8B5888BB6C32.webp",
     "images/gallery/photo/BFAD4788-CF18-4F44-BAA3-43060965EEEA.webp",
     "images/gallery/2025-12-10_22-07-22_1.webp",
-    "images/gallery/DE228FEA-36C1-4CCD-9185-0E03014CD491.webp"
+    "images/gallery/DE228FEA-36C1-4CCD-9185-0E03014CD491.webp",
+    "images/gallery/IMG_1260.webp",
+    "images/gallery/IMG_1261.webp",
+    "images/gallery/IMG_1271.webp"
   ],
   "counts": {
-    "gallery": 14,
+    "gallery": 17,
     "videos": 0,
     "documents": 3
   }

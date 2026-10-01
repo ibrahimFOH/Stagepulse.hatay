@@ -10,6 +10,7 @@ const translations = {
     nav_process: "Nasıl Çalışıyoruz",
     nav_refs: "Referanslar",
     nav_offer: "Teklif Al",
+    nav_inventory: "Envanter",
 
     footer_role: "FOH Engineer • Stagepulse",
     copyright: "© 2026 Stagepulse – İbrahim Kavasoğlu",
@@ -200,6 +201,7 @@ const translations = {
     nav_process: "How We Work",
     nav_refs: "References",
     nav_offer: "Get Quote",
+    nav_inventory: "Inventory",
 
     footer_role: "FOH Engineer • Stagepulse",
     copyright: "© 2026 Stagepulse – İbrahim Kavasoğlu",
