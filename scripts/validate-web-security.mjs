@@ -119,7 +119,10 @@ requireMatch(!portalPermissions.includes('sp_staff_meta') && !portalCrud.include
 requireMatch(adminShell.includes('stagepulse-admin-auth-v2'), 'Canonical admin bundle must use the canonical admin storage key.');
 const adminJsFiles = readdirSync(resolve(root, 'admin')).filter(name => name.endsWith('.js')).map(name => `admin/${name}`);
 for (const path of adminJsFiles) {
-  if (path !== 'admin/admin-bundle.js' && path !== 'admin/admin-runtime.js') {
+  if (path === 'admin/admin.js') {
+    const adminEntry = read(path);
+    requireMatch(adminEntry.includes("storageKey: 'stagepulse-admin-auth-v2'") && adminEntry.includes('storage: window.sessionStorage') && adminEntry.includes('detectSessionInUrl: false'), 'admin.js must create the canonical session-only admin client.');
+  } else if (path !== 'admin/admin-bundle.js' && path !== 'admin/admin-runtime.js') {
     requireMatch(!read(path).includes('createClient(') && !read(path).includes('createClient?.('), `${path} must use the canonical admin client instead of creating a fallback.`);
   }
 }
