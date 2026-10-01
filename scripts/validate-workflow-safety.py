@@ -16,6 +16,8 @@ known_action_commits = {
     "android-actions/setup-android": {"9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407"},
     "gradle/actions/setup-gradle": {"ed408507eac070d1f99cc633dbcf757c94c7933a"},
     "actions/setup-python": {"82c7e631bb3cdc910f68e0081d67478d79c6982d"},
+    "supabase/setup-cli": {"45a513f8c64c0bc8e0e3dfe572b5c95be85f6359"},
+    "actions/attest-build-provenance": {"4d101475d8b20a2381f78447822ac1eab6504dd8"},
     "denoland/setup-deno": {"22d081ff2d3a40755e97629de92e3bcbfa7cf2ed"},
     "actions/configure-pages": {"983d7736d9b0ae728b81ab479565c72886d7745b"},
     "actions/upload-pages-artifact": {"56afc609e74202658d3ffba0e8f6dda462b719fa"},
