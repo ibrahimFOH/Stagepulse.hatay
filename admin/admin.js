@@ -10,7 +10,8 @@ if (!window.supabase) {
   throw new Error('Supabase missing');
 }
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'stagepulse-admin-auth-v2', storage: window.sessionStorage } });
+window.__stagepulseAdminClient = sb;
 
 // Güvenlik ağı: async fonksiyonlardan (onclick handler'ları vb.) kaçan,
 // yakalanmamış bir promise reddi olursa kullanıcıyı sessizce bırakmak yerine
