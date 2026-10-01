@@ -9,6 +9,12 @@ const CACHE_VERSION = 'stagepulse-v6';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const MEDIA_CACHE = `media-${CACHE_VERSION}`;
 
+const AUTHENTICATED_PATHS = ['/admin', '/portal'];
+
+function isAuthenticatedPath(pathname) {
+  return AUTHENTICATED_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
 const PRECACHE_ASSETS = [
   '/favicon.svg',
   '/manifest.webmanifest',
@@ -36,11 +42,13 @@ const NETWORK_FIRST_PATHS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then((cache) => cache.addAll(PRECACHE_ASSETS))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE);
+    const results = await Promise.allSettled(PRECACHE_ASSETS.map((asset) => cache.add(asset)));
+    const failed = results.filter((result) => result.status === 'rejected');
+    if (failed.length) console.warn('Stagepulse offline shell precache had failures:', failed.length);
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
@@ -61,6 +69,19 @@ self.addEventListener('fetch', (event) => {
 
   // Sadece same-origin
   if (url.origin !== self.location.origin) return;
+
+  // Admin ve personel portalı oturum verisi içerir; service-worker cache'ine girmez.
+  if (isAuthenticatedPath(url.pathname)) {
+    event.respondWith(
+      fetch(request, { cache: 'no-store' }).catch(() => {
+        return new Response('Stagepulse yönetim alanı çevrimdışı.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }
+        });
+      })
+    );
+    return;
+  }
 
   // HTML + kritik JS + media.json → Network First
   const isNetworkFirst =
