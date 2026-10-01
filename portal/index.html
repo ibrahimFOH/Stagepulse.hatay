@@ -7,7 +7,7 @@
   <title>Stagepulse · Personel Portalı</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="portal.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV" crossorigin="anonymous"></script>
 </head>
 <body>
   <div id="loginView" class="login-wrap">
@@ -15,8 +15,8 @@
       <div class="brand">STAGEPULSE</div>
       <h1>Personel Portalı</h1>
       <p class="muted">Ekip girişi — mali işlemler görünmez</p>
-      <label>Kullanıcı adı<input id="loginUser" name="username" autocomplete="username" required></label>
-      <label>Şifre<input id="loginPass" name="password" type="password" autocomplete="current-password" required></label>
+      <label>Kullanıcı adı<input id="loginUser" autocomplete="username" required></label>
+      <label>Şifre<input id="loginPass" type="password" autocomplete="current-password" required></label>
       <button class="btn btn-primary" type="submit">Giriş</button>
       <p id="loginErr" class="err" hidden></p>
     </form>
