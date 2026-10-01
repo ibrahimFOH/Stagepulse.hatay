@@ -15,6 +15,7 @@ known_action_commits = {
     "actions/setup-java": {"cf277c60eb25467037889841efdb72551f06f6c3"},
     "android-actions/setup-android": {"9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407"},
     "gradle/actions/setup-gradle": {"ed408507eac070d1f99cc633dbcf757c94c7933a"},
+    "actions/setup-python": {"82c7e631bb3cdc910f68e0081d67478d79c6982d"},
     "denoland/setup-deno": {"22d081ff2d3a40755e97629de92e3bcbfa7cf2ed"},
     "actions/configure-pages": {"983d7736d9b0ae728b81ab479565c72886d7745b"},
     "actions/upload-pages-artifact": {"56afc609e74202658d3ffba0e8f6dda462b719fa"},
