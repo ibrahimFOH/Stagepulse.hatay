@@ -214,6 +214,7 @@ jobs:
     name: Manual Supabase Migration Audit
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
+    environment: production
     steps:
       - uses: actions/checkout@11d5960a326750d1f99cc633dbcf757c94c7933a
       - name: Audit migration state
