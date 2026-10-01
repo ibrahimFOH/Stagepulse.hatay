@@ -204,7 +204,6 @@ jobs:
           echo "Verified manifest commit $published is published on main (remote=$remote)."
       - name: Sync verified release metadata and notifications
         if: ${{ env.PUBLISH_RELEASE == 'true' }}
-        continue-on-error: true
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
@@ -248,3 +247,12 @@ jobs:
                   raise SystemExit(f"Supabase verification failed: expected 2 rows, got {verified}")
           print("Supabase release metadata synchronized and verified.")
           PY
+      - name: Promote verified prerelease to latest release
+        if: ${{ env.PUBLISH_RELEASE == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.files.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease,isLatest --jq '.isPrerelease == false and .isLatest == true'
