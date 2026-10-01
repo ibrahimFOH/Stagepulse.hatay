@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="admin.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV" crossorigin="anonymous"></script>
 </head>
 <body class="admin-body">
 
@@ -23,10 +23,10 @@
     <p class="auth-sub">Yönetici hesabı ile devam et</p>
     <form id="loginForm" autocomplete="on">
       <label>Kullanıcı adı
-        <input id="loginUsername" name="username" autocomplete="username" autocapitalize="none" required>
+        <input id="loginUsername" autocomplete="username" autocapitalize="none" required>
       </label>
       <label>Şifre
-        <input id="loginPassword" name="password" type="password" autocomplete="current-password" minlength="8" required>
+        <input id="loginPassword" type="password" autocomplete="current-password" minlength="8" required>
       </label>
       <button class="btn btn-primary btn-block" type="submit" id="loginBtn">Giriş Yap</button>
       <p id="loginError" class="form-error" role="alert"></p>
