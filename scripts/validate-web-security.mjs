@@ -45,10 +45,10 @@ requireMatch(/\bphone\b[\s\S]*turnstile_token:turnstileToken/.test(core), 'Publi
 requireMatch(core.includes("payload.ok!==true||!payload.quote?.id"), 'Public quote UI must require a server-confirmed receipt.');
 requireMatch(core.includes("sessionStorage.setItem(receiptKey") && core.includes("form.dataset.submitting==='1'"), 'Public quote UI must prevent in-flight and repeated duplicate submissions.');
 requireMatch(!core.includes('window.location.assign(waUrl)'), 'WhatsApp must remain an optional action, not the quote success mechanism.');
-requireMatch(conversionScript.includes("submit.type='submit'"), 'Offer enhancement must preserve native form submission.');
+requireMatch(/submit\.type\s*=\s*['"]submit['"]/.test(conversionScript), 'Offer enhancement must preserve native form submission.');
 
 requireMatch(consentScript.includes("analytics_storage: 'denied'"), 'Consent defaults must deny analytics storage.');
-requireMatch(consentScript.includes("state === 'accepted') loadAnalytics()"), 'Analytics must load only after explicit opt-in.');
+requireMatch(/state==='accepted'\)analytics\(\)/.test(consentScript), 'Analytics must load only after explicit opt-in.');
 requireMatch(consentScript.includes('cookie-preferences-reset'), 'Public consent UI must expose a preference reset control.');
 requireMatch(consentScript.indexOf("global.gtag('consent', 'update'") < consentScript.indexOf("document.getElementById('sp-google-analytics')"), 'Re-consent must restore analytics permission even when the analytics script is already loaded.');
 for (const name of readdirSync(root).filter(name => name.endsWith('.html'))) {
@@ -62,11 +62,11 @@ requireMatch(quoteFunction.includes('if(!TURNSTILE_SECRET_KEY)'), 'public-quote 
 requireMatch(quoteFunction.includes(".select('id,quote_number,status')"), 'public-quote success selection must be limited to non-PII fields.');
 requireMatch(!quoteFunction.includes("select('id,quote_number,status,event_date"), 'public-quote must not return the legacy PII-rich quote selection.');
 
-requireMatch(serviceWorker.includes("url.pathname==='/admin'"), 'Service worker must recognize the admin root as authenticated.');
-requireMatch(serviceWorker.includes("url.pathname==='/portal'"), 'Service worker must recognize the portal root as authenticated.');
+requireMatch(serviceWorker.includes("AUTHENTICATED_PATHS = ['/admin', '/portal']"), 'Service worker must recognize the admin root as authenticated.');
+requireMatch(serviceWorker.includes("AUTHENTICATED_PATHS = ['/admin', '/portal']"), 'Service worker must recognize the portal root as authenticated.');
 requireMatch(/if \(isAuthenticatedPath\(url\.pathname\)\) \{[\s\S]*fetch\(request, \{ cache: 'no-store' \}\)/.test(serviceWorker), 'Authenticated paths must bypass all service-worker caches.');
 requireMatch(serviceWorker.includes("'/index.html'") && serviceWorker.includes('Promise.allSettled'), 'Service worker install must build a resilient offline shell.');
-requireMatch(serviceWorker.includes("status:503"), 'Service worker must return an explicit offline failure response when no shell exists.');
+requireMatch(serviceWorker.includes("status: 503"), 'Service worker must return an explicit offline failure response when no shell exists.');
 
 for (const city of ['adana', 'gaziantep', 'hatay', 'mersin', 'sanliurfa']) {
   const html = read(`${city}/index.html`);
