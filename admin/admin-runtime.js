@@ -86,7 +86,8 @@
     }catch(e){
       console.error('[stagepulse-admin]',e);
       const c=q('#content');
-      if(c)c.innerHTML=`<div class="panel" role="alert"><h2>Yönetim paneli yüklenemedi</h2><p>${esc(e?.message||'Yönetim çekirdeği başlatılamadı.')}</p><button type="button" class="btn btn-primary" id="adminBootRetry">Yeniden dene</button></div>`;
+      const offline=navigator.onLine===false;
+      if(c)c.innerHTML=`<div class="panel" role="alert" aria-live="assertive"><h2>Yönetim paneli yüklenemedi</h2><p>${offline?'İnternet bağlantısı yok.':esc(e?.message||'Yönetim çekirdeği başlatılamadı.')}</p><button type="button" class="btn btn-primary" id="adminBootRetry">Yeniden dene</button></div>`;
       q('#adminBootRetry')?.addEventListener('click',()=>location.reload());
     }
   }
