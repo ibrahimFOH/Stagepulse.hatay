@@ -45,7 +45,7 @@ jobs:
           test -s release/SHA256SUMS
           (cd release && sha256sum --check SHA256SUMS)
       - name: Attest APK and AAB provenance
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
           subject-path: |
             release/*.apk
