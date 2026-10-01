@@ -32,7 +32,9 @@ function loadSupabase() {
     }
 
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4';
+    script.integrity = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
+    script.crossOrigin = 'anonymous';
     script.async = true;
     script.onload = () => {
       if (window.supabase && window.supabase.createClient) {
