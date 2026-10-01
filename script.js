@@ -169,6 +169,13 @@ function safeMediaUrl(path) {
 
 /* ===== Ana Başlatma ===== */
 document.addEventListener('DOMContentLoaded', () => {
+  if (!document.querySelector('script[data-stagepulse-controller]')) {
+    const controller = document.createElement('script');
+    controller.src = '/script-controller.js';
+    controller.dataset.stagepulseController = '1';
+    controller.async = false;
+    document.head.appendChild(controller);
+  }
   // Dil
   setLanguage(localStorage.getItem('lang') || 'tr');
 
