@@ -19,6 +19,7 @@
 - Stage Plot ve SPL hesaplama: https://stagepulse.com.tr/stage-plot-spl-hesaplama/
 - Genel hizmetler: https://stagepulse.com.tr/hizmetler.html
 - Teknik mühendislik: https://stagepulse.com.tr/muhendislik.html
+- Teknik içerik merkezi: https://stagepulse.com.tr/teknik-rehber.html
 - SSS: https://stagepulse.com.tr/sss.html
 - Referanslar: https://stagepulse.com.tr/referanslar.html
 - Envanter: https://stagepulse.com.tr/ekipman.html
@@ -42,6 +43,9 @@
 
 ## Teknik uzmanlık
 FOH, canlı miks, monitör, soundcheck, Stage Plot, SPL analizi, sistem tasarımı, teknik rider, Dante ve sahne teknik operasyonu.
+
+## Teknik içerik konuları
+FOH mühendisliği, line array ve point source sistem tasarımı, SPL ve kapsama, Dante network audio, Stage Plot, Technical Rider, line check ve soundcheck, sistem tuning, IEM/monitor yönetimi ve canlı miks.
 
 ## Makine okunabilir kaynaklar
 - Sitemap: https://stagepulse.com.tr/sitemap.xml
