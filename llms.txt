@@ -29,8 +29,10 @@
 - Gaziantep: https://stagepulse.com.tr/gaziantep/
 - Mersin: https://stagepulse.com.tr/mersin/
 - Şanlıurfa: https://stagepulse.com.tr/sanliurfa/
-- Antalya: https://stagepulse.com.tr/antalya/
-- İstanbul: https://stagepulse.com.tr/istanbul/
+
+## Geçmiş çalışma kayıtları
+- Antalya — Rixos Premium Belek, 2025–2026: https://stagepulse.com.tr/antalya/ — aktif hizmet bölgesi değildir.
+- İstanbul — Nil Müzik Ses Işık Sistemleri, 2023–2025: https://stagepulse.com.tr/istanbul/ — aktif hizmet bölgesi değildir.
 
 ## Referanslar
 - Rixos Premium Belek — Antalya, 2025–2026: Tonmeister / teknik sorumlu.
