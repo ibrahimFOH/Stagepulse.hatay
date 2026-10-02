@@ -77,6 +77,11 @@ const regionsPage = read('bolgeler.html');
 requireMatch(regionsPage.includes('Hatay · Adana · Gaziantep · Şanlıurfa · Mersin'), 'Public regions page must list only active service regions.');
 requireMatch(!regionsPage.includes('href="antalya/"'), 'Public regions page must not link to Antalya as a service region.');
 requireMatch(regionsPage.includes('Antalya aktif hizmet bölgesi değildir'), 'Public regions page must explicitly distinguish Antalya from active service regions.');
+requireMatch(regionsPage.includes('İstanbul') && regionsPage.includes('aktif hizmet bölgelerimiz değildir'), 'Public regions page must explicitly distinguish Istanbul from active service regions.');
+const antalyaPage = read('antalya/index.html');
+const istanbulPage = read('istanbul/index.html');
+requireMatch(antalyaPage.includes('name="robots" content="noindex,follow"') && antalyaPage.includes('Antalya şu anda aktif hizmet bölgemiz değildir'), 'Antalya project page must remain a noindex past-work record.');
+requireMatch(istanbulPage.includes('name="robots" content="noindex,follow"') && istanbulPage.includes('İstanbul şu anda aktif hizmet bölgemiz değildir'), 'Istanbul project page must remain a noindex past-work record.');
 const sitemap = read('sitemap.xml');
 requireMatch(!sitemap.includes('stagepulse.com.tr/antalya/'), 'Sitemap must not advertise Antalya as a service region.');
 
