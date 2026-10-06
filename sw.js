@@ -29,7 +29,7 @@ self.addEventListener('fetch',event=>{
   if(url.origin!==self.location.origin)return;
 
   if (isAuthenticatedPath(url.pathname)) {
-    event.respondWith(fetch(request, { cache: 'no-store' }).catch(()=>new Response('Stagepulse yönetim alanı çevrimdışı.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}})));
+    event.respondWith(fetch(request, { cache: 'no-store' }).catch(()=>new Response('Stagepulse yönetim alanı çevrimdışı.',{status: 503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}})));
     return;
   }
 
