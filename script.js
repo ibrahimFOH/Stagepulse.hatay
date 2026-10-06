@@ -233,7 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ===== Aktif Menü =====
+  // Gömülü eski active sınıfları temizle; yalnızca mevcut rota aktif kalsın.
   const currentPath = window.location.pathname.split('/').pop() || 'index.html';
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
   document.querySelectorAll('.nav-links a').forEach(a => {
     const href = a.getAttribute('href');
     if (!href) return;

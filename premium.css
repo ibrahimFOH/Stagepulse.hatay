@@ -67,3 +67,25 @@ body:has(.nav-links a[href="teklif.html"].active) #offerForm input:not([type="ch
   body.page-region .hero-content h1,
   body.page-region .region-hero h1{font-size:clamp(24px,7.6vw,30px)!important}
 }
+
+
+/* ========== TÜM MOBİL/TABLET SAYFALARDA HERO TİPOGRAFİ ========== */
+@media (max-width:900px){
+  .hero-content h1,.hero h1{
+    font-size:clamp(28px,6vw,38px)!important;
+    line-height:1.12!important;
+    letter-spacing:-.035em!important;
+    overflow-wrap:anywhere!important;
+    max-width:100%!important;
+  }
+  .hero-desc{font-size:14px!important;line-height:1.55!important;max-width:100%!important}
+  .hero-brand{font-size:11px!important;letter-spacing:.12em!important}
+}
+@media (max-width:600px){
+  .hero-content h1,.hero h1{
+    font-size:clamp(24px,6.8vw,30px)!important;
+    line-height:1.12!important;
+  }
+  .hero-desc{font-size:13.5px!important;line-height:1.55!important}
+  .hero-brand{font-size:10px!important;letter-spacing:.1em!important}
+}
