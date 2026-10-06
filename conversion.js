@@ -138,7 +138,7 @@
     const footer = document.createElement('div');
     footer.className = 'sp-offer-submit-area';
 
-    const kvkk = $('.kvkk-label', form);
+    const kvkk = $('.kvkk-consent', form);
     const turnstile = $('#turnstileWrap');
     const submit = $('button[type="submit"]', form);
     const success = $('#formSuccess');
