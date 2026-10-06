@@ -95,7 +95,7 @@
 
   function init() {
     try { state=localStorage.getItem(KEY); } catch (_) { state=null; }
-    if (state==='accepted') analytics();
+    if(state==='accepted')analytics();
     else if (state!=='rejected') banner();
     addResetControl();
     loadJarvis();
