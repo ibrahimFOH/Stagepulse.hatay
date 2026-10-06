@@ -11,6 +11,7 @@ const translations = {
     nav_refs: "Referanslar",
     nav_offer: "Teklif Al",
     nav_inventory: "Envanter",
+    nav_regions: "Bölgeler",
 
     footer_role: "FOH Engineer • Stagepulse",
     copyright: "© 2026 Stagepulse – İbrahim Kavasoğlu",
@@ -202,6 +203,7 @@ const translations = {
     nav_refs: "References",
     nav_offer: "Get Quote",
     nav_inventory: "Inventory",
+    nav_regions: "Regions",
 
     footer_role: "FOH Engineer • Stagepulse",
     copyright: "© 2026 Stagepulse – İbrahim Kavasoğlu",
