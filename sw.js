@@ -2,7 +2,7 @@
 const CACHE_VERSION='stagepulse-v7';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
-const AUTHENTICATED_PATHS=['/admin','/portal'];
+const AUTHENTICATED_PATHS = ['/admin', '/portal'];
 
 function isAuthenticatedPath(pathname){return AUTHENTICATED_PATHS.some(path=>pathname===path||pathname.startsWith(`${path}/`));}
 
@@ -28,8 +28,8 @@ self.addEventListener('fetch',event=>{
   const url=new URL(request.url);
   if(url.origin!==self.location.origin)return;
 
-  if(isAuthenticatedPath(url.pathname)){
-    event.respondWith(fetch(request,{cache:'no-store'}).catch(()=>new Response('Stagepulse yönetim alanı çevrimdışı.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}})));
+  if (isAuthenticatedPath(url.pathname)) {
+    event.respondWith(fetch(request, { cache: 'no-store' }).catch(()=>new Response('Stagepulse yönetim alanı çevrimdışı.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}})));
     return;
   }
 
