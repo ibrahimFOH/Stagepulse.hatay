@@ -182,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const link = document.createElement('a');
     link.href = 'bolgeler.html';
     link.textContent = 'Bölgeler';
+    link.setAttribute('data-i18n', 'nav_regions');
     const galleryLink = nav.querySelector('a[href$="galeri.html"]');
     if (galleryLink) nav.insertBefore(link, galleryLink);
     else nav.appendChild(link);
