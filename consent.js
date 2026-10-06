@@ -19,7 +19,7 @@
   global.gtag('consent', 'default', {analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',wait_for_update:500});
 
   function analytics() {
-    global.gtag('consent','update',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
+    global.gtag('consent', 'update',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
     if (document.getElementById('sp-google-analytics')) return;
     global.gtag('js',new Date());
     global.gtag('config',GA,{anonymize_ip:true});
@@ -31,7 +31,7 @@
   }
 
   function deny() {
-    global.gtag('consent','update',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
+    global.gtag('consent', 'update',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
   }
 
   function removeBanner() {
