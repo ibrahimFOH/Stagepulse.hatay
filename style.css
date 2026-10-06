@@ -980,3 +980,36 @@ footer {
   }
   .hero-cta-phone{display:none !important}
 }
+
+
+/* ========== SERVICE PAGES 2026 ========== */
+.service-page a:not(.btn):not(.logo){color:#ffb000;text-decoration:none}
+.service-page a:not(.btn):not(.logo):hover{text-decoration:underline}
+.service-hero{padding:132px 0 64px;background:radial-gradient(circle at 18% 20%,rgba(255,176,0,.09),transparent 42%),#070707;border-bottom:1px solid rgba(255,255,255,.06)}
+.service-hero h1{font-size:clamp(28px,5vw,46px);line-height:1.12;margin:8px 0 14px;max-width:900px;letter-spacing:-.03em}
+.service-hero p{max-width:760px;color:#bbb;font-size:16px;line-height:1.7}
+.service-eyebrow{color:#ffb000;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.service-section{padding:56px 0}
+.service-section-alt{background:#0b0b0b;border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04)}
+.service-panel{background:linear-gradient(165deg,#141414,#0e0e0e);border:1px solid #242424;border-radius:16px;padding:28px}
+.service-panel h2{font-size:22px;margin-bottom:16px}
+.service-list{margin:0;padding-left:20px;color:#bbb}
+.service-list li{padding:5px 0;line-height:1.55}
+.price-table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #252525;border-radius:14px}
+.price-table{width:100%;min-width:700px;border-collapse:collapse;background:#101010}
+.price-table th,.price-table td{padding:13px 14px;border-bottom:1px solid #252525;text-align:left;vertical-align:top}
+.price-table thead th{background:#151515;color:#fff;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.price-table tbody th{color:#eee;font-weight:700;width:28%}
+.price-table td{color:#aaa}
+.price-table .price{color:#ffb000;font-weight:800;white-space:nowrap;text-align:right}
+.price-table tbody tr:last-child th,.price-table tbody tr:last-child td{border-bottom:0}
+.service-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.service-card{display:flex;flex-direction:column;justify-content:space-between;min-height:220px;padding:22px;border:1px solid #252525;border-radius:16px;background:linear-gradient(165deg,#141414,#0e0e0e);box-shadow:0 1px 0 rgba(255,255,255,.03) inset}
+.service-card h2{font-size:19px;line-height:1.25;margin-bottom:9px}
+.service-card p{color:#aaa;font-size:14px;line-height:1.6}
+.service-card-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px}
+.service-card-foot strong{color:#ffb000;font-size:14px;white-space:nowrap}
+.service-card .btn{padding:10px 14px;font-size:13px}
+.footer-role{color:#888;margin-bottom:8px}
+@media(max-width:900px){.service-hero{padding:104px 0 48px}.service-section{padding:40px 0}.service-grid{grid-template-columns:1fr 1fr}.service-card{min-height:200px}}
+@media(max-width:600px){.service-hero{padding:92px 0 38px}.service-hero h1{font-size:clamp(26px,8vw,34px)}.service-hero p{font-size:14px}.service-grid{grid-template-columns:1fr}.service-card{min-height:0}.service-card-foot{align-items:flex-start;flex-direction:column}.service-card-foot .btn{width:100%}.service-panel{padding:20px 17px}.price-table{min-width:680px}}

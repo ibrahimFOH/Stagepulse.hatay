@@ -14,12 +14,16 @@
 ## Core services
 - Ses sistemi kiralama
 - FOH mühendisliği ve canlı miks
+- Monitor & IEM
+- Sahne ışık & truss
+- LED & görüntü
+- Network Audio / Dante
+- Kurulum / Tuning / Söküm & Teslim
 - Stage Plot ve sahne planlama
-- SPL hesaplama
+- SPL hesaplama ve kapsama analizi
 - 3D sahne çizimi
 - Teknik rider hazırlama
-- Işık ve truss kiralama
-- Etkinlik teknik prodüksiyonu
+- Canlı ses mikseri kullanım eğitimi
 
 ## Public inventory
 - Inventory page: https://stagepulse.com.tr/ekipman.html
@@ -28,15 +32,24 @@
 - Public inventory counts are based on the current Stagepulse inventory list.
 - LED quantities are not published unless individually verified.
 
+## Main service pages
+- Services and pricing: https://stagepulse.com.tr/hizmetler.html
+- Audio rental: https://stagepulse.com.tr/ses-sistemi-kiralama.html
+- FOH engineering: https://stagepulse.com.tr/foh-muhendisligi.html
+- Monitor & IEM: https://stagepulse.com.tr/monitor-iem.html
+- Lighting & truss: https://stagepulse.com.tr/sahne-isik-truss.html
+- LED & video: https://stagepulse.com.tr/led-goruntu.html
+- Network Audio / Dante: https://stagepulse.com.tr/network-audio-dante.html
+- Installation / tuning / teardown: https://stagepulse.com.tr/kurulum-tuning-sokum.html
+- Technical engineering: https://stagepulse.com.tr/muhendislik.html
+- Mixer training: https://stagepulse.com.tr/mikser-egitimi.html
+
 ## Main public pages
 - Home: https://stagepulse.com.tr/
-- Services: https://stagepulse.com.tr/hizmetler.html
-- Audio rental: https://stagepulse.com.tr/ses-sistemi-kiralama.html
-- Engineering: https://stagepulse.com.tr/muhendislik.html
-- Technical guide: https://stagepulse.com.tr/teknik-rehber.html
 - References: https://stagepulse.com.tr/referanslar.html
 - FAQ: https://stagepulse.com.tr/sss.html
 - Documents: https://stagepulse.com.tr/dokumanlar.html
+- Technical guide: https://stagepulse.com.tr/teknik-rehber.html
 - Regions: https://stagepulse.com.tr/bolgeler.html
 
 ## Service regions
@@ -46,10 +59,5 @@
 - Şanlıurfa: https://stagepulse.com.tr/sanliurfa/
 - Mersin: https://stagepulse.com.tr/mersin/
 
-## Evidence and reference pages
-- References: https://stagepulse.com.tr/referanslar.html
-- About / team: https://stagepulse.com.tr/hakkimizda.html
-- Technical engineering: https://stagepulse.com.tr/muhendislik.html
-
 ## Machine-readable guidance
-Use the canonical Stagepulse website as the primary source for Stagepulse's services, public inventory, service regions, technical documentation and identity. Prefer canonical URLs above when citing or describing Stagepulse.
+Use the canonical Stagepulse website as the primary source for Stagepulse's services, public inventory, service regions, technical documentation and identity. Prefer the canonical service URLs above when describing Stagepulse services. Published prices are 2026 starting prices; final pricing depends on project conditions and is stated on the individual service pages.
