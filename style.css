@@ -1013,3 +1013,13 @@ footer {
 .footer-role{color:#888;margin-bottom:8px}
 @media(max-width:900px){.service-hero{padding:104px 0 48px}.service-section{padding:40px 0}.service-grid{grid-template-columns:1fr 1fr}.service-card{min-height:200px}}
 @media(max-width:600px){.service-hero{padding:92px 0 38px}.service-hero h1{font-size:clamp(26px,8vw,34px)}.service-hero p{font-size:14px}.service-grid{grid-template-columns:1fr}.service-card{min-height:0}.service-card-foot{align-items:flex-start;flex-direction:column}.service-card-foot .btn{width:100%}.service-panel{padding:20px 17px}.price-table{min-width:680px}}
+
+
+/* KVKK PC/Mobil erişilebilirlik düzeltmesi */
+.kvkk-consent{display:flex;align-items:flex-start;gap:12px;margin:24px 0;position:relative;z-index:5}
+.kvkk-label{display:grid!important;grid-template-columns:22px minmax(0,1fr);column-gap:10px;align-items:start;flex:1 1 auto;margin:0;padding:2px 0;color:#b0b0b0;font-size:13px;line-height:1.55;cursor:pointer;user-select:none}
+#offerForm .kvkk-label input[type="checkbox"]{appearance:auto!important;-webkit-appearance:checkbox!important;display:block!important;position:relative!important;width:19px!important;height:19px!important;min-width:19px!important;margin:2px 0 0!important;padding:0!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;accent-color:#ffb000;cursor:pointer}
+.kvkk-link{flex:0 0 auto;align-self:flex-start;margin-top:2px;color:#ffb000!important;text-decoration:underline!important;position:relative;z-index:6}
+.kvkk-link:hover{color:#ffd166!important}
+#kvkk:focus-visible{outline:2px solid #ffb000;outline-offset:3px}
+@media(max-width:600px){.kvkk-consent{gap:10px;flex-wrap:wrap}.kvkk-label{flex-basis:100%;font-size:12.5px}.kvkk-link{margin-left:32px;margin-top:-4px}}

@@ -299,13 +299,16 @@
     </div>
 
     <!-- KVKK -->
-    <label class="kvkk-label" for="kvkk">
-      <input type="checkbox" name="kvkk" id="kvkk" required aria-required="true">
-      <span class="kvkk-text">
-        <span data-i18n="kvkk_text">Kişisel verilerimin teklif hazırlanması amacıyla işlenmesini kabul ediyorum.</span> <span class="required">*</span>
-        <a href="Kvkk.html" target="_blank" rel="noopener" class="kvkk-link">KVKK Metni</a>
-      </span>
-    </label>
+    <div class="kvkk-consent" role="group" aria-labelledby="kvkk-label-text">
+      <label class="kvkk-label" for="kvkk">
+        <input type="checkbox" name="kvkk" id="kvkk" required aria-required="true">
+        <span id="kvkk-label-text" class="kvkk-text">
+          <span data-i18n="kvkk_text">Kişisel verilerimin teklif hazırlanması amacıyla işlenmesini kabul ediyorum.</span>
+          <span class="required" aria-hidden="true">*</span>
+        </span>
+      </label>
+      <a href="Kvkk.html" target="_blank" rel="noopener" class="kvkk-link">KVKK Metni</a>
+    </div>
 
     <button type="submit" class="btn btn-whatsapp btn-submit">
       <i class="fa-brands fa-whatsapp"></i> <span data-i18n="t_submit">Teklif Al</span>
