@@ -176,6 +176,17 @@ document.addEventListener('DOMContentLoaded', () => {
     controller.async = false;
     document.head.appendChild(controller);
   }
+  // Ortak navigasyona Bölgeler bağlantısını ekle: masaüstü, tablet ve mobil aynı menü yapısını kullansın.
+  document.querySelectorAll('.nav-links').forEach((nav) => {
+    if (nav.querySelector('a[href$="bolgeler.html"]')) return;
+    const link = document.createElement('a');
+    link.href = 'bolgeler.html';
+    link.textContent = 'Bölgeler';
+    const galleryLink = nav.querySelector('a[href$="galeri.html"]');
+    if (galleryLink) nav.insertBefore(link, galleryLink);
+    else nav.appendChild(link);
+  });
+
   // Dil
   setLanguage(localStorage.getItem('lang') || 'tr');
 
