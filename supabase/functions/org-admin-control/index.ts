@@ -45,7 +45,12 @@ Deno.serve(async(req)=>{
     }
     if(action==="members"){
       const {data,error}=await db.from("org_memberships").select("user_id,role_id,position_id,department_id,region_id,manager_user_id,active,created_at,updated_at,role:role_id(code,name,tier,is_admin_role,can_manage_children),position:position_id(code,name),department:department_id(code,name),region:region_id(code,name)").order("created_at");if(error)throw error;
-      const {data:users,error:ue}=await db.auth.admin.listUsers({page:1,perPage:1000});if(ue)throw ue;const um=new Map((users.users||[]).map(u=>[u.id,{email:u.email,display_name:u.user_metadata?.display_name||u.user_metadata?.full_name||"",username:u.user_metadata?.username||"",last_sign_in_at:u.last_sign_in_at}]));return out(req,{members:await Promise.all((data||[]).map(async(x:any)=>({...x,profile:um.get(x.user_id)||{},capabilities:await permissionsFor(x.user_id)})))});
+      const {data:users,error:ue}=await db.auth.admin.listUsers({page:1,perPage:1000});if(ue)throw ue;
+      const um=new Map((users.users||[]).map(u=>[u.id,{email:u.email,display_name:u.user_metadata?.display_name||u.user_metadata?.full_name||"",username:u.user_metadata?.username||"",last_sign_in_at:u.last_sign_in_at}]));
+      const ids=(data||[]).map((x:any)=>x.user_id);
+      const {data:sp,error:spe}=ids.length?await db.from("staff_profiles").select("user_id,username,display_name,role,phone,active,permissions").in("user_id",ids):{data:[],error:null};
+      if(spe)throw spe;const sm=new Map((sp||[]).map((x:any)=>[x.user_id,x]));
+      return out(req,{members:await Promise.all((data||[]).map(async(x:any)=>({...x,profile:{...(um.get(x.user_id)||{}),...(sm.get(x.user_id)||{})},capabilities:await permissionsFor(x.user_id)})))});
     }
     if(action==="create_member"){
       const username=text(b.username,64).toLowerCase(),display=text(b.display_name,120),pw=password(b.password),roleCode=text(b.role_code,60)||"employee",positionCode=text(b.position_code,60);
