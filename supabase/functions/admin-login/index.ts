@@ -3,7 +3,7 @@ import {
   corsHeadersFor,
   handleOptions,
   getClientIp,
-  isRateLimited,
+  isDistributedRateLimited,
   GENERIC_LOGIN_ERROR,
   jsonError,
 } from "../_shared/security.ts";
@@ -19,10 +19,6 @@ Deno.serve(async (req) => {
 
   try {
     const ip = getClientIp(req);
-    if (isRateLimited(`admin-login:${ip}`)) {
-      return jsonError("Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.", 429, corsHeaders);
-    }
-
     const body = await req.json().catch(() => null);
     const username = body?.username;
     const password = body?.password;
@@ -34,6 +30,9 @@ Deno.serve(async (req) => {
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
     const admin = createClient(url, service, { auth: { persistSession: false } });
+    if (!(await isDistributedRateLimited(admin, `admin-login:${ip}`, 10))) {
+      return jsonError("Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.", 429, corsHeaders);
+    }
 
     const { data: profile, error: pe } = await admin
       .from("admin_profiles")
