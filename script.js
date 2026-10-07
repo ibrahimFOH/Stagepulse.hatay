@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
     { href: '/galeri.html', key: 'nav_gallery', fallback: 'Galeri' },
     { href: '/dokumanlar.html', key: 'nav_docs', fallback: 'Dokümanlar' },
     { href: '/bolgeler.html', key: 'nav_regions', fallback: 'Bölgeler' },
-    { href: '/referanslar.html', key: 'nav_references', fallback: 'Referanslar' },
+    { href: '/referanslar.html', key: 'nav_refs', fallback: 'Referanslar' },
     { href: '/teklif.html', key: 'nav_offer', fallback: 'Teklif Al' }
   ];
 
