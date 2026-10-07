@@ -1685,8 +1685,11 @@ async function deleteNotification(id) {
 /* ── Settings ──────────────────────────────────────── */
 async function settingsView() {
   const s = await getSettings();
-  const { data: p } = await sb.from('admin_profiles').select('username,display_name')
-    .eq('user_id', (await sb.auth.getUser()).data.user.id).single();
+  const { data: { user } } = await sb.auth.getUser();
+  const p = {
+    username: user?.user_metadata?.username || user?.email?.split('@')[0] || '',
+    display_name: user?.user_metadata?.display_name || user?.user_metadata?.full_name || ''
+  };
   $('#content').innerHTML = `
     <div class="page-head"><div><h1>Ayarlar</h1><p class="muted">İşletme ve hesap</p></div></div>
     <div class="grid2">
