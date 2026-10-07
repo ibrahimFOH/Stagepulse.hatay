@@ -465,3 +465,9 @@ drop trigger if exists trg_enforce_public_quote_rate_limit on public.teklifler;
 create trigger trg_enforce_public_quote_rate_limit
 before insert on public.teklifler
 for each row execute function public.enforce_public_quote_rate_limit();
+
+
+-- Final runtime ACL hardening.
+alter function public.set_quote_defaults() set search_path=public,pg_temp;
+revoke all on function public.enforce_public_quote_input() from public,anon,authenticated;
+revoke all on function public.enforce_public_quote_rate_limit() from public,anon,authenticated;
