@@ -47,7 +47,7 @@ section{padding:80px 0}
 }
 
 /* ========== NAV ========== */
-nav{
+body > nav{
   position:fixed;top:0;left:0;width:100%;z-index:9999;
   background:rgba(7,7,7,.94);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
