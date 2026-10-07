@@ -471,3 +471,19 @@ for each row execute function public.enforce_public_quote_rate_limit();
 alter function public.set_quote_defaults() set search_path=public,pg_temp;
 revoke all on function public.enforce_public_quote_input() from public,anon,authenticated;
 revoke all on function public.enforce_public_quote_rate_limit() from public,anon,authenticated;
+
+
+-- Public quote insert trigger must run with owner privileges; callers never execute it directly.
+create or replace function public.set_offer_public_code()
+returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
+begin
+  if new.public_code is null or btrim(new.public_code)='' then
+    loop
+      new.public_code:=upper(replace(gen_random_uuid()::text,'-',''));
+      exit when not exists(select 1 from public.teklifler where public_code=new.public_code);
+    end loop;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.set_offer_public_code() from public,anon,authenticated;
