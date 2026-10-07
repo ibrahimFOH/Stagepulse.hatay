@@ -60,6 +60,8 @@ function perms() {
   return { ...DEFAULT_PERMS, ...(staffUser?.permissions || {}) };
 }
 function can(key) {
+  // Site fiyat kataloğu müşteri-facing bilgi olduğu için tüm aktif personel görebilir.
+  if (key === 'pricing') return true;
   return !!perms()[key];
 }
 
