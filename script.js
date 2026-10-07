@@ -176,16 +176,38 @@ document.addEventListener('DOMContentLoaded', () => {
     controller.async = false;
     document.head.appendChild(controller);
   }
-  // Ortak navigasyona Bölgeler bağlantısını ekle: masaüstü, tablet ve mobil aynı menü yapısını kullansın.
+  // Ortak navigasyonu tek bir kaynakla normalize et.
+  // Eski sayfalarda eksik kalan Dokümanlar/Bölgeler bağlantıları dahil olmak üzere
+  // masaüstü, tablet ve mobilde aynı ana menü her sayfada erişilebilir olsun.
+  const primaryNavigation = [
+    { href: '/', key: 'nav_home', fallback: 'Ana Sayfa' },
+    { href: '/hizmetler.html', key: 'nav_services', fallback: 'Hizmetler' },
+    { href: '/muhendislik.html', key: 'nav_engineering', fallback: 'Mühendislik' },
+    { href: '/ekipman.html', key: 'nav_inventory', fallback: 'Envanter' },
+    { href: '/galeri.html', key: 'nav_gallery', fallback: 'Galeri' },
+    { href: '/dokumanlar.html', key: 'nav_docs', fallback: 'Dokümanlar' },
+    { href: '/bolgeler.html', key: 'nav_regions', fallback: 'Bölgeler' },
+    { href: '/referanslar.html', key: 'nav_references', fallback: 'Referanslar' },
+    { href: '/teklif.html', key: 'nav_offer', fallback: 'Teklif Al' }
+  ];
+
   document.querySelectorAll('.nav-links').forEach((nav) => {
-    if (nav.querySelector('a[href$="bolgeler.html"]')) return;
-    const link = document.createElement('a');
-    link.href = 'bolgeler.html';
-    link.textContent = 'Bölgeler';
-    link.setAttribute('data-i18n', 'nav_regions');
-    const galleryLink = nav.querySelector('a[href$="galeri.html"]');
-    if (galleryLink) nav.insertBefore(link, galleryLink);
-    else nav.appendChild(link);
+    const currentPath = window.location.pathname.replace(/\\/+$/, '') || '/';
+    nav.replaceChildren();
+
+    primaryNavigation.forEach(({ href, key, fallback }) => {
+      const link = document.createElement('a');
+      link.href = href;
+      link.setAttribute('data-i18n', key);
+      link.textContent = fallback;
+      const normalizedHref = href.replace(/\\/+$/, '') || '/';
+      if (currentPath === normalizedHref ||
+          (currentPath === '/index.html' && href === '/') ||
+          (currentPath.endsWith('/index.html') && href === '/')) {
+        link.classList.add('active');
+      }
+      nav.appendChild(link);
+    });
   });
 
   // Dil
