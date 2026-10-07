@@ -235,8 +235,11 @@ declare d integer; begin
 drop trigger if exists trg_quote_defaults on public.teklifler;
 create trigger trg_quote_defaults before insert or update on public.teklifler for each row execute function public.set_quote_defaults();
 
-create or replace function public.is_admin() returns boolean language sql stable security definer set search_path=public as $$
- select exists(select 1 from public.admin_profiles p where p.user_id=auth.uid() and p.active=true); $$;
+create or replace function public.is_admin() returns boolean language sql stable security definer set search_path='' as $
+ select private.is_admin(); $;
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+grant select, insert, update, delete on table public.teklifler to authenticated;
 
 -- Public-safe view: no internal cost/margin is exposed.
 create or replace view public.public_quotes as
