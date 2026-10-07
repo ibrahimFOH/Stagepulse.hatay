@@ -946,17 +946,37 @@ async function deleteCustomer(id) {
 async function pricingView() {
   const { data: rules } = await sb.from('price_rules').select('*').order('name');
   const { data: svc } = await sb.from('services').select('*').order('sort_order');
+  const { data: published, error: publishedError } = await sb.from('published_pricing')
+    .select('category,item_name,description,minimum_price,unit,source_path')
+    .eq('active', true)
+    .order('sort_order');
+  if (publishedError) throw publishedError;
   services = svc || [];
+  const groups = (published || []).reduce((acc, row) => {
+    (acc[row.category] ||= []).push(row);
+    return acc;
+  }, {});
   $('#content').innerHTML = `
     <div class="page-head">
-      <div><h1>Fiyatlandırma</h1><p class="muted">Hizmet taban fiyatları (mutabakattan ayrı)</p></div>
+      <div><h1>Fiyatlandırma</h1><p class="muted">Siteye yayınlanan minimum fiyatlar + iç fiyatlandırma</p></div>
       <div class="actions">
         <button class="btn" onclick="serviceModal(null)">+ Hizmet</button>
         <button class="btn btn-primary" onclick="savePricing()">Kaydet</button>
       </div>
     </div>
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><div><h3 style="margin:0">Siteye Yayınlanan Minimum Fiyatlar</h3><p class="muted small">stagepulse.com.tr üzerindeki 2026 fiyat tablolarının tek kaynaklı kopyası. KDV hariç.</p></div><span class="status accepted">${published?.length || 0} kalem</span></div>
+      ${Object.entries(groups).map(([category, items]) => `
+        <div style="margin-top:18px">
+          <h4 style="margin:0 0 8px">${esc(category)}</h4>
+          <div class="table-wrap"><table class="data-table">
+            <thead><tr><th>Hizmet / Kalem</th><th>Açıklama</th><th>Minimum</th></tr></thead>
+            <tbody>${items.map(r=>`<tr><td><strong>${esc(r.item_name)}</strong></td><td class="muted">${esc(r.description || '—')}</td><td><strong>${money(r.minimum_price)}${r.unit !== 'TL' ? ' / m²' : ''}</strong></td></tr>`).join('')}</tbody>
+          </table></div>
+        </div>`).join('')}
+    </div>
     <div class="grid2">
-      <div class="panel"><h3>Hizmetler</h3>
+      <div class="panel"><h3>İç Hizmet Fiyatları</h3>
         ${(services||[]).map(s=>`<div class="price-row">
           <span style="flex:1;min-width:120px">${esc(s.name)}</span>
           <input class="svc-price" data-id="${s.id}" type="number" value="${num(s.base_price)}" step="100" title="Satış" style="width:100px">
