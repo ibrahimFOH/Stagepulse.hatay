@@ -1,4 +1,4 @@
-// Ortak güvenlik yardımcıları: CORS, basit rate-limit ve şifre politikası.
+// Ortak güvenlik yardımcıları: CORS, dağıtık rate-limit ve şifre politikası.
 // Tüm edge function'lar bu modülü kullanır.
 
 const ALLOWED_ORIGINS = new Set<string>([
@@ -43,19 +43,6 @@ export function getClientIp(req: Request): string {
     req.headers.get("x-real-ip") ||
     "unknown"
   );
-}
-
-export function isRateLimited(key: string): boolean {
-  const now = Date.now();
-  const arr = (rateBuckets.get(key) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  arr.push(now);
-  rateBuckets.set(key, arr);
-  // Bellek büyümesini sınırla
-  if (rateBuckets.size > 5000) {
-    const firstKey = rateBuckets.keys().next().value;
-    if (firstKey !== undefined) rateBuckets.delete(firstKey);
-  }
-  return arr.length > RATE_LIMIT_MAX;
 }
 
 export async function isDistributedRateLimited(
