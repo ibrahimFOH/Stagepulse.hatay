@@ -378,3 +378,55 @@ grant insert on public.teklifler to anon, authenticated;
 -- Bootstrap note: after creating the single Auth user in Supabase Dashboard, run:
 -- insert into public.admin_profiles(user_id,username,display_name) values('<AUTH USER UUID>','stagepulseadmin','Stagepulse Admin');
 -- Then the username login Edge Function will be active.
+
+
+-- SECURITY HARDENING: public quote intake and distributed rate limits.
+create schema if not exists private;
+
+create table if not exists private.rate_limits (
+  key text not null,
+  request_at timestamptz not null default now()
+);
+create index if not exists rate_limits_key_request_at_idx
+  on private.rate_limits(key, request_at desc);
+revoke all on schema private from anon, authenticated;
+
+create or replace function public.check_login_rate_limit(
+  p_key text,
+  p_max integer default 10
+) returns boolean
+language plpgsql
+security definer
+set search_path=public,private
+as $$
+declare c integer;
+begin
+  if p_key is null or length(trim(p_key)) = 0 then return false; end if;
+  delete from private.rate_limits where request_at < now() - interval '10 minutes';
+  select count(*) into c from private.rate_limits
+   where key=p_key and request_at >= now() - interval '1 minute';
+  if c >= greatest(1,p_max) then return false; end if;
+  insert into private.rate_limits(key) values(p_key);
+  return true;
+end;
+$$;
+revoke all on function public.check_login_rate_limit(text,integer) from public,anon,authenticated;
+grant execute on function public.check_login_rate_limit(text,integer) to service_role;
+
+create or replace function public.enforce_public_quote_input()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  if current_user in ('anon','authenticated') then
+    new.quote_number:=null; new.customer_id:=null; new.status:='new'; new.currency:='TRY';
+    new.estimated_cost:=0; new.estimated_price:=0; new.discount:=0; new.total:=0; new.margin:=0;
+    new.public_token:=null; new.valid_until:=null; new.accepted_at:=null; new.rejected_at:=null; new.archived_at:=null;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_enforce_public_quote_input on public.teklifler;
+create trigger trg_enforce_public_quote_input before insert on public.teklifler
+for each row execute function public.enforce_public_quote_input();
+
+revoke all on table public.teklifler from anon,authenticated;
+grant insert on public.teklifler to anon,authenticated;
