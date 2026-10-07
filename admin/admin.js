@@ -1522,7 +1522,7 @@ async function personnelView() {
 
 function staffModal(userId) {
   const p = userId ? staffProfiles.find((x) => x.user_id === userId) : null;
-  const roleOpts = Object.entries(staffRoles).map(([k, v]) =>
+  const roleOpts = Object.entries(staffRoles).filter(([k]) => k !== 'owner').map(([k, v]) =>
     `<option value="${k}" ${(p?.role || 'crew') === k ? 'selected' : ''}>${v}</option>`).join('');
   const perms = { ...staffPermDefaults, ...(p?.permissions || {}) };
   const permCheckboxHtml = (f) => `
