@@ -104,3 +104,8 @@ revoke all on table public.teklifler from anon,authenticated;
 grant insert on public.teklifler to anon,authenticated;
 
 notify pgrst, 'reload schema';
+
+
+alter function public.set_quote_defaults() set search_path=public,pg_temp;
+revoke all on function public.enforce_public_quote_input() from public,anon,authenticated;
+revoke all on function public.enforce_public_quote_rate_limit() from public,anon,authenticated;
