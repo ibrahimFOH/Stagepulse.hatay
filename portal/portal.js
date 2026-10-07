@@ -1,7 +1,7 @@
 /* Stagepulse Personel Portalı — mali alanlar yok + yetki bazlı menü */
 const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
-const EDGE_LOGIN = `${SUPABASE_URL}/functions/v1/staff-login`;
+const EDGE_LOGIN = `${SUPABASE_URL}/functions/v1/portal-login`;
 
 if (!window.supabase) {
   document.body.innerHTML = '<div style="padding:40px;font-family:system-ui;color:#fff;background:#090909">Supabase yüklenemedi.</div>';
