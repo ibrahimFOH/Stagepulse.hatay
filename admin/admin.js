@@ -141,20 +141,37 @@ async function init() {
 }
 
 async function guard(session) {
-  const { data: p, error } = await sb.from('admin_profiles').select('username,display_name,active').eq('user_id', session.user.id).maybeSingle();
-  if (error || !p?.active) {
-    await sb.auth.signOut();
+  if (!session?.access_token) {
     showLogin();
-    $('#loginError').textContent = 'Bu hesap admin yetkisine sahip değil.';
     return;
   }
-  showApp();
-  $('#adminUser').textContent = '@' + p.username;
-  $('#sideAdminName').textContent = p.display_name || p.username;
-  const hash = (location.hash || '#dashboard').slice(1);
-  await loadView(viewMeta[hash] ? hash : 'dashboard');
+  try {
+    const ctx = await apiFetch(SUPABASE_URL + '/functions/v1/org-admin-control', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY,
+        Authorization: 'Bearer ' + session.access_token
+      },
+      body: JSON.stringify({ action: 'my_context' })
+    });
+    if (!ctx?.is_admin || !ctx?.membership?.active) {
+      throw new Error('Bu hesap admin yetkisine sahip değil.');
+    }
+    const username = session.user?.user_metadata?.username || session.user?.email?.split('@')[0] || 'admin';
+    const displayName = session.user?.user_metadata?.display_name || session.user?.user_metadata?.full_name || username;
+    showApp();
+    $('#adminUser').textContent = '@' + username;
+    $('#sideAdminName').textContent = displayName;
+    const hash = (location.hash || '#dashboard').slice(1);
+    await loadView(viewMeta[hash] ? hash : 'dashboard');
+  } catch (error) {
+    console.error('Admin guard:', error);
+    await sb.auth.signOut();
+    showLogin();
+    $('#loginError').textContent = error.message || 'Bu hesap admin yetkisine sahip değil.';
+  }
 }
-
 async function login(e) {
   e.preventDefault();
   const btn = $('#loginBtn');
