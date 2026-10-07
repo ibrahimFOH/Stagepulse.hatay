@@ -155,7 +155,9 @@ async function guard(session) {
       },
       body: JSON.stringify({ action: 'my_context' })
     });
-    if (!ctx?.is_admin || !ctx?.membership?.active) {
+    const role = Array.isArray(ctx?.membership?.role) ? ctx.membership.role[0] : ctx?.membership?.role;
+    const roleIsAdmin = role?.is_admin_role === true || ['owner', 'super_admin', 'upper_admin'].includes(role?.code);
+    if ((!ctx?.is_admin && !roleIsAdmin) || !ctx?.membership?.active) {
       throw new Error('Bu hesap admin yetkisine sahip değil.');
     }
     const username = session.user?.user_metadata?.username || session.user?.email?.split('@')[0] || 'admin';
