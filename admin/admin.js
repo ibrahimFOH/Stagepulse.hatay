@@ -1502,8 +1502,11 @@ function staffModal(userId) {
   const perms = { ...staffPermDefaults, ...(p?.permissions || {}) };
   const permCheckboxHtml = (f) => `
           <label class="permission-option${f.sensitive ? ' is-sensitive' : ''}" for="perm_${f.key}">
-            <input type="checkbox" id="perm_${f.key}" ${perms[f.key] ? 'checked' : ''}>
             <span class="permission-copy"><b>${esc(f.label)}</b>${f.sensitive ? ' <small>(mali)</small>' : ''}</span>
+            <span class="permission-switch" aria-hidden="true">
+              <input type="checkbox" id="perm_${f.key}" ${perms[f.key] ? 'checked' : ''}>
+              <span class="permission-switch-track"><span class="permission-switch-thumb"></span></span>
+            </span>
           </label>`;
   const basicFields = staffPermFields.filter(f => !f.sensitive);
   const sensitiveFields = staffPermFields.filter(f => f.sensitive);
