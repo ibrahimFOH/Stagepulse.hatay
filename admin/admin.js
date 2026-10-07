@@ -1437,6 +1437,19 @@ const staffRoles = {
   warehouse: 'Depo',
   lead: 'Sorumlu'
 };
+const staffRoleDescriptions = {
+  owner: 'Şirket sahibi · tüm sistem ve organizasyon yetkileri',
+  super_admin: 'Üst sistem yönetimi · şirket geneli operasyon ve yönetim',
+  upper_admin: 'Üst yönetim · operasyon ve bağlı yöneticiler',
+  ceo: 'İcra ve şirket yönetimi · organizasyon genelinde sorumluluk',
+  department_manager: 'Departman ve bağlı personel yönetimi',
+  regional_manager: 'Bölge ve bağlı personel yönetimi',
+  employee: 'Kendisine verilen görev ve panel kapsamı',
+  crew: 'Saha ekibi',
+  tech: 'Teknik ekip',
+  warehouse: 'Depo ekibi',
+  lead: 'Operasyon sorumlusu'
+};
 // Personel oluşturma/düzenleme modalındaki "Portalda ne görsün?" listesi.
 // key: staff_profiles.permissions içindeki alan adı (edge function ve
 // staff-portal.sql'deki view'larla birebir aynı olmalı).
@@ -1530,7 +1543,7 @@ function staffModal(userId) {
       <div class="grid2">
         <label>Görünen ad *<input id="stName" value="${esc(p?.display_name || '')}"></label>
         <label>Kullanıcı adı *<input id="stUser" value="${esc(p?.username || '')}" ${p ? 'readonly' : ''} placeholder="ahmet"></label>
-        <label>Rol<select id="stRole">${roleOpts}</select></label>
+        <label>Rol / sorumluluk<select id="stRole">${roleOpts}</select><small id="stRoleHelp" class="field-help">${esc(staffRoleDescriptions[p?.role || 'employee'])}</small></label>
         <label>Telefon<input id="stPhone" value="${esc(p?.phone || '')}"></label>
         <label>${p ? 'Yeni şifre (opsiyonel)' : 'Şifre *'}<input id="stPass" type="password" minlength="10" placeholder="En az 10 karakter, harf + rakam"></label>
         ${p ? `<label>Durum<select id="stActive">
