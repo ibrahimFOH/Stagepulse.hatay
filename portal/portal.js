@@ -38,7 +38,7 @@ const DEFAULT_PERMS = {
   view_job_contacts: false, view_job_documents: true,
   equipment_checkout: false, equipment_return: false,
   report_issue: true, view_team: true,
-  customers: false, finance: false, pricing: false, financials: false
+  customers: false, finance: false, pricing: true, financials: false
 };
 
 let staffUser = null;
@@ -247,8 +247,10 @@ async function fetchPayments() {
   payments = data || [];
 }
 async function fetchPricing() {
-  if (!can('pricing')) { pricing = []; return; }
-  const { data, error } = await sb.from('pricing_staff').select('*').order('sort_order');
+  const { data, error } = await sb.from('published_pricing')
+    .select('category,item_name,description,minimum_price,unit,source_path')
+    .eq('active', true)
+    .order('sort_order');
   if (error) throw error;
   pricing = data || [];
 }
@@ -531,21 +533,30 @@ async function financeView() {
 
 async function pricingView() {
   await fetchPricing();
+  const groups = pricing.reduce((acc, row) => {
+    (acc[row.category] ||= []).push(row);
+    return acc;
+  }, {});
   $('#content').innerHTML = `
     <div class="page-head">
-      <div><h1>Fiyat listesi</h1><p class="muted">Hizmet ve fiyatlandırma kuralları</p></div>
+      <div><h1>Fiyat listesi</h1><p class="muted">Stagepulse.com.tr üzerinde yayınlanan 2026 minimum fiyatları</p></div>
     </div>
-    <div class="panel"><div class="table-wrap"><table class="data-table">
-      <thead><tr><th>Ad</th><th>Açıklama</th><th>Fiyat / değer</th></tr></thead>
-      <tbody>
-        ${pricing.map((r) => `
-          <tr>
-            <td><strong>${esc(r.name)}</strong></td>
-            <td class="muted">${esc(r.description || '—')}</td>
-            <td>${money(r.base_price)}</td>
-          </tr>`).join('') || '<tr><td colspan="3" class="muted" style="text-align:center;padding:24px">Kayıt yok</td></tr>'}
-      </tbody>
-    </table></div></div>`;
+    <div class="panel">
+      <p class="muted small" style="margin-top:0">Tüm fiyatlar KDV hariçtir. Kesin bedel; tarih, mekân, kapsam, ekipman, kurulum/söküm ve teknik ekip ihtiyacına göre netleştirilir.</p>
+      ${Object.entries(groups).map(([category, items]) => `
+        <section style="margin-top:20px">
+          <h3>${esc(category)}</h3>
+          <div class="table-wrap"><table class="data-table">
+            <thead><tr><th>Hizmet / Kalem</th><th>Açıklama</th><th>Minimum</th></tr></thead>
+            <tbody>${items.map((r) => `
+              <tr>
+                <td><strong>${esc(r.item_name)}</strong></td>
+                <td class="muted">${esc(r.description || '—')}</td>
+                <td><strong>${money(r.minimum_price)}${r.unit !== 'TL' ? ' / m²' : ''}</strong></td>
+              </tr>`).join('')}</tbody>
+          </table></div>
+        </section>`).join('') || '<p class="muted">Fiyat kaydı yok.</p>'}
+    </div>`;
 }
 
 window.loadView = loadView;
