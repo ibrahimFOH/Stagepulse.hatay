@@ -29,7 +29,9 @@ Deno.serve(async(req)=>{
     if(action==="my_context"){
       const actor=await authUser(req);const ctx=await actorContext(actor);
       if(!ctx.membership)return out(req,{membership:null,owner:false,is_admin:false,capabilities:[]});
-      return out(req,{membership:ctx.membership,owner:ctx.isOwner,is_admin:ctx.isAdminRole,capabilities:await permissionsFor(actor)});
+      let capabilities:any[] = [];
+      try { capabilities = await permissionsFor(actor); } catch (error) { console.error("[org-admin-control] capability lookup failed", error); }
+      return out(req,{membership:ctx.membership,owner:ctx.isOwner,is_admin:ctx.isAdminRole,capabilities});
     }
     const actor=await requireOwner(req);
     if(action==="catalog"){
