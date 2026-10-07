@@ -1501,8 +1501,9 @@ function staffModal(userId) {
     `<option value="${k}" ${(p?.role || 'crew') === k ? 'selected' : ''}>${v}</option>`).join('');
   const perms = { ...staffPermDefaults, ...(p?.permissions || {}) };
   const permCheckboxHtml = (f) => `
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" id="perm_${f.key}" ${perms[f.key] ? 'checked' : ''}> ${esc(f.label)}${f.sensitive ? ' <span class="muted" style="font-size:11px">(mali)</span>' : ''}
+          <label class="permission-option${f.sensitive ? ' is-sensitive' : ''}" for="perm_${f.key}">
+            <input type="checkbox" id="perm_${f.key}" ${perms[f.key] ? 'checked' : ''}>
+            <span class="permission-copy"><b>${esc(f.label)}</b>${f.sensitive ? ' <small>(mali)</small>' : ''}</span>
           </label>`;
   const basicFields = staffPermFields.filter(f => !f.sensitive);
   const sensitiveFields = staffPermFields.filter(f => f.sensitive);
@@ -1522,16 +1523,16 @@ function staffModal(userId) {
           <option value="0" ${!p.active ? 'selected' : ''}>Pasif</option>
         </select></label>` : ''}
       </div>
-      <div style="margin-top:14px;padding:12px;border:1px solid #2a2a2a;border-radius:10px;background:#111">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Portalda ne görsün?</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+      <div class="permission-panel">
+        <div class="permission-section-head"><div><strong>Portalda ne görsün?</strong><span>Personelin erişebileceği operasyon modülleri</span></div></div>
+        <div class="permission-grid">
           ${basicFields.map(permCheckboxHtml).join('')}
         </div>
-        <div style="font-size:13px;font-weight:600;margin:14px 0 8px;padding-top:10px;border-top:1px solid #2a2a2a">Mali / hassas veriler <span class="muted" style="font-weight:400;font-size:11px">(varsayılan kapalı)</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+        <div class="permission-section-head sensitive-head"><div><strong>Mali / hassas veriler</strong><span>Varsayılan kapalı · yalnızca gerektiğinde aç</span></div></div>
+        <div class="permission-grid sensitive-grid">
           ${sensitiveFields.map(permCheckboxHtml).join('')}
         </div>
-        <p class="muted" style="margin:8px 0 0;font-size:12px">İşaretlenmeyen menü personelde görünmez. “Maliyet &amp; kâr” açık olmadıkça personel hiçbir yerde maliyet/kâr rakamı göremez — teklif ve ekipman ekranlarında sadece bu kutuyu işaretlediğin personelde çıkar.</p>
+        <p class="permission-note">İşaretlenmeyen menü personelde görünmez. “Maliyet &amp; kâr” açık olmadıkça personel hiçbir yerde maliyet/kâr rakamı göremez.</p>
       </div>
       <div class="modal-actions">
         <button class="btn btn-primary" onclick="saveStaff('${p?.user_id || ''}')">Kaydet</button>
@@ -1643,7 +1644,8 @@ async function analyticsView() {
       <div class="card kpi-accent"><span class="card-label">Dönüşüm</span><div class="metric">${rate}%</div></div>
     </div>
     <div class="panel" style="margin-top:16px"><h3>Aylık teklif</h3>
-      <div class="chart">${vals.map(([m,v])=>`<div class="bar" style="height:${Math.max(8,(v/max)*180)}px"><span>${esc(m.slice(5))}</span></div>`).join('')||'<p class="muted">Veri yok</p>'}
+      <div class="chart">
+        ${vals.map(([m,v])=>`<div class="bar" style="--bar-height:${Math.max(8,Math.round((v/max)*156))}px"><strong>${v}</strong><span>${esc(m.slice(5))}</span></div>`).join('')||'<p class="muted">Veri yok</p>'}
       </div>
     </div>`;
 }
