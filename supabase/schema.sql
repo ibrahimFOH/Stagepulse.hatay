@@ -416,7 +416,7 @@ grant execute on function public.check_login_rate_limit(text,integer) to service
 create or replace function public.enforce_public_quote_input()
 returns trigger language plpgsql security definer set search_path=public as $$
 begin
-  if current_user in ('anon','authenticated') then
+  if auth.role() in ('anon','authenticated') then
     new.quote_number:=null; new.customer_id:=null; new.status:='new'; new.currency:='TRY';
     new.estimated_cost:=0; new.estimated_price:=0; new.discount:=0; new.total:=0; new.margin:=0;
     new.public_token:=null; new.valid_until:=null; new.accepted_at:=null; new.rejected_at:=null; new.archived_at:=null;
@@ -430,3 +430,38 @@ for each row execute function public.enforce_public_quote_input();
 
 revoke all on table public.teklifler from anon,authenticated;
 grant insert on public.teklifler to anon,authenticated;
+
+create or replace function public.enforce_public_quote_rate_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path=public,private
+as $$
+declare client_key text;
+begin
+  if auth.role() in ('anon','authenticated') then
+    client_key := 'quote:' || coalesce(
+      split_part(current_setting('request.headers', true)::json->>'x-forwarded-for', ',', 1),
+      'unknown'
+    );
+    if not public.check_login_rate_limit(client_key, 8) then
+      raise exception 'Çok fazla teklif talebi. Lütfen daha sonra tekrar deneyin.';
+    end if;
+    if length(coalesce(new.name,'')) < 2 or length(new.name) > 160 then
+      raise exception 'Geçersiz ad';
+    end if;
+    if new.people is not null and (new.people < 1 or new.people > 100000) then
+      raise exception 'Geçersiz kişi sayısı';
+    end if;
+    if length(coalesce(new.message,'')) > 5000 then
+      raise exception 'Mesaj çok uzun';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_enforce_public_quote_rate_limit on public.teklifler;
+create trigger trg_enforce_public_quote_rate_limit
+before insert on public.teklifler
+for each row execute function public.enforce_public_quote_rate_limit();
