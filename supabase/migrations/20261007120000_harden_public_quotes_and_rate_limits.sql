@@ -124,3 +124,16 @@ begin
 end;
 $$;
 revoke all on function public.set_offer_public_code() from public,anon,authenticated;
+
+
+create or replace function public.set_quote_defaults()
+returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
+declare d integer;
+begin
+ if new.quote_number is null or new.quote_number='' then new.quote_number:=public.next_quote_number(); end if;
+ if new.public_token is null or new.public_token='' then new.public_token:=encode(gen_random_bytes(24),'hex'); end if;
+ if new.valid_until is null then select quote_valid_days into d from public.business_settings where id=true; new.valid_until:=coalesce(new.event_date,current_date)+coalesce(d,7); end if;
+ new.updated_at:=now(); return new;
+end;
+$$;
+revoke all on function public.set_quote_defaults() from public,anon,authenticated;
