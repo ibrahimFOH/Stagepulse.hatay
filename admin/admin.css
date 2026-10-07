@@ -731,3 +731,6 @@ code { font-size: 12px; color: #aaa; }
 .permission-switch input:checked + .permission-switch-track .permission-switch-thumb{left:21px;background:#111}
 .permission-option.is-sensitive .permission-switch input:checked + .permission-switch-track{background:var(--sp-purple);border-color:var(--sp-purple);box-shadow:0 0 12px rgba(181,140,255,.16)}
 .permission-switch input:focus-visible + .permission-switch-track{outline:2px solid rgba(255,176,0,.55);outline-offset:2px}
+
+.field-help{display:block;margin-top:5px;color:#8f8f8f;font-size:11px;line-height:1.35}
+.org-role-chip{border:1px solid rgba(255,176,0,.25);background:rgba(255,176,0,.05);border-radius:9px;padding:8px 10px}
