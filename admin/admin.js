@@ -3,7 +3,7 @@ const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
 const EDGE_LOGIN = `${SUPABASE_URL}/functions/v1/admin-login`;
 const EDGE_ACCOUNT = `${SUPABASE_URL}/functions/v1/admin-password-reset`;
-const EDGE_STAFF = `${SUPABASE_URL}/functions/v1/staff-manage`;
+const EDGE_ORG_ADMIN = `${SUPABASE_URL}/functions/v1/org-admin-control`;
 
 if (!window.supabase) {
   document.body.innerHTML = '<div style="padding:40px;font-family:system-ui;color:#fff;background:#090909;min-height:100vh">Supabase yüklenemedi. Sayfayı yenileyin.</div>';
@@ -1424,7 +1424,19 @@ async function deletePayment(id) {
 }
 
 /* ── Personel (portal hesapları) ───────────────────── */
-const staffRoles = { crew: 'Ekip', tech: 'Teknik', warehouse: 'Depo', lead: 'Sorumlu' };
+const staffRoles = {
+  owner: 'Patron / Owner',
+  super_admin: 'Süper Admin',
+  upper_admin: 'Üst Admin',
+  ceo: 'CEO',
+  department_manager: 'Departman Yöneticisi',
+  regional_manager: 'Bölge Sorumlusu',
+  employee: 'Çalışan',
+  crew: 'Ekip',
+  tech: 'Teknik',
+  warehouse: 'Depo',
+  lead: 'Sorumlu'
+};
 // Personel oluşturma/düzenleme modalındaki "Portalda ne görsün?" listesi.
 // key: staff_profiles.permissions içindeki alan adı (edge function ve
 // staff-portal.sql'deki view'larla birebir aynı olmalı).
@@ -1548,14 +1560,43 @@ function staffModal(userId) {
 async function staffApi(body) {
   const { data: { session } } = await sb.auth.getSession();
   if (!session?.access_token) throw new Error('Oturum yok');
-  return apiFetch(EDGE_STAFF, {
+  let payload = body;
+  if (body.action === 'create') {
+    payload = {
+      action: 'create_member',
+      username: body.username,
+      display_name: body.display_name,
+      password: body.password,
+      role_code: body.role || 'employee',
+      position_code: body.role || 'employee',
+      phone: body.phone || null,
+      portal_permissions: body.permissions || {},
+      capabilities: []
+    };
+  } else if (body.action === 'update') {
+    payload = {
+      action: 'save_membership',
+      user_id: body.user_id,
+      display_name: body.display_name,
+      role_code: body.role || 'employee',
+      position_code: body.role || 'employee',
+      phone: body.phone || null,
+      portal_permissions: body.permissions || {},
+      active: body.active !== false
+    };
+  } else if (body.action === 'delete') {
+    payload = { action: 'delete_member', user_id: body.user_id };
+  } else if (body.action === 'reset_password') {
+    payload = { action: 'reset_password', user_id: body.user_id, password: body.password };
+  }
+  return apiFetch(EDGE_ORG_ADMIN, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       apikey: SUPABASE_KEY,
       Authorization: 'Bearer ' + session.access_token
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(payload)
   });
 }
 
