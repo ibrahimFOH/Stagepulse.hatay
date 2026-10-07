@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
 
   document.querySelectorAll('.nav-links').forEach((nav) => {
-    const currentPath = window.location.pathname.replace(/\\/+$/, '') || '/';
+    const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
     nav.replaceChildren();
 
     primaryNavigation.forEach(({ href, key, fallback }) => {
@@ -200,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
       link.href = href;
       link.setAttribute('data-i18n', key);
       link.textContent = fallback;
-      const normalizedHref = href.replace(/\\/+$/, '') || '/';
+      const normalizedHref = href.replace(/\/+$/, '') || '/';
       if (currentPath === normalizedHref ||
           (currentPath === '/index.html' && href === '/') ||
           (currentPath.endsWith('/index.html') && href === '/')) {
