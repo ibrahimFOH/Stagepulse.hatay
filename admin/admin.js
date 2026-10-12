@@ -513,10 +513,10 @@ async function saveOffer(id) {
   const payload = {
     services: split.services,
     internal_costs: split.internal_costs,
-    estimated_cost: split.costTotal,
+    estimated_cost: split.missingCosts?null:split.costTotal,
     discount,
     total: calculatedTotal,
-    margin: calculatedTotal-split.costTotal,
+    margin: split.missingCosts?null:calculatedTotal-split.costTotal,
     estimated_price: calculatedTotal,
     valid_until: $('#editValid')?.value || null,
     status: newStatus,
@@ -742,7 +742,7 @@ async function createOffer() {
     name,phone,email:$('#nEmail')?.value?.trim()||null,location:$('#nLoc')?.value?.trim()||null,
     event_type:$('#nEventType')?.value||null,type:[...new Set(lines.map(x=>x.category))].join(' + ')||'Özel Hizmet',
     people:num($('#nPeople')?.value)||null,event_date:eventDate,message:$('#nMessage')?.value?.trim()||null,
-    discount,total,estimated_price:total,estimated_cost:split.costTotal,margin:total-split.costTotal,status:'preparing',valid_until:validDate.toISOString().slice(0,10),services:split.services,internal_costs:split.internal_costs
+    discount,total,estimated_price:total,estimated_cost:split.missingCosts?null:split.costTotal,margin:split.missingCosts?null:total-split.costTotal,status:'preparing',valid_until:validDate.toISOString().slice(0,10),services:split.services,internal_costs:split.internal_costs
   };
   const {data,error}=await sb.rpc('staff_create_offer',{
     p_name:payload.name,p_company:null,p_phone:payload.phone,p_email:payload.email,
