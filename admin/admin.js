@@ -504,14 +504,17 @@ async function saveOffer(id) {
   const lines=readOfferLines('edit');
   if(!lines.length)return toast('Teklife en az bir iş kalemi ekleyin.',false);
   if(lines.some(x=>!x.name||x.quantity<=0))return toast('İş kalemlerinde hizmet adı ve adet bilgisi zorunludur.',false);
-  const subtotal=lines.reduce((sum,x)=>sum+x.total,0);
+  const split=splitOfferLines(lines);
+  const subtotal=split.subtotal;
   const discount=Math.min(subtotal,Math.max(0,num($('#editDiscount')?.value)));
   const calculatedTotal=Math.max(0,Math.round((subtotal-discount)*100)/100);
   const payload = {
-    services: lines,
+    services: split.services,
+    internal_costs: split.internal_costs,
+    estimated_cost: split.costTotal,
     discount,
     total: calculatedTotal,
-    margin: num($('#editMargin')?.value),
+    margin: calculatedTotal-split.costTotal,
     estimated_price: calculatedTotal,
     valid_until: $('#editValid')?.value || null,
     status: newStatus,
@@ -718,7 +721,8 @@ async function createOffer() {
   const lines=readOfferLines('new');
   if(!lines.length)return toast('Teklife en az bir iş kalemi ekleyin.',false);
   if(lines.some(x=>!x.name||x.quantity<=0))return toast('İş kalemlerinde hizmet adı ve adet bilgisi zorunludur.',false);
-  const subtotal=lines.reduce((sum,x)=>sum+x.total,0);
+  const split=splitOfferLines(lines);
+  const subtotal=split.subtotal;
   const discount=Math.min(subtotal,Math.max(0,num($('#nDiscount')?.value)));
   const total=Math.max(0,Math.round((subtotal-discount)*100)/100);
   const days=Math.max(1,num($('#nValidDays')?.value)||7);
@@ -728,13 +732,13 @@ async function createOffer() {
     name,phone,email:$('#nEmail')?.value?.trim()||null,location:$('#nLoc')?.value?.trim()||null,
     event_type:$('#nEventType')?.value||null,type:[...new Set(lines.map(x=>x.category))].join(' + ')||'Özel Hizmet',
     people:num($('#nPeople')?.value)||null,event_date:eventDate,message:$('#nMessage')?.value?.trim()||null,
-    discount,total,estimated_price:total,margin:0,status:'preparing',valid_until:validDate.toISOString().slice(0,10),services:lines
+    discount,total,estimated_price:total,estimated_cost:split.costTotal,margin:total-split.costTotal,status:'preparing',valid_until:validDate.toISOString().slice(0,10),services:split.services,internal_costs:split.internal_costs
   };
   const {data,error}=await sb.rpc('staff_create_offer',{
     p_name:payload.name,p_company:null,p_phone:payload.phone,p_email:payload.email,
     p_type:payload.type,p_event_type:payload.event_type,p_location:payload.location,
     p_people:payload.people,p_event_date:payload.event_date,p_message:payload.message,
-    p_total:payload.total,p_services:payload.services
+    p_total:payload.total,p_services:payload.services,p_internal_costs:payload.internal_costs
   });
   if(error)return toast(/duplicate|unique|409/i.test(error.message)?'Teklif numarası çakıştı. Yeniden deneyin.':error.message,false);
   toast('Teklif oluşturuldu');$('#offerModal')?.remove();await getOffers();loadView('offers');openOffer(data.id);
