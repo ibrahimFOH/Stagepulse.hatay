@@ -391,7 +391,18 @@ class AppUpdater(private val activity: MainActivity) {
             requestUnknownSourcesPermission()
             return
         }
-        pending()?.let { install(it) } ?: check(true)
+        val update = pending()
+        if (update != null) {
+            android.util.Log.i("StagepulseUpdater", "Kullanıcı güncellemeyi başlattı: versionCode=${update.first}")
+            install(update)
+            return
+        }
+
+        // Never silently return to the login screen when the pending record expired or
+        // was cleared. Re-fetch the verified manifests and explain what is happening.
+        Toast.makeText(activity, "Güncelleme bilgisi yeniden doğrulanıyor…", Toast.LENGTH_LONG).show()
+        android.util.Log.w("StagepulseUpdater", "Güncelle düğmesine basıldı ancak bekleyen güncelleme kaydı yok; manifest yeniden kontrol ediliyor.")
+        check(true)
     }
 
     private fun install(p: Triple<Int, String, String>) {
@@ -404,6 +415,7 @@ class AppUpdater(private val activity: MainActivity) {
             return
         }
         showInstallProgress("APK indiriliyor. İnternet hızına göre birkaç saniye sürebilir.")
+        android.util.Log.i("StagepulseUpdater", "APK indirme/kurulum iş parçacığı başlatıldı: versionCode=${p.first}")
         thread {
             try {
                 val (v, url, expected) = p
