@@ -77,13 +77,15 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
             val notified = applicationContext.getSharedPreferences("stagepulse", Context.MODE_PRIVATE)
                 .getInt(NOTIFIED_VERSION, 0)
             if (remoteVersion != notified) {
-                showNotification(
+                val shown = showNotification(
                     remoteVersion,
                     item.optString("web_version").ifBlank { "Yeni sürüm" },
                     item.optString("notes")
                 )
-                applicationContext.getSharedPreferences("stagepulse", Context.MODE_PRIVATE)
-                    .edit().putInt(NOTIFIED_VERSION, remoteVersion).apply()
+                if (shown) {
+                    applicationContext.getSharedPreferences("stagepulse", Context.MODE_PRIVATE)
+                        .edit().putInt(NOTIFIED_VERSION, remoteVersion).apply()
+                }
             }
             Result.success()
         } catch (_: Exception) {
@@ -129,8 +131,10 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
         return if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode
     }
 
-    private fun showNotification(version: Int, displayVersion: String, notes: String) {
-        if (Build.VERSION.SDK_INT >= 33 && applicationContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+    private fun showNotification(version: Int, displayVersion: String, notes: String): Boolean {
+        if (Build.VERSION.SDK_INT >= 33 && applicationContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
+        val notificationManager = NotificationManagerCompat.from(applicationContext)
+        if (!notificationManager.areNotificationsEnabled()) return false
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
@@ -141,6 +145,7 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
                 }
             )
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE) return false
         val intent = android.content.Intent(applicationContext, MainActivity::class.java).apply {
             flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("update_notification", true)
@@ -162,6 +167,12 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
             .setAutoCancel(true)
             .setContentIntent(pending)
             .build()
-        NotificationManagerCompat.from(applicationContext).notify(20000 + (version % 10000), notification)
+        return try {
+            notificationManager.notify(20000 + (version % 10000), notification)
+            true
+        } catch (e: SecurityException) {
+            android.util.Log.w("StagepulseUpdater", "Güncelleme bildirimi gösterilemedi: ${e.message}")
+            false
+        }
     }
 }

@@ -50,31 +50,44 @@ else:
         errors.append("Canonical CI must retain the migration audit gate")
 
 release = (WORKFLOWS / "apk-release.yml").read_text(encoding="utf-8")
-if not re.search(r"publish:.*?\n(?:.*\n){0,6}\s+default:\s+false\b", release):
-    errors.append("Android publishing must default to false")
+trigger_block = release.split("permissions:", 1)[0]
+if not re.search(r"(?m)^on:\s*\n\s+workflow_dispatch:\s*$", trigger_block):
+    errors.append("Android release must remain manually triggered")
+if re.search(r"(?m)^\s+(push|pull_request|schedule):", trigger_block):
+    errors.append("Android release must not publish automatically on code pushes or schedules")
+if re.search(r"(?m)^\s+publish:", release) or "PUBLISH_RELEASE" in release:
+    errors.append("Android release must not require a separate publish toggle")
+if not re.search(r"(?m)^permissions:\s*\n\s+contents:\s*write\s*$", release):
+    errors.append("Android release must declare contents: write")
+if "environment: production" not in release:
+    errors.append("Android release must retain production environment protection")
+if "test \"$cert\" = \"$EXPECTED_CERT_SHA256\"" not in release or "apksigner" not in release:
+    errors.append("Android release must verify signing certificate and APK signature before upload")
+if "draft: false" not in release or "prerelease: true" not in release:
+    errors.append("Android assets must first be published as a non-latest prerelease")
+
 for step in (
     "Upload verified assets to a non-latest prerelease",
     "Publish verified manifest",
     "Sync verified release metadata and notifications",
     "Promote verified prerelease to latest release",
 ):
-    pattern = r"- name: " + re.escape(step) + r"\n\s+if: \$\{\{ env\.PUBLISH_RELEASE == 'true' \}\}"
-    if not re.search(pattern, release):
-        errors.append(f"Android publishing step is not explicitly guarded: {step}")
-
-if "draft: false" not in release or "prerelease: true" not in release:
-    errors.append("Android assets must first be published as a non-latest prerelease")
+    if not re.search(r"- name: " + re.escape(step) + r"\n(?!\s+if:)", release):
+        errors.append(f"Android publishing step is missing or conditionally gated: {step}")
 
 ordered_steps = (
     "Upload verified assets to a non-latest prerelease",
     "Verify release downloads before publishing manifest",
-    "Publish verified manifest",
+    "Preflight Supabase metadata access",
     "Sync verified release metadata and notifications",
+    "Publish verified manifest",
     "Promote verified prerelease to latest release",
 )
 positions = [release.find(f"- name: {step}") for step in ordered_steps]
 if -1 in positions or positions != sorted(positions):
-    errors.append("Android release must become latest only after manifest and production sync")
+    errors.append("Android release must preflight and sync production metadata before publishing its public manifest")
+if 'select 1 as stagepulse_release_preflight' not in release or 'http_status' not in release:
+    errors.append("Android release must verify Supabase SQL API access before production mutation")
 
 if errors:
     raise SystemExit("\n".join(errors))

@@ -68,6 +68,10 @@ jobs:
         run: |
           set -euo pipefail
           while IFS= read -r -d '' file; do deno check --quiet --no-lock "$file"; done < <(find supabase/functions -mindepth 2 -maxdepth 2 -type f -name index.ts -print0 | sort -z)
+      - name: Verify update manifests
+        run: python3 scripts/validate-update-manifests.py
+      - name: Verify release version calculation
+        run: python3 scripts/test-next-stagepulse-version.py
       - name: Verify migrations
         run: python3 scripts/validate-migration-integrity.py
       - name: Credential baseline

@@ -74,13 +74,16 @@ class MainActivity : AppCompatActivity() {
             }
         }
         webView.loadUrl(notificationUrl(intent))
-        appUpdater.checkOnStartup()
+        if (intent?.getBooleanExtra("update_notification", false) == true) appUpdater.manualCheck() else appUpdater.checkOnStartup()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (::webView.isInitialized) webView.loadUrl(notificationUrl(intent))
+        if (::webView.isInitialized) {
+            webView.loadUrl(notificationUrl(intent))
+            if (intent.getBooleanExtra("update_notification", false)) appUpdater.manualCheck()
+        }
     }
 
     private fun notificationUrl(source: Intent?): String {
