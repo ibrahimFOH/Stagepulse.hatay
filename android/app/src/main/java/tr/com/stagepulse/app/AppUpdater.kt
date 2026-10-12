@@ -9,6 +9,7 @@ import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.io.File
 import java.net.HttpURLConnection
@@ -42,7 +43,52 @@ class AppUpdater(private val activity: MainActivity) {
     private data class UpdateInfo(val source: String, val version: Int, val minimumVersion: Int, val url: String, val sha: String, val notes: String, val displayVersion: String)
     private val checking = AtomicBoolean(false)
     private val installing = AtomicBoolean(false)
+    @Volatile private var progressDialog: AlertDialog? = null
     private fun prefs() = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    private fun showInstallProgress(message: String) {
+        activity.runOnUiThread {
+            if (activity.isFinishing || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed)) return@runOnUiThread
+            val current = progressDialog
+            if (current != null && current.isShowing) {
+                current.setMessage(message)
+            } else {
+                progressDialog = AlertDialog.Builder(activity)
+                    .setTitle("Stagepulse güncelleniyor")
+                    .setMessage(message)
+                    .setCancelable(false)
+                    .create()
+                    .also { it.show() }
+            }
+        }
+    }
+
+    private fun dismissInstallProgress() {
+        activity.runOnUiThread {
+            progressDialog?.let { if (it.isShowing) it.dismiss() }
+            progressDialog = null
+        }
+    }
+
+    private fun showInstallError(message: String) {
+        if (activity.isFinishing || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed)) return
+        AlertDialog.Builder(activity)
+            .setTitle("Güncelleme tamamlanamadı")
+            .setMessage(message)
+            .setPositiveButton("Tekrar Dene") { _, _ -> startInstall() }
+            .setNegativeButton("Kapat", null)
+            .show()
+    }
+
+    private fun requestUnknownSourcesPermission() {
+        if (activity.isFinishing || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed)) return
+        AlertDialog.Builder(activity)
+            .setTitle("Yükleme izni gerekli")
+            .setMessage("Android güvenliği nedeniyle Stagepulse güncellemesini kurmak için bu uygulamaya izin vermen gerekiyor. Açılan ayarlarda \"Bu kaynaktan izin ver\" seçeneğini etkinleştir; uygulamaya döndüğünde güncelleme otomatik devam edecek.")
+            .setPositiveButton("Ayarları Aç") { _, _ -> openUnknownSources() }
+            .setNegativeButton("Daha Sonra", null)
+            .show()
+    }
 
     fun checkOnStartup() {
         reconcileInstallState()
@@ -220,7 +266,7 @@ class AppUpdater(private val activity: MainActivity) {
     private fun resumePending(): Boolean {
         if (hasActiveInstall()) return true
         val p = pending() ?: return false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) { openUnknownSources(); return true }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) { requestUnknownSourcesPermission(); return true }
         install(p); return true
     }
 
@@ -233,33 +279,51 @@ class AppUpdater(private val activity: MainActivity) {
         b.setCancelable(!required).show()
     }
 
-    private fun startInstall() { if (hasActiveInstall()) return; pending()?.let { install(it) } ?: check(true) }
+    private fun startInstall() {
+        if (hasActiveInstall()) {
+            showInstallError("Bir kurulum isteği zaten bekliyor. Android'in kurulum onay ekranını veya bildirim panelini kontrol et.")
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
+            requestUnknownSourcesPermission()
+            return
+        }
+        pending()?.let { install(it) } ?: check(true)
+    }
 
     private fun install(p: Triple<Int, String, String>) {
-        if (hasActiveInstall() || !installing.compareAndSet(false, true)) return
+        if (hasActiveInstall()) {
+            activity.runOnUiThread { showInstallError("Bir kurulum isteği zaten bekliyor. Android'in kurulum onay ekranını veya bildirim panelini kontrol et.") }
+            return
+        }
+        if (!installing.compareAndSet(false, true)) {
+            showInstallProgress("Güncelleme zaten sürüyor. Lütfen indirme işleminin bitmesini bekle.")
+            return
+        }
+        showInstallProgress("APK indiriliyor. İnternet hızına göre birkaç saniye sürebilir.")
         thread {
             try {
                 val (v, url, expected) = p
                 val file = File(activity.cacheDir, "stagepulse-$v.apk")
                 download(url, file)
+                showInstallProgress("İndirilen APK doğrulanıyor...")
                 if (!sha256(file).equals(expected, true)) throw IllegalStateException("İndirilen APK doğrulanamadı")
                 verifyDownloadedPackage(file, v)
-                activity.runOnUiThread { packageInstall(file, v) }
+                activity.runOnUiThread {
+                    dismissInstallProgress()
+                    packageInstall(file, v)
+                }
             } catch (e: Exception) {
                 prefs().edit().remove(INSTALLING).remove(INSTALLING_SESSION).apply()
                 val detail = when (e) {
-                    is SecurityException -> "Güvenlik doğrulaması başarısız oldu."
+                    is SecurityException -> e.message?.takeIf { it.isNotBlank() } ?: "Güvenlik doğrulaması başarısız oldu."
                     is java.net.SocketTimeoutException -> "İndirme zaman aşımına uğradı."
                     else -> e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
                 }
                 android.util.Log.e("StagepulseUpdater", "Update failed: $detail", e)
                 activity.runOnUiThread {
-                    if (!activity.isFinishing) AlertDialog.Builder(activity)
-                        .setTitle("Güncelleme yüklenemedi")
-                        .setMessage("Ayrıntı: $detail\n\nİnternet bağlantısını kontrol edin. Sorun sürerse destek için bu hata bilgisini paylaşın.")
-                        .setPositiveButton("Tekrar Dene") { _, _ -> startInstall() }
-                        .setNegativeButton("Kapat", null)
-                        .show()
+                    dismissInstallProgress()
+                    showInstallError("Ayrıntı: $detail\n\nİnternet bağlantısını kontrol et. Sorun sürerse bu hata bilgisini paylaş.")
                 }
             } finally { installing.set(false) }
         }
@@ -304,21 +368,55 @@ class AppUpdater(private val activity: MainActivity) {
     }
 
     private fun packageInstall(file: File, version: Int) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) { clearInstallState(); openUnknownSources(); return }
-        var installer: PackageInstaller? = null; var sessionId = -1
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
+            clearInstallState()
+            requestUnknownSourcesPermission()
+            return
+        }
+        var installer: PackageInstaller? = null
+        var sessionId = -1
         try {
-            val pi = activity.packageManager.packageInstaller; installer = pi
-            val p = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply { setSize(file.length()); if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED) }
+            val pi = activity.packageManager.packageInstaller
+            installer = pi
+            val p = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+                setSize(file.length())
+                if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
+            }
             sessionId = pi.createSession(p)
             prefs().edit().putInt(INSTALLING, version).putInt(INSTALLING_SESSION, sessionId).apply()
             pi.openSession(sessionId).use { session ->
-                file.inputStream().use { input -> session.openWrite("stagepulse.apk", 0, file.length()).use { out -> input.copyTo(out, 65536); session.fsync(out) } }
-                val intent = Intent(activity, AppUpdateReceiver::class.java).apply { putExtra(INSTALL_SESSION_ID, sessionId); putExtra(INSTALL_APK_PATH, file.absolutePath); putExtra(INSTALL_VERSION, version) }
+                file.inputStream().use { input ->
+                    session.openWrite("stagepulse.apk", 0, file.length()).use { out ->
+                        input.copyTo(out, 65536)
+                        session.fsync(out)
+                    }
+                }
+                val intent = Intent(activity, AppUpdateReceiver::class.java).apply {
+                    putExtra(INSTALL_SESSION_ID, sessionId)
+                    putExtra(INSTALL_APK_PATH, file.absolutePath)
+                    putExtra(INSTALL_VERSION, version)
+                }
                 val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
                 session.commit(PendingIntent.getBroadcast(activity, sessionId, intent, flags).intentSender)
             }
-        } catch (_: SecurityException) { abandonInstallSession(installer, sessionId); clearInstallState(); openUnknownSources() }
-        catch (_: Exception) { abandonInstallSession(installer, sessionId); clearInstallState(); fallbackInstall(file) }
+        } catch (e: SecurityException) {
+            abandonInstallSession(installer, sessionId)
+            clearInstallState()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
+                requestUnknownSourcesPermission()
+            } else {
+                showInstallError("Android uygulama kurulumunu reddetti. Ayrıntı: ${e.message ?: e.javaClass.simpleName}")
+            }
+        } catch (e: Exception) {
+            abandonInstallSession(installer, sessionId)
+            clearInstallState()
+            try {
+                fallbackInstall(file)
+            } catch (fallbackError: Exception) {
+                android.util.Log.e("StagepulseUpdater", "Fallback installer could not start", fallbackError)
+                showInstallError("Android kurulum ekranı açılamadı. Ayrıntı: ${fallbackError.message ?: e.message ?: e.javaClass.simpleName}")
+            }
+        }
     }
 
     private fun hasActiveInstall(): Boolean = prefs().getInt(INSTALLING, 0) > 0 && prefs().getInt(INSTALLING_SESSION, -1) >= 0
@@ -332,8 +430,12 @@ class AppUpdater(private val activity: MainActivity) {
     }
 
     private fun openUnknownSources() {
-        try { activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}"))) }
-        catch (_: SecurityException) { android.util.Log.w("StagepulseUpdater", "Bilinmeyen kaynak izni ekranı açılamadı") }
+        try {
+            activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")))
+        } catch (e: Exception) {
+            android.util.Log.e("StagepulseUpdater", "Bilinmeyen kaynak izni ekranı açılamadı", e)
+            showInstallError("Android'in yükleme izni ayarları açılamadı. Telefon Ayarları > Uygulamalar > Stagepulse Admin > Bilinmeyen uygulamaları yükle bölümünden izin vermen gerekir.")
+        }
     }
 }
 
@@ -347,10 +449,15 @@ class AppUpdateReceiver : BroadcastReceiver() {
             if (pendingIntent == null) {
                 p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
                 android.util.Log.e("StagepulseUpdater", "Paket yükleyici kullanıcı onay Intent'i döndürmedi")
+                Toast.makeText(c, "Stagepulse kurulumu başlatılamadı. Güncellemeyi yeniden dene.", Toast.LENGTH_LONG).show()
             } else pendingIntent.apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 try { c.startActivity(this) }
-                catch (e: Exception) { p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply(); android.util.Log.e("StagepulseUpdater", "Paket yükleyici onay ekranı açılamadı", e) }
+                catch (e: Exception) {
+                    p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
+                    android.util.Log.e("StagepulseUpdater", "Paket yükleyici onay ekranı açılamadı", e)
+                    Toast.makeText(c, "Android kurulum ekranı açılamadı: ${e.message ?: "bilinmeyen hata"}", Toast.LENGTH_LONG).show()
+                }
             }
         } else if (s == PackageInstaller.STATUS_SUCCESS) {
             val installed = try { val info = c.packageManager.getPackageInfo(c.packageName, 0); if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode } catch (_: Exception) { 0 }
@@ -364,6 +471,7 @@ class AppUpdateReceiver : BroadcastReceiver() {
             p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
             i.getStringExtra(AppUpdater.INSTALL_APK_PATH)?.let { File(it).delete() }
             android.util.Log.e("StagepulseUpdater", "APK yükleme başarısız (durum=$s): $message")
+            Toast.makeText(c, "Stagepulse güncellemesi yüklenemedi: ${message.ifBlank { "Android kurulum hatası ($s)" }}", Toast.LENGTH_LONG).show()
         }
     }
 }
