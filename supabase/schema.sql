@@ -50,7 +50,13 @@ create table if not exists public.services (
 insert into public.services(name,sort_order) values
 ('Ses Sistemi Kiralama',1),('Işık & Truss Kiralama',2),('Stage Plot / Sahne Planı',3),
 ('3D Sahne Çizimi',4),('SPL Hesaplama',5),('Teknik Rider Hazırlama',6),
-('FOH Operasyonu',7),('Paket (Kiralama + Mühendislik)',8),('Diğer',99)
+('FOH Operasyonu',7),('Paket (Kiralama + Mühendislik)',8),
+('Yerinde Teknik Keşif',9),('Akustik / SPL Ölçümü',10),('Sistem Mühendisliği',11),
+('SPL ve Kapsama Analizi',12),('Sinyal Akışı ve Sistem Tasarımı',13),
+('Marka / Model Araştırması',14),('Alternatif Sistem Karşılaştırması',15),
+('Mühendislik Raporu',16),('Revizyonlar',17),('Uygulama Kontrolü',18),
+('Sistem Tuning / Commissioning',19),('Canlı Ses Mikseri Kullanım Eğitimi',20),
+('Diğer / Özel Hizmet',99)
 on conflict (name) do nothing;
 
 create table if not exists public.price_rules (
@@ -130,7 +136,7 @@ alter table public.teklifler add column if not exists estimated_price numeric(12
 alter table public.teklifler add column if not exists discount numeric(12,2) not null default 0;
 alter table public.teklifler add column if not exists total numeric(12,2) not null default 0;
 alter table public.teklifler add column if not exists margin numeric(12,2) not null default 0;
-alter table public.teklifler add column if not exists public_token text unique default encode(gen_random_bytes(24),'hex');
+alter table public.teklifler add column if not exists public_token text unique;
 alter table public.teklifler add column if not exists valid_until date;
 alter table public.teklifler add column if not exists accepted_at timestamptz;
 alter table public.teklifler add column if not exists rejected_at timestamptz;
