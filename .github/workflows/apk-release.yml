@@ -8,6 +8,11 @@ on:
         required: true
         default: preserve
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/apk-release-trigger.txt'
 
 env:
   MINIMUM_VERSION_INPUT: ${{ inputs.minimum_version_code }}
