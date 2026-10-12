@@ -198,6 +198,8 @@ class AppUpdater(private val activity: MainActivity) {
             val prefix = if (BuildConfig.APP_VARIANT.equals("admin", true)) "Stagepulse-Admin-v" else "Stagepulse-Personel-v"
             for (r in 0 until releases.length()) {
                 val release = releases.optJSONObject(r) ?: continue
+                // Ignore staged pre-releases. Only published stable releases may act as a corroborating source.
+                if (release.optBoolean("draft", false) || release.optBoolean("prerelease", false)) continue
                 val tag = release.optString("tag_name").removePrefix("v")
                 val version = releaseVersionCode(tag) ?: continue
                 val assets = release.optJSONArray("assets") ?: continue

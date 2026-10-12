@@ -13,18 +13,25 @@ def next_version(current: str) -> tuple[str, int]:
         raise ValueError("version must be MAJOR.MINOR.PATCH")
     major, minor, patch = map(int, match.groups())
 
-    if minor == 9 and patch == 9:
-        if major >= 9:
-            major += 1
-        else:
-            major, minor, patch = major + 1, 0, 0
-    elif patch == 9:
-        minor += 1
-    else:
+    # The versionCode layout reserves three decimal digits each for minor and patch.
+    if minor > 999 or patch > 999:
+        raise ValueError("MINOR and PATCH components must be between 0 and 999")
+
+    if patch < 999:
         patch += 1
+    elif minor < 999:
+        minor += 1
+        patch = 0
+    else:
+        major += 1
+        minor = 0
+        patch = 0
 
     name = f"{major}.{minor}.{patch}"
-    return name, major * 1_000_000 + minor * 1_000 + patch
+    code = major * 1_000_000 + minor * 1_000 + patch
+    if code > 2_147_483_647:
+        raise ValueError("next versionCode exceeds Android's integer limit")
+    return name, code
 
 
 def main() -> None:
