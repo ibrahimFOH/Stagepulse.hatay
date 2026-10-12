@@ -67,6 +67,7 @@ let customers = [];
 let settings = {};
 let services = [];
 let offerCatalog = [];
+let internalPricing = [];
 let settlements = [];
 let equipment = [];
 let jobs = [];
@@ -588,11 +589,18 @@ function createPDF(id) {
 }
 
 async function loadOfferCatalog() {
-  const { data, error } = await sb.from('published_pricing')
-    .select('category,item_name,description,minimum_price,unit,source_path')
-    .eq('active', true).order('sort_order');
-  if (error) throw error;
-  offerCatalog = data || [];
+  const [publicResult, internalResult] = await Promise.all([
+    sb.from('published_pricing').select('id,category,item_name,description,minimum_price,unit,source_path').eq('active', true).order('sort_order'),
+    sb.from('internal_pricing').select('category,item_name,cost_price,target_margin_pct,notes').eq('active', true)
+  ]);
+  if (publicResult.error) throw publicResult.error;
+  if (internalResult.error) throw internalResult.error;
+  offerCatalog = publicResult.data || [];
+  internalPricing = internalResult.data || [];
+}
+function getInternalCost(name) {
+  const row = internalPricing.find(x => x.item_name === name);
+  return row && row.cost_price !== null ? Number(row.cost_price) : null;
 }
 
 function offerCatalogOptions(selectedName = '') {
@@ -618,7 +626,8 @@ function addOfferLine(mode, item = {}) {
     </label>
     <label class="offer-line-desc">Açıklama<input class="ol-desc" value="${esc(item.description||match?.description||'')}" placeholder="Kapsam / model / not"></label>
     <label>Adet<input class="ol-qty" type="number" min="0.01" step="0.01" value="${num(item.quantity ?? 1)}" oninput="recalcOfferLines('${mode}')"></label>
-    <label>Birim fiyat (₺)<input class="ol-price" type="number" min="0" step="0.01" value="${num(item.unit_price ?? item.price ?? match?.minimum_price ?? 0)}" oninput="recalcOfferLines('${mode}')"></label>
+    <label>Satış birim fiyatı (₺)<input class="ol-price" type="number" min="0" step="0.01" value="${num(item.unit_price ?? item.price ?? match?.minimum_price ?? 0)}" oninput="recalcOfferLines('${mode}')"></label>
+    <label>İç maliyet / birim (₺)<input class="ol-cost" type="number" min="0" step="0.01" value="${item.cost_unit ?? getInternalCost(name) ?? ''}" placeholder="Tanımlanmamış" oninput="recalcOfferLines('${mode}')"></label>
     <div class="offer-line-sum"><span>Satır toplamı</span><b class="ol-total">${money(num(item.quantity ?? 1)*num(item.unit_price ?? item.price ?? match?.minimum_price ?? 0))}</b></div>
     <button type="button" class="btn btn-danger" onclick="this.closest('.offer-line').remove();recalcOfferLines('${mode}')">Kaldır</button>`;
   host.appendChild(row);
@@ -640,7 +649,7 @@ function offerLineChanged(select, mode) {
   } else {
     custom?.remove();
     const item=offerCatalog.find(x=>x.item_name===select.value);
-    if(item){row.querySelector('.ol-price').value=num(item.minimum_price);row.querySelector('.ol-desc').value=item.description||'';row.dataset.category=item.category;row.dataset.unit=item.unit||'TL';}
+    if(item){row.querySelector('.ol-price').value=num(item.minimum_price);row.querySelector('.ol-desc').value=item.description||'';row.dataset.category=item.category;row.dataset.unit=item.unit||'TL';const cost=getInternalCost(item.item_name);row.querySelector('.ol-cost').value=cost===null?'':cost;}
   }
   recalcOfferLines(mode);
 }
@@ -653,7 +662,7 @@ function readOfferLines(mode) {
     const name=select?.value==='__custom__'?row.querySelector('.ol-custom-name')?.value?.trim():(item?.item_name||select?.value);
     const quantity=Math.max(0,num(row.querySelector('.ol-qty')?.value));
     const unit_price=Math.max(0,num(row.querySelector('.ol-price')?.value));
-    return {name:name||'',category:item?.category||row.dataset.category||'Özel Hizmet',description:row.querySelector('.ol-desc')?.value?.trim()||item?.description||'',quantity,unit_price,price:unit_price,unit:item?.unit||row.dataset.unit||'TL',total:Math.round(quantity*unit_price*100)/100,source_path:item?.source_path||null};
+    const costRaw=row.querySelector('.ol-cost')?.value; const cost_unit=costRaw===''||costRaw===undefined?null:Math.max(0,num(costRaw)); return {name:name||'',category:item?.category||row.dataset.category||'Özel Hizmet',description:row.querySelector('.ol-desc')?.value?.trim()||item?.description||'',quantity,unit_price,price:unit_price,unit:item?.unit||row.dataset.unit||'TL',total:Math.round(quantity*unit_price*100)/100,source_path:item?.source_path||null,cost_unit,cost_total:cost_unit===null?null:Math.round(quantity*cost_unit*100)/100};
   }).filter(x=>x.name);
 }
 
