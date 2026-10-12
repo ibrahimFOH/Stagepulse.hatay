@@ -709,7 +709,12 @@ async function createOffer() {
     people:num($('#nPeople')?.value)||null,event_date:eventDate,message:$('#nMessage')?.value?.trim()||null,
     discount,total,estimated_price:total,margin:0,status:'preparing',valid_until:validDate.toISOString().slice(0,10),services:lines
   };
-  const {data,error}=await sb.from('teklifler').insert([payload]).select().single();
+  const {data,error}=await sb.rpc('staff_create_offer',{
+    p_name:payload.name,p_company:null,p_phone:payload.phone,p_email:payload.email,
+    p_type:payload.type,p_event_type:payload.event_type,p_location:payload.location,
+    p_people:payload.people,p_event_date:payload.event_date,p_message:payload.message,
+    p_total:payload.total,p_services:payload.services
+  });
   if(error)return toast(/duplicate|unique|409/i.test(error.message)?'Teklif numarası çakıştı. Yeniden deneyin.':error.message,false);
   toast('Teklif oluşturuldu');$('#offerModal')?.remove();await getOffers();loadView('offers');openOffer(data.id);
 }
