@@ -4,11 +4,14 @@ import android.app.AlertDialog
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.Settings
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.io.File
@@ -288,9 +291,95 @@ class AppUpdater(private val activity: MainActivity) {
         if (activity.isFinishing) return
         val title = if (required) "Zorunlu güncelleme" else "Yeni güncelleme mevcut"
         val message = buildString { append("Yüklü sürüm: ").append(BuildConfig.VERSION_NAME); append("\nYeni sürüm: ").append(i.displayVersion); if (i.notes.isNotBlank()) append("\n\n").append(i.notes) }
-        val b = AlertDialog.Builder(activity).setTitle(title).setMessage(message).setPositiveButton("Güncelle") { _, _ -> startInstall() }
+        val b = AlertDialog.Builder(activity).setTitle(title).setMessage(message)
+            .setPositiveButton("Güncelle") { _, _ -> startInstall() }
+            .setNeutralButton("APK'yı İndir") { _, _ -> downloadApkOnly() }
         if (!required) b.setNegativeButton("Daha Sonra", null)
         b.setCancelable(!required).show()
+    }
+
+    private fun downloadApkOnly() {
+        val p=pending()
+        if(p==null){
+            check(true)
+            Toast.makeText(activity,"Güncelleme bilgisi yenileniyor. Biraz sonra tekrar dene.",Toast.LENGTH_LONG).show()
+            return
+        }
+        if(!installing.compareAndSet(false,true)){
+            Toast.makeText(activity,"Bir indirme zaten sürüyor.",Toast.LENGTH_LONG).show()
+            return
+        }
+        showInstallProgress("APK indiriliyor ve güvenlik özeti doğrulanıyor…")
+        thread {
+            var file:File?=null
+            try {
+                val (version,url,expected)=p
+                val apkFile=File(activity.cacheDir,"stagepulse-$version.apk")
+                file=apkFile
+                download(url,apkFile)
+                if(!sha256(apkFile).equals(expected,true))throw SecurityException("İndirilen APK'nın SHA-256 özeti eşleşmiyor.")
+                verifyDownloadedPackage(apkFile,version)
+                val savedUri=saveApkToDownloads(apkFile,version)
+                activity.runOnUiThread {
+                    dismissInstallProgress()
+                    AlertDialog.Builder(activity)
+                        .setTitle("APK indirildi")
+                        .setMessage("Stagepulse APK doğrulandı ve İndirilenler klasörüne kaydedildi. İstersen şimdi kurabilir veya daha sonra dosyayı açabilirsin.")
+                        .setPositiveButton("Şimdi yükle") { _, _ -> file?.let { packageInstall(it,version) } }
+                        .setNeutralButton("Dosyayı aç") { _, _ ->
+                            try {
+                                val intent=Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(savedUri,MIME)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                activity.startActivity(intent)
+                            } catch(e:Exception) {
+                                showInstallError("İndirilen APK açılmadı. İndirilenler > Stagepulse klasöründen dosyayı aç. Ayrıntı: ${e.message}")
+                            }
+                        }
+                        .setNegativeButton("Kapat",null)
+                        .show()
+                }
+            } catch(e:Exception) {
+                file?.delete()
+                android.util.Log.e("StagepulseUpdater","APK download failed",e)
+                activity.runOnUiThread {
+                    dismissInstallProgress()
+                    showInstallError("APK indirilemedi veya doğrulanamadı. Ayrıntı: ${e.message ?: e.javaClass.simpleName}")
+                }
+            } finally { installing.set(false) }
+        }
+    }
+
+    private fun saveApkToDownloads(source:File,version:Int):Uri {
+        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q) {
+            val values=ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME,"Stagepulse-v$version.apk")
+                put(MediaStore.Downloads.MIME_TYPE,MIME)
+                put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/Stagepulse")
+                put(MediaStore.Downloads.IS_PENDING,1)
+            }
+            val resolver=activity.contentResolver
+            val uri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values)
+                ?:throw IllegalStateException("İndirilenler klasöründe APK dosyası oluşturulamadı.")
+            try {
+                resolver.openOutputStream(uri,"w")?.use { output ->
+                    source.inputStream().use { input -> input.copyTo(output,65536) }
+                } ?: throw IllegalStateException("İndirilen APK dosyasına yazılamadı.")
+                val published=ContentValues().apply { put(MediaStore.Downloads.IS_PENDING,0) }
+                resolver.update(uri,published,null,null)
+                return uri
+            } catch(e:Exception) {
+                resolver.delete(uri,null,null)
+                throw e
+            }
+        }
+        val directory=activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+            ?:throw IllegalStateException("İndirme klasörü kullanılamıyor.")
+        if(!directory.exists()&&!directory.mkdirs())throw IllegalStateException("İndirme klasörü oluşturulamadı.")
+        val target=File(directory,"Stagepulse-v$version.apk")
+        source.inputStream().use { input -> target.outputStream().use { output -> input.copyTo(output,65536) } }
+        return FileProvider.getUriForFile(activity,"${activity.packageName}.fileprovider",target)
     }
 
     private fun startInstall() {
