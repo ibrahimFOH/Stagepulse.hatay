@@ -247,7 +247,6 @@ class AppUpdater(private val activity: MainActivity) {
                 activity.runOnUiThread { packageInstall(file, v) }
             } catch (e: Exception) {
                 prefs().edit().remove(INSTALLING).remove(INSTALLING_SESSION).apply()
-                fileForVersion(prefs().getInt(PENDING_VERSION, 0))?.delete()
                 val detail = when (e) {
                     is SecurityException -> "Güvenlik doğrulaması başarısız oldu."
                     is java.net.SocketTimeoutException -> "İndirme zaman aşımına uğradı."
