@@ -672,8 +672,20 @@ function recalcOfferLines(mode) {
   let subtotal=0;
   host.querySelectorAll('.offer-line').forEach(row=>{const total=Math.round(Math.max(0,num(row.querySelector('.ol-qty')?.value))*Math.max(0,num(row.querySelector('.ol-price')?.value))*100)/100;subtotal+=total;const out=row.querySelector('.ol-total');if(out)out.textContent=money(total);});
   const discount=Math.max(0,num(document.getElementById(mode==='edit'?'editDiscount':'nDiscount')?.value));
+  let costTotal=0, missingCosts=0;
+  host.querySelectorAll('.offer-line').forEach(row=>{const raw=row.querySelector('.ol-cost')?.value;if(raw===''||raw===undefined)missingCosts++;else costTotal+=Math.max(0,num(raw))*Math.max(0,num(row.querySelector('.ol-qty')?.value));});
+  const sellTotal=Math.max(0,subtotal-discount), profit=sellTotal-costTotal;
   const target=document.getElementById(mode==='edit'?'editOfferTotals':'newOfferTotals');
-  if(target)target.innerHTML=`<div class="offer-total-row"><span>Ara toplam</span><b>${money(subtotal)}</b></div><div class="offer-total-row"><span>İndirim</span><b>− ${money(discount)}</b></div><div class="offer-total-row offer-grand-total"><span>Teklif toplamı</span><b>${money(Math.max(0,subtotal-discount))}</b></div>`;
+  if(target)target.innerHTML=`<div class="offer-total-row"><span>Satış ara toplamı</span><b>${money(subtotal)}</b></div><div class="offer-total-row"><span>İndirim</span><b>− ${money(discount)}</b></div><div class="offer-total-row offer-grand-total"><span>Müşteri teklif toplamı</span><b>${money(sellTotal)}</b></div><div class="offer-total-row"><span>İç maliyet tahmini</span><b>${missingCosts?money(costTotal)+' + eksik '+missingCosts+' kalem':money(costTotal)}</b></div><div class="offer-total-row"><span>Tahmini brüt kâr</span><b>${missingCosts?'Eksik maliyet var':money(profit)}</b></div><div class="offer-total-row"><span>Brüt kâr marjı</span><b>${missingCosts||sellTotal<=0?'Hesaplanamıyor':(profit/sellTotal*100).toLocaleString('tr-TR',{maximumFractionDigits:1})+'%'}</b></div>`;
+}
+
+function splitOfferLines(lines) {
+  const services=lines.map(({cost_unit,cost_total,...publicLine})=>publicLine);
+  const internal_costs=lines.map(x=>({name:x.name,category:x.category,quantity:x.quantity,cost_unit:x.cost_unit,cost_total:x.cost_total,unit:x.unit}));
+  const subtotal=lines.reduce((sum,x)=>sum+x.total,0);
+  const known=lines.filter(x=>x.cost_unit!==null && x.cost_unit!==undefined);
+  const costTotal=known.reduce((sum,x)=>sum+(x.cost_total??x.quantity*x.cost_unit),0);
+  return {services,internal_costs,subtotal,costTotal,missingCosts:lines.length-known.length};
 }
 
 async function newOffer() {
