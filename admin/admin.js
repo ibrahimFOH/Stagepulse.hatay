@@ -395,8 +395,9 @@ async function openOffer(id) {
         </div>
       </div>
       <div class="panel" style="margin-top:14px">
-        <div class="panel-head"><h3>Teklif kapsamı</h3><button class="btn" type="button" onclick="addOfferLine('edit')">+ İş kalemi ekle</button></div>
-        <p class="muted small">Site hizmetleri, mühendislik işleri veya özel kalemler. Adet ve birim fiyatı ayrı ayrı düzenlenebilir.</p>
+        <div class="panel-head"><h3>Teklif kapsamı</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" onclick="addOfferLine('edit')">+ İş kalemi ekle</button><button class="btn btn-primary" type="button" onclick="addAllOfferCatalog('edit')">Tüm katalog işlerini ekle</button></div></div>
+        <p class="muted small">Aktif hizmet kataloğunun tümünü veya kategori bazında bütün işleri ekleyebilirsin. Kategori toplamları adet 1 ve önerilen satış fiyatları üzerinden hesaplanır; teklif satırlarında adet ve fiyat düzenlenebilir.</p>
+        <div id="editOfferCatalogSummary" class="panel" style="margin:10px 0"></div>
         <div id="editOfferLines"></div>
       </div>
       <div class="panel" style="margin-top:14px"><h3>Not</h3>
@@ -416,6 +417,7 @@ async function openOffer(id) {
     const merged=items.map(item=>{const cost=costs.find(c=>c.name===(item.name||item.item_name));return {...item,cost_unit:cost?.cost_unit??getInternalCost(item.name||item.item_name)};});
     if(merged.length)merged.forEach(item=>addOfferLine('edit',item));
     else addOfferLine('edit',{name:o.type||'Eski teklif kapsamı',quantity:1,unit_price:num(o.total),price:num(o.total),description:''});
+    renderOfferCatalogSummary('edit');
     recalcOfferLines('edit');
   }).catch(e=>toast('Hizmet listesi yüklenemedi: '+e.message,false));
 }
@@ -679,6 +681,55 @@ function readOfferLines(mode) {
   }).filter(x=>x.name);
 }
 
+function renderOfferCatalogSummary(mode) {
+  const target=document.getElementById(mode==='edit'?'editOfferCatalogSummary':'newOfferCatalogSummary');
+  if(!target)return;
+  const groups=[...new Set(offerCatalog.map(x=>x.category||'Diğer'))].sort((a,b)=>a.localeCompare(b,'tr'));
+  const totals=groups.map(category=>{
+    const items=offerCatalog.filter(x=>(x.category||'Diğer')===category);
+    const total=items.reduce((sum,item)=>sum+getSuggestedSalePrice(item),0);
+    return {category,items:items.length,total};
+  });
+  const allTotal=totals.reduce((sum,x)=>sum+x.total,0);
+  target.innerHTML=`<div class="panel-head"><h3>Katalog kapsamı ve kategori toplamları</h3><b>${money(allTotal)}</b></div>
+    <p class="muted small">${offerCatalog.length} aktif iş kalemi · önerilen satış fiyatları · her kalemden 1 adet varsayımı. Bu özet tek başına teklife eklenmez.</p>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>Kategori</th><th>İş kalemi</th><th>1'er adet toplamı</th><th></th></tr></thead><tbody>
+    ${totals.map(x=>`<tr><td>${esc(x.category)}</td><td>${x.items}</td><td>${money(x.total)}</td><td><button class="btn" type="button" onclick="addOfferCategoryEncoded('${mode}','${encodeURIComponent(x.category)}')">Kategoriyi ekle</button></td></tr>`).join('')}
+    </tbody><tfoot><tr><th>Genel katalog toplamı</th><th>${offerCatalog.length} kalem</th><th>${money(allTotal)}</th><th><button class="btn btn-primary" type="button" onclick="addAllOfferCatalog('${mode}')">Tümünü ekle</button></th></tr></tfoot></table></div>`;
+}
+
+function addOfferCatalogItems(mode, items) {
+  if(!items.length)return toast('Eklenecek aktif katalog kalemi bulunamadı.',false);
+  const existing=new Set(readOfferLines(mode).map(x=>x.name));
+  let added=0;
+  for(const item of items){
+    if(existing.has(item.item_name))continue;
+    addOfferLine(mode,{
+      name:item.item_name,category:item.category,description:item.description||'',
+      quantity:1,unit_price:getSuggestedSalePrice(item),cost_unit:getInternalCost(item.item_name),
+      unit:item.unit||'TL'
+    });
+    existing.add(item.item_name);added++;
+  }
+  recalcOfferLines(mode);
+  toast(added?`${added} iş kalemi eklendi.`:'Seçilen işler teklifte zaten var.');
+}
+
+function addOfferCategoryEncoded(mode, encodedCategory) {
+  let category='';
+  try { category=decodeURIComponent(encodedCategory); } catch (_) { return toast('Kategori adı okunamadı.',false); }
+  addOfferCategory(mode,category);
+}
+
+function addOfferCategory(mode, category) {
+  const items=offerCatalog.filter(x=>(x.category||'Diğer')===category);
+  addOfferCatalogItems(mode,items);
+}
+
+function addAllOfferCatalog(mode) {
+  addOfferCatalogItems(mode,offerCatalog);
+}
+
 function recalcOfferLines(mode) {
   const host=document.getElementById(mode==='edit'?'editOfferLines':'newOfferLines');
   if(!host)return;
@@ -688,8 +739,15 @@ function recalcOfferLines(mode) {
   let costTotal=0, missingCosts=0;
   host.querySelectorAll('.offer-line').forEach(row=>{const raw=row.querySelector('.ol-cost')?.value;if(raw===''||raw===undefined)missingCosts++;else costTotal+=Math.max(0,num(raw))*Math.max(0,num(row.querySelector('.ol-qty')?.value));});
   const sellTotal=Math.max(0,subtotal-discount), profit=sellTotal-costTotal;
+  const categorySums=new Map();
+  host.querySelectorAll('.offer-line').forEach(row=>{
+    const category=row.dataset.category||'Özel Hizmet';
+    const amount=Math.round(Math.max(0,num(row.querySelector('.ol-qty')?.value))*Math.max(0,num(row.querySelector('.ol-price')?.value))*100)/100;
+    categorySums.set(category,(categorySums.get(category)||0)+amount);
+  });
+  const categoryRows=[...categorySums.entries()].sort((a,b)=>a[0].localeCompare(b[0],'tr')).map(([category,amount])=>`<div class="offer-total-row"><span>${esc(category)} ara toplamı</span><b>${money(amount)}</b></div>`).join('');
   const target=document.getElementById(mode==='edit'?'editOfferTotals':'newOfferTotals');
-  if(target)target.innerHTML=`<div class="offer-total-row"><span>Satış ara toplamı</span><b>${money(subtotal)}</b></div><div class="offer-total-row"><span>İndirim</span><b>− ${money(discount)}</b></div><div class="offer-total-row offer-grand-total"><span>Müşteri teklif toplamı</span><b>${money(sellTotal)}</b></div><div class="offer-total-row"><span>İç maliyet tahmini</span><b>${missingCosts?money(costTotal)+' + eksik '+missingCosts+' kalem':money(costTotal)}</b></div><div class="offer-total-row"><span>Tahmini brüt kâr</span><b>${missingCosts?'Eksik maliyet var':money(profit)}</b></div><div class="offer-total-row"><span>Brüt kâr marjı</span><b>${missingCosts||sellTotal<=0?'Hesaplanamıyor':(profit/sellTotal*100).toLocaleString('tr-TR',{maximumFractionDigits:1})+'%'}</b></div>`;
+  if(target)target.innerHTML=`${categoryRows}<div class="offer-total-row"><span>Satış ara toplamı</span><b>${money(subtotal)}</b></div><div class="offer-total-row"><span>İndirim</span><b>− ${money(discount)}</b></div><div class="offer-total-row offer-grand-total"><span>Müşteri teklif toplamı</span><b>${money(sellTotal)}</b></div><div class="offer-total-row"><span>İç maliyet tahmini</span><b>${missingCosts?money(costTotal)+' + eksik '+missingCosts+' kalem':money(costTotal)}</b></div><div class="offer-total-row"><span>Tahmini brüt kâr</span><b>${missingCosts?'Eksik maliyet var':money(profit)}</b></div><div class="offer-total-row"><span>Brüt kâr marjı</span><b>${missingCosts||sellTotal<=0?'Hesaplanamıyor':(profit/sellTotal*100).toLocaleString('tr-TR',{maximumFractionDigits:1})+'%'}</b></div>`;
 }
 
 function splitOfferLines(lines) {
@@ -714,14 +772,16 @@ async function newOffer() {
       <label>Kişi<input id="nPeople" type="number" min="1"></label><label>Tarih<input id="nDate" type="date" value="${today}"></label>
       <label>Geçerlilik (gün)<input id="nValidDays" type="number" min="1" value="7"></label>
     </div>
-    <div class="panel" style="margin-top:14px"><div class="panel-head"><h3>Teklif kapsamı</h3><button class="btn" type="button" onclick="addOfferLine('new')">+ İş kalemi ekle</button></div>
-      <p class="muted small">Stagepulse.com.tr üzerindeki aktif fiyat kalemleri. Birden fazla hizmet ekleyebilir, adet ve fiyatı değiştirebilir, özel iş yazabilirsin.</p>
+    <div class="panel" style="margin-top:14px"><div class="panel-head"><h3>Teklif kapsamı</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" onclick="addOfferLine('new')">+ İş kalemi ekle</button><button class="btn btn-primary" type="button" onclick="addAllOfferCatalog('new')">Tüm katalog işlerini ekle</button></div></div>
+      <p class="muted small">Aktif hizmet kataloğunun tümünü veya kategori bazında bütün işleri ekleyebilirsin. Kategori toplamları adet 1 ve önerilen satış fiyatları üzerinden hesaplanır; teklif satırlarında adet ve fiyat düzenlenebilir.</p>
+      <div id="newOfferCatalogSummary" class="panel" style="margin:10px 0"></div>
       <div id="newOfferLines"></div><label>İndirim (₺)<input id="nDiscount" type="number" min="0" step="0.01" value="0" oninput="recalcOfferLines('new')"></label><div id="newOfferTotals" class="offer-totals"></div>
     </div>
     <label style="display:block;margin-top:12px">Not / teklif koşulları<textarea id="nMessage" rows="3" placeholder="KDV, kurulum, nakliye, ödeme ve kapsam notları"></textarea></label>
     <div class="modal-actions"><button class="btn btn-primary" onclick="createOffer()">Oluştur</button><button class="btn" onclick="$('#offerModal').remove()">İptal</button></div>
   </div></div>`);
   addOfferLine('new');
+  renderOfferCatalogSummary('new');
   setTimeout(()=>$('#nName')?.focus(),40);
 }
 
