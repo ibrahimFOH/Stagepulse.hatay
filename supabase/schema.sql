@@ -107,7 +107,7 @@ create table if not exists public.teklifler (
   discount numeric(12,2) not null default 0,
   total numeric(12,2) not null default 0,
   margin numeric(12,2) not null default 0,
-  public_token text unique default encode(gen_random_bytes(24),'hex'),
+  public_token text unique,
   valid_until date,
   accepted_at timestamptz,
   rejected_at timestamptz,
@@ -225,13 +225,23 @@ create sequence if not exists public.quote_number_seq start 1;
 create or replace function public.next_quote_number() returns text language plpgsql security definer set search_path=public as $$
 declare n bigint; begin n:=nextval('public.quote_number_seq'); return 'SP-'||to_char(current_date,'YYYY')||'-'||lpad(n::text,4,'0'); end; $$;
 
-create or replace function public.set_quote_defaults() returns trigger language plpgsql as $$
-declare d integer; begin
- if new.quote_number is null or new.quote_number='' then new.quote_number:=public.next_quote_number(); end if;
- if new.public_token is null or new.public_token='' then new.public_token:=encode(gen_random_bytes(24),'hex'); end if;
- if new.valid_until is null then select quote_valid_days into d from public.business_settings where id=true; new.valid_until:=coalesce(new.event_date,current_date)+coalesce(d,7); end if;
+create or replace function public.set_quote_defaults()
+returns trigger language plpgsql security definer set search_path = '' as $
+declare d integer;
+begin
+ if new.quote_number is null or new.quote_number='' then
+   new.quote_number:=public.next_quote_number();
+ end if;
+ if new.public_token is null or new.public_token='' then
+   new.public_token:=replace(pg_catalog.gen_random_uuid()::text,'-','') || replace(pg_catalog.gen_random_uuid()::text,'-','');
+ end if;
+ if new.valid_until is null then
+   select quote_valid_days into d from public.business_settings where id=true;
+   new.valid_until:=coalesce(new.event_date,current_date)+coalesce(d,7);
+ end if;
  new.updated_at:=now();
- return new; end $$;
+ return new;
+end $;
 drop trigger if exists trg_quote_defaults on public.teklifler;
 create trigger trg_quote_defaults before insert or update on public.teklifler for each row execute function public.set_quote_defaults();
 
