@@ -411,7 +411,8 @@ async function openOffer(id) {
     </div></div>`);
   loadOfferCatalog().then(() => {
     const items=Array.isArray(o.services)?o.services:[];
-    if(items.length)items.forEach(item=>addOfferLine('edit',item));else addOfferLine('edit');
+    if(items.length)items.forEach(item=>addOfferLine('edit',item));
+    else addOfferLine('edit',{name:o.type||'Eski teklif kapsamı',quantity:1,unit_price:num(o.total),price:num(o.total),description:''});
     recalcOfferLines('edit');
   }).catch(e=>toast('Hizmet listesi yüklenemedi: '+e.message,false));
 }
@@ -510,7 +511,7 @@ async function saveOffer(id) {
     discount,
     total: calculatedTotal,
     margin: num($('#editMargin')?.value),
-    estimated_price: num($('#editTotal')?.value),
+    estimated_price: calculatedTotal,
     valid_until: $('#editValid')?.value || null,
     status: newStatus,
     message: $('#editMessage')?.value?.trim() || '',
@@ -578,11 +579,11 @@ function createPDF(id) {
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(o.quote_number)}</title>
     <style>body{font:15px Inter,system-ui;padding:48px;max-width:720px;margin:auto}.total{font-size:22px;font-weight:800;text-align:right;margin-top:24px}</style></head>
     <body><h1>STAGEPULSE</h1><h2>${esc(o.quote_number||'')}</h2>
-    <p><b>\${esc(o.name)}</b><br>\${esc(o.phone||'')}<br>\${esc(o.email||'')}<br>\${esc(o.location||'')}<br>\${esc(o.event_date||'')} · \${esc(o.people||'—')} kişi</p>
-    <table style="width:100%;border-collapse:collapse;margin-top:24px"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:8px">Hizmet / İş kalemi</th><th style="text-align:right;border-bottom:1px solid #999;padding:8px">Adet</th><th style="text-align:right;border-bottom:1px solid #999;padding:8px">Birim fiyat</th><th style="text-align:right;border-bottom:1px solid #999;padding:8px">Tutar</th></tr></thead><tbody>\${(Array.isArray(o.services)?o.services:[]).map(x=>\`<tr><td style="border-bottom:1px solid #ddd;padding:8px"><b>\${esc(x.name||x.item_name||'')}</b><br><small>\${esc(x.description||'')}</small></td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px">\${num(x.quantity??1)}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px">\${money(x.unit_price??x.price??0)}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px">\${money(x.total??(num(x.quantity??1)*num(x.unit_price??x.price??0)))}</td></tr>\`).join('')||'<tr><td colspan="4" style="padding:8px">Hizmet kalemi bulunmuyor.</td></tr>'}</tbody></table>
-    <p style="text-align:right;margin-top:20px">Ara toplam: \${money((Array.isArray(o.services)?o.services:[]).reduce((a,x)=>a+num(x.total??(num(x.quantity??1)*num(x.unit_price??x.price??0))),0))}<br>İndirim: − \${money(o.discount||0)}</p>
-    <p class="total">TOPLAM \${money(o.total)}</p>
-    <p>Geçerlilik: \${esc(o.valid_until||'—')}</p><p>\${esc(o.message||'').replace(/\\n/g,'<br>')}</p><script>window.print()</script></body></html>\`);
+    <p><b>${esc(o.name)}</b><br>${esc(o.phone||'')}<br>${esc(o.email||'')}<br>${esc(o.location||'')}<br>${esc(o.event_date||'')} · ${esc(o.people||'—')} kişi</p>
+    <table style="width:100%;border-collapse:collapse;margin-top:24px"><thead><tr><th style="text-align:left;border-bottom:1px solid #999;padding:8px">Hizmet / İş kalemi</th><th style="text-align:right;border-bottom:1px solid #999;padding:8px">Adet</th><th style="text-align:right;border-bottom:1px solid #999;padding:8px">Birim fiyat</th><th style="text-align:right;border-bottom:1px solid #999;padding:8px">Tutar</th></tr></thead><tbody>${(Array.isArray(o.services)?o.services:[]).map(x=>`<tr><td style="border-bottom:1px solid #ddd;padding:8px"><b>${esc(x.name||x.item_name||'')}</b><br><small>${esc(x.description||'')}</small></td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px">${num(x.quantity??1)}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px">${money(x.unit_price??x.price??0)}</td><td style="text-align:right;border-bottom:1px solid #ddd;padding:8px">${money(x.total??(num(x.quantity??1)*num(x.unit_price??x.price??0)))}</td></tr>`).join('')||'<tr><td colspan="4" style="padding:8px">Hizmet kalemi bulunmuyor.</td></tr>'}</tbody></table>
+    <p style="text-align:right;margin-top:20px">Ara toplam: ${money((Array.isArray(o.services)?o.services:[]).reduce((a,x)=>a+num(x.total??(num(x.quantity??1)*num(x.unit_price??x.price??0))),0))}<br>İndirim: − ${money(o.discount||0)}</p>
+    <p class="total">TOPLAM ${money(o.total)}</p>
+    <p>Geçerlilik: ${esc(o.valid_until||'—')}</p><p>${esc(o.message||'').replace(/\n/g,'<br>')}</p><script>window.print()</script></body></html>`);
   w.document.close();
 }
 
@@ -596,9 +597,9 @@ async function loadOfferCatalog() {
 
 function offerCatalogOptions(selectedName = '') {
   const groups = [...new Set(offerCatalog.map(x => x.category))];
-  return groups.map(group => \`<optgroup label="\${esc(group)}">\${offerCatalog.filter(x => x.category === group).map(x =>
-    \`<option value="\${esc(x.item_name)}" \${x.item_name===selectedName?'selected':''}>\${esc(x.item_name)} · \${money(x.minimum_price)}\${x.unit==='TL / m²'?' / m²':''}</option>\`
-  ).join('')}</optgroup>\`).join('') + \`<option value="__custom__">Özel iş kalemi / serbest giriş</option>\`;
+  return groups.map(group => `<optgroup label="${esc(group)}">${offerCatalog.filter(x => x.category === group).map(x =>
+    `<option value="${esc(x.item_name)}" ${x.item_name===selectedName?'selected':''}>${esc(x.item_name)} · ${money(x.minimum_price)}${x.unit==='TL / m²'?' / m²':''}</option>`
+  ).join('')}</optgroup>`).join('') + `<option value="__custom__">Özel iş kalemi / serbest giriş</option>`;
 }
 
 function addOfferLine(mode, item = {}) {
@@ -609,17 +610,17 @@ function addOfferLine(mode, item = {}) {
   const custom = Boolean(name && !match);
   const row = document.createElement('div');
   row.className = 'offer-line';
-  row.innerHTML = \`
+  row.innerHTML = `
     <label class="offer-line-service">Hizmet / iş kalemi
-      <select class="ol-service" onchange="offerLineChanged(this,'\${mode}')">
-        <option value="">Hizmet seçin…</option>\${offerCatalogOptions(match?.item_name || '')}
+      <select class="ol-service" onchange="offerLineChanged(this,'${mode}')">
+        <option value="">Hizmet seçin…</option>${offerCatalogOptions(match?.item_name || '')}
       </select>
     </label>
-    <label class="offer-line-desc">Açıklama<input class="ol-desc" value="\${esc(item.description||match?.description||'')}" placeholder="Kapsam / model / not"></label>
-    <label>Adet<input class="ol-qty" type="number" min="0.01" step="0.01" value="\${num(item.quantity ?? 1)}" oninput="recalcOfferLines('\${mode}')"></label>
-    <label>Birim fiyat (₺)<input class="ol-price" type="number" min="0" step="0.01" value="\${num(item.unit_price ?? item.price ?? match?.minimum_price ?? 0)}" oninput="recalcOfferLines('\${mode}')"></label>
-    <div class="offer-line-sum"><span>Satır toplamı</span><b class="ol-total">\${money(num(item.quantity ?? 1)*num(item.unit_price ?? item.price ?? match?.minimum_price ?? 0))}</b></div>
-    <button type="button" class="btn btn-danger" onclick="this.closest('.offer-line').remove();recalcOfferLines('\${mode}')">Kaldır</button>\`;
+    <label class="offer-line-desc">Açıklama<input class="ol-desc" value="${esc(item.description||match?.description||'')}" placeholder="Kapsam / model / not"></label>
+    <label>Adet<input class="ol-qty" type="number" min="0.01" step="0.01" value="${num(item.quantity ?? 1)}" oninput="recalcOfferLines('${mode}')"></label>
+    <label>Birim fiyat (₺)<input class="ol-price" type="number" min="0" step="0.01" value="${num(item.unit_price ?? item.price ?? match?.minimum_price ?? 0)}" oninput="recalcOfferLines('${mode}')"></label>
+    <div class="offer-line-sum"><span>Satır toplamı</span><b class="ol-total">${money(num(item.quantity ?? 1)*num(item.unit_price ?? item.price ?? match?.minimum_price ?? 0))}</b></div>
+    <button type="button" class="btn btn-danger" onclick="this.closest('.offer-line').remove();recalcOfferLines('${mode}')">Kaldır</button>`;
   host.appendChild(row);
   if (custom) {
     row.querySelector('.ol-service').value='__custom__';
@@ -663,20 +664,20 @@ function recalcOfferLines(mode) {
   host.querySelectorAll('.offer-line').forEach(row=>{const total=Math.round(Math.max(0,num(row.querySelector('.ol-qty')?.value))*Math.max(0,num(row.querySelector('.ol-price')?.value))*100)/100;subtotal+=total;const out=row.querySelector('.ol-total');if(out)out.textContent=money(total);});
   const discount=Math.max(0,num(document.getElementById(mode==='edit'?'editDiscount':'nDiscount')?.value));
   const target=document.getElementById(mode==='edit'?'editOfferTotals':'newOfferTotals');
-  if(target)target.innerHTML=\`<div class="offer-total-row"><span>Ara toplam</span><b>\${money(subtotal)}</b></div><div class="offer-total-row"><span>İndirim</span><b>− \${money(discount)}</b></div><div class="offer-total-row offer-grand-total"><span>Teklif toplamı</span><b>\${money(Math.max(0,subtotal-discount))}</b></div>\`;
+  if(target)target.innerHTML=`<div class="offer-total-row"><span>Ara toplam</span><b>${money(subtotal)}</b></div><div class="offer-total-row"><span>İndirim</span><b>− ${money(discount)}</b></div><div class="offer-total-row offer-grand-total"><span>Teklif toplamı</span><b>${money(Math.max(0,subtotal-discount))}</b></div>`;
 }
 
 async function newOffer() {
   $('#offerModal')?.remove();
   try { await loadOfferCatalog(); } catch(e) { return toast('Hizmet listesi yüklenemedi: '+e.message,false); }
   const today=new Date().toISOString().slice(0,10);
-  document.body.insertAdjacentHTML('beforeend', \`<div class="modal" id="offerModal"><div class="modal-card">
+  document.body.insertAdjacentHTML('beforeend', `<div class="modal" id="offerModal"><div class="modal-card">
     <button class="close" onclick="$('#offerModal').remove()">×</button><h2>Yeni teklif</h2>
     <div class="grid2">
       <label>Ad / Firma *<input id="nName" required></label><label>Telefon *<input id="nPhone" type="tel" required></label>
       <label>E-posta<input id="nEmail" type="email"></label><label>Lokasyon<input id="nLoc"></label>
       <label>Etkinlik türü<select id="nEventType"><option>Konser</option><option>Festival</option><option>Düğün</option><option>Kurumsal</option><option>Özel Etkinlik</option><option>Diğer</option></select></label>
-      <label>Kişi<input id="nPeople" type="number" min="1"></label><label>Tarih<input id="nDate" type="date" value="\${today}"></label>
+      <label>Kişi<input id="nPeople" type="number" min="1"></label><label>Tarih<input id="nDate" type="date" value="${today}"></label>
       <label>Geçerlilik (gün)<input id="nValidDays" type="number" min="1" value="7"></label>
     </div>
     <div class="panel" style="margin-top:14px"><div class="panel-head"><h3>Teklif kapsamı</h3><button class="btn" type="button" onclick="addOfferLine('new')">+ İş kalemi ekle</button></div>
@@ -685,7 +686,7 @@ async function newOffer() {
     </div>
     <label style="display:block;margin-top:12px">Not / teklif koşulları<textarea id="nMessage" rows="3" placeholder="KDV, kurulum, nakliye, ödeme ve kapsam notları"></textarea></label>
     <div class="modal-actions"><button class="btn btn-primary" onclick="createOffer()">Oluştur</button><button class="btn" onclick="$('#offerModal').remove()">İptal</button></div>
-  </div></div>\`);
+  </div></div>`);
   addOfferLine('new');
   setTimeout(()=>$('#nName')?.focus(),40);
 }
