@@ -570,11 +570,30 @@ function newOffer() {
           <option>Konser</option><option>Festival</option><option>Düğün</option>
           <option>Kurumsal</option><option>Özel Etkinlik</option><option>Diğer</option>
         </select></label>
-        <label>Hizmet<select id="nType">
-          <option>Ses Sistemi Kiralama</option><option>Işık & Truss Kiralama</option>
-          <option>FOH Operasyonu</option><option>Paket (Kiralama + Mühendislik)</option>
-          <option>Stage Plot / Sahne Planı</option><option>Diğer</option>
+        <label>Hizmet / İş Kalemi<select id="nType">
+          <option>Ses Sistemi Kiralama</option>
+          <option>Işık & Truss Kiralama</option>
+          <option>Stage Plot / Sahne Planı</option>
+          <option>3D Sahne Çizimi</option>
+          <option>SPL Hesaplama</option>
+          <option>Akustik / SPL Ölçümü</option>
+          <option>SPL ve Kapsama Analizi</option>
+          <option>Yerinde Teknik Keşif</option>
+          <option>Sistem Mühendisliği</option>
+          <option>Sinyal Akışı ve Sistem Tasarımı</option>
+          <option>Marka / Model Araştırması</option>
+          <option>Alternatif Sistem Karşılaştırması</option>
+          <option>Mühendislik Raporu</option>
+          <option>Revizyonlar</option>
+          <option>Uygulama Kontrolü</option>
+          <option>Teknik Rider Hazırlama</option>
+          <option>FOH Operasyonu</option>
+          <option>Sistem Tuning / Commissioning</option>
+          <option>Canlı Ses Mikseri Kullanım Eğitimi</option>
+          <option>Paket (Kiralama + Mühendislik)</option>
+          <option>Diğer / Özel Hizmet</option>
         </select></label>
+        <label>Ek iş kalemi / hizmet açıklaması<input id="nCustomType" placeholder="Birden fazla hizmet varsa buraya ekleyin"></label>
         <label>Kişi<input id="nPeople" type="number" min="1"></label>
         <label>Tarih<input id="nDate" type="date" value="${today}"></label>
         <label>Toplam ₺<input id="nTotal" type="number" min="0" step="100"></label>
@@ -606,7 +625,7 @@ async function createOffer() {
     type: $('#nType')?.value || null,
     people: num($('#nPeople')?.value) || null,
     event_date: eventDate,
-    message: $('#nMessage')?.value?.trim() || null,
+    message: [$('#nMessage')?.value?.trim(), $('#nCustomType')?.value?.trim() ? 'Ek iş kalemleri: ' + $('#nCustomType').value.trim() : ''].filter(Boolean).join('\n\n') || null,
     total, estimated_price: total, margin: 0, status: 'preparing',
     valid_until: d.toISOString().slice(0, 10), services: []
   };
