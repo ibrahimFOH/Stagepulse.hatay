@@ -260,4 +260,8 @@ jobs:
         run: |
           set -euo pipefail
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease,isLatest --jq '.isPrerelease == false and .isLatest == true'
+          prerelease=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq '.isPrerelease')
+          test "$prerelease" = false
+          latest_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')
+          test "$latest_tag" = "$TAG"
+          echo "Verified $TAG is published as the latest stable release."
