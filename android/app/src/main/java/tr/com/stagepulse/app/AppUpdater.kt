@@ -292,7 +292,7 @@ class AppUpdater(private val activity: MainActivity) {
         val title = if (required) "Zorunlu güncelleme" else "Yeni güncelleme mevcut"
         val message = buildString { append("Yüklü sürüm: ").append(BuildConfig.VERSION_NAME); append("\nYeni sürüm: ").append(i.displayVersion); if (i.notes.isNotBlank()) append("\n\n").append(i.notes) }
         val b = AlertDialog.Builder(activity).setTitle(title).setMessage(message)
-            .setPositiveButton("Güncelle") { _, _ -> startInstall() }
+            .setPositiveButton("Güncelle") { _, _ -> startInstall(i) }
             .setNeutralButton("APK'yı İndir") { _, _ -> downloadApkOnly() }
         if (!required) b.setNegativeButton("Daha Sonra", null)
         b.setCancelable(!required).show()
@@ -382,6 +382,23 @@ class AppUpdater(private val activity: MainActivity) {
         return FileProvider.getUriForFile(activity,"${activity.packageName}.fileprovider",target)
     }
 
+    private fun startInstall(update: UpdateInfo) {
+        if (hasActiveInstall()) {
+            showInstallError("Bir kurulum isteği zaten bekliyor. Android'in kurulum onay ekranını veya bildirim panelini kontrol et.")
+            return
+        }
+        // The dialog already holds this validated UpdateInfo. Persist it for resume-after-
+        // permission flow, but start the install from this exact record instead of
+        // re-reading SharedPreferences and risking a silent no-op.
+        savePending(update)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
+            requestUnknownSourcesPermission()
+            return
+        }
+        android.util.Log.i("StagepulseUpdater", "Kullanıcı güncellemeyi başlattı: versionCode=${update.version}")
+        install(Triple(update.version, update.url, update.sha))
+    }
+
     private fun startInstall() {
         if (hasActiveInstall()) {
             showInstallError("Bir kurulum isteği zaten bekliyor. Android'in kurulum onay ekranını veya bildirim panelini kontrol et.")
@@ -391,7 +408,16 @@ class AppUpdater(private val activity: MainActivity) {
             requestUnknownSourcesPermission()
             return
         }
-        pending()?.let { install(it) } ?: check(true)
+        val update = pending()
+        if (update != null) {
+            android.util.Log.i("StagepulseUpdater", "Kullanıcı güncellemeyi başlattı: versionCode=${update.first}")
+            install(update)
+            return
+        }
+
+        Toast.makeText(activity, "Güncelleme bilgisi yeniden doğrulanıyor…", Toast.LENGTH_LONG).show()
+        android.util.Log.w("StagepulseUpdater", "Güncelle düğmesine basıldı ancak bekleyen güncelleme kaydı yok; manifest yeniden kontrol ediliyor.")
+        check(true)
     }
 
     private fun install(p: Triple<Int, String, String>) {
@@ -404,6 +430,7 @@ class AppUpdater(private val activity: MainActivity) {
             return
         }
         showInstallProgress("APK indiriliyor. İnternet hızına göre birkaç saniye sürebilir.")
+        android.util.Log.i("StagepulseUpdater", "APK indirme/kurulum iş parçacığı başlatıldı: versionCode=${p.first}")
         thread {
             try {
                 val (v, url, expected) = p
