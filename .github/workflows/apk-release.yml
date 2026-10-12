@@ -8,14 +8,11 @@ on:
         required: true
         default: preserve
         type: string
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/apk-release-trigger.txt'
+  issue_comment:
+    types: [created]
 
 env:
-  MINIMUM_VERSION_INPUT: ${{ inputs.minimum_version_code }}
+  MINIMUM_VERSION_INPUT: ${{ inputs.minimum_version_code || 'preserve' }}
 
 permissions:
   contents: write
@@ -26,6 +23,7 @@ concurrency:
 
 jobs:
   release:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'issue_comment' && github.event.issue.number == 23 && github.event.comment.body == '/stagepulse-release' && github.event.comment.user.login == 'ibrahimFOH') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: production
