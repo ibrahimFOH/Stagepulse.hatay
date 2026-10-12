@@ -603,6 +603,14 @@ async function loadOfferCatalog() {
   offerCatalog = publicResult.data || [];
   internalPricing = internalResult.data || [];
 }
+function getSuggestedSalePrice(item) {
+  const minimum=Number(item?.minimum_price)||0;
+  const internal=internalPricing.find(x=>x.item_name===item?.item_name);
+  const cost=internal?.cost_price===null||internal?.cost_price===undefined?null:Number(internal.cost_price);
+  const margin=internal?.target_margin_pct===null||internal?.target_margin_pct===undefined?null:Number(internal.target_margin_pct);
+  if(cost===null||margin===null||margin<0||margin>=100)return minimum;
+  return Math.max(minimum,Math.round((cost/(1-margin/100))*100)/100);
+}
 function getInternalCost(name) {
   const row = internalPricing.find(x => x.item_name === name);
   return row && row.cost_price !== null ? Number(row.cost_price) : null;
@@ -654,7 +662,7 @@ function offerLineChanged(select, mode) {
   } else {
     custom?.remove();
     const item=offerCatalog.find(x=>x.item_name===select.value);
-    if(item){row.querySelector('.ol-price').value=num(item.minimum_price);row.querySelector('.ol-desc').value=item.description||'';row.dataset.category=item.category;row.dataset.unit=item.unit||'TL';const cost=getInternalCost(item.item_name);row.querySelector('.ol-cost').value=cost===null?'':cost;}
+    if(item){row.querySelector('.ol-price').value=getSuggestedSalePrice(item);row.querySelector('.ol-desc').value=item.description||'';row.dataset.category=item.category;row.dataset.unit=item.unit||'TL';const cost=getInternalCost(item.item_name);row.querySelector('.ol-cost').value=cost===null?'':cost;}
   }
   recalcOfferLines(mode);
 }
