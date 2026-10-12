@@ -11,6 +11,14 @@ body{background:#080808;color:#eee;font-family:Inter,system-ui}
 .quote{max-width:850px;margin:50px auto;padding:28px}
 .qbox{background:#111;border:1px solid #2b2b2b;border-radius:16px;padding:26px}
 .qtotal{font-size:32px;font-weight:900;margin:20px 0}
+.qitems{width:100%;border-collapse:collapse;margin:22px 0;font-size:14px}
+.qitems th,.qitems td{padding:11px 8px;border-bottom:1px solid #303030}
+.qitems th{color:#c9a34a;text-align:left}
+.qitems .num{text-align:right;white-space:nowrap}
+.qsummary{max-width:380px;margin-left:auto}
+.qsummary div{display:flex;justify-content:space-between;gap:16px;padding:5px 0}
+.qsummary .grand{font-size:20px;font-weight:800;border-top:1px solid #555;padding-top:12px;margin-top:6px}
+@media(max-width:600px){.quote{margin:12px auto;padding:10px}.qbox{padding:16px}.qitems{font-size:12px}.qitems th,.qitems td{padding:8px 4px}}
 .qactions{display:flex;gap:10px;flex-wrap:wrap}
 .qbtn{padding:13px 18px;border-radius:9px;border:1px solid #333;background:#1b1b1b;color:#fff;cursor:pointer}
 .qbtn.ok{background:#ffb000;color:#111;border-color:#ffb000}
@@ -63,10 +71,31 @@ async function load() {
     + '<h2>Teklif ' + esc(q.quote_number) + '</h2>'
     + '<p><b>' + esc(q.name) + '</b><br>' + esc(q.company || '') + '<br>' + esc(q.location || '') + '</p>'
     + '<p>Etkinlik: ' + esc(q.event_type || q.type || '-') + ' · ' + esc(q.event_date || '-') + ' · ' + esc(q.people || '-') + ' kişi</p>'
-    + '<div class="qtotal">' + money(q.total) + '</div>'
+    + renderQuoteItems(q)
     + '<p>Geçerlilik: <b>' + esc(q.valid_until || '-') + '</b></p>'
     + '<div class="qactions">' + actionsHtml + '</div>'
     + '<p id="msg" class="muted"></p>';
+}
+
+function renderQuoteItems(q) {
+  const items = Array.isArray(q.services) ? q.services : [];
+  const subtotal = items.reduce((sum, item) => sum + Number(item.total ?? ((Number(item.quantity ?? 1) || 0) * (Number(item.unit_price ?? item.price ?? 0) || 0))), 0);
+  const discount = Math.max(0, Number(q.discount) || 0);
+  const rows = items.map(item => {
+    const qty = Number(item.quantity ?? 1) || 0;
+    const price = Number(item.unit_price ?? item.price ?? 0) || 0;
+    const total = Number(item.total ?? qty * price) || 0;
+    return '<tr><td><b>' + esc(item.name || item.item_name || 'Hizmet') + '</b>' +
+      (item.description ? '<br><small class="muted">' + esc(item.description) + '</small>' : '') +
+      '</td><td class="num">' + qty + (item.unit === 'TL / m²' ? ' m²' : '') +
+      '</td><td class="num">' + money(price) + '</td><td class="num">' + money(total) + '</td></tr>';
+  }).join('');
+  const table = '<table class="qitems"><thead><tr><th>Hizmet / iş kalemi</th><th class="num">Adet</th><th class="num">Birim fiyat</th><th class="num">Tutar</th></tr></thead><tbody>' +
+    (rows || '<tr><td colspan="4">Hizmet detayları ayrıca paylaşılacaktır.</td></tr>') + '</tbody></table>';
+  return table + '<div class="qsummary"><div><span>Ara toplam</span><b>' + money(subtotal) +
+    '</b></div><div><span>İndirim</span><b>− ' + money(discount) +
+    '</b></div><div class="grand"><span>Teklif toplamı</span><b>' + money(q.total) +
+    '</b></div></div>';
 }
 
 function statusLabel(status) {
