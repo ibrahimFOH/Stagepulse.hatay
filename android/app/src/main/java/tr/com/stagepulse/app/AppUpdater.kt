@@ -104,11 +104,23 @@ class AppUpdater(private val activity: MainActivity) {
         if (!checking.compareAndSet(false, true)) return
         thread {
             try {
-                val candidates = listOfNotNull(fetchSupabase(), fetchPublicManifest(), fetchGitHub())
-                val agreement = UpdateManifestPolicy.agreed(candidates.map {
+                val candidates = listOfNotNull(fetchSupabase(), fetchPublicManifest())
+                val records = candidates.map {
                     UpdateManifestRecord(it.source, it.version, it.minimumVersion, it.url, it.sha)
-                }) ?: throw SecurityException("Güncelleme kaynakları sürüm ve APK özeti üzerinde anlaşmıyor")
+                }
+                val githubCandidate = fetchGitHub()
+                val githubRecord = githubCandidate?.let {
+                    UpdateManifestRecord(it.source, it.version, it.minimumVersion, it.url, it.sha)
+                }
+                val agreement = UpdateManifestPolicy.agreedWithOptional(records, githubRecord)
+                    ?: throw SecurityException("Güncelleme kaynakları aynı APK kimliğinde anlaşmıyor")
                 val matching = candidates.first { it.source == agreement.source }
+                if (githubCandidate != null && githubCandidate.version != agreement.version) {
+                    android.util.Log.i(
+                        "StagepulseUpdater",
+                        "Eski/yeni GitHub Release kaydı görmezden gelindi: ${githubCandidate.displayVersion}; doğrulanmış manifest sürümü=${agreement.version}"
+                    )
+                }
                 val info = matching.copy(minimumVersion = agreement.minimumVersion)
                 prefs().edit().putLong(LAST_CHECK, now).apply()
                 val current = currentVersionCode()

@@ -33,4 +33,22 @@ internal object UpdateManifestPolicy {
         ) return null
         return first.copy(minimumVersion = records.maxOf { it.minimumVersion })
     }
+
+    /**
+     * Public manifest and Supabase are the authoritative pair. GitHub Release API
+     * is only an optional corroboration: its "latest stable" can legitimately be
+     * older while a newer verified release is staged. Ignore version-stale assets,
+     * but fail closed if GitHub advertises the same version with a different APK.
+     */
+    fun agreedWithOptional(
+        records: List<UpdateManifestRecord>,
+        optional: UpdateManifestRecord?
+    ): UpdateManifestRecord? {
+        val primary = agreed(records) ?: return null
+        if (optional == null) return primary
+        if (optional.source in records.map { it.source }) return null
+        if (optional.version != primary.version) return primary
+        if (optional.url != primary.url || optional.sha256 != primary.sha256) return null
+        return agreed(records + optional)
+    }
 }
