@@ -1066,6 +1066,8 @@ async function deleteCustomer(id) {
 async function pricingView() {
   const { data: rules } = await sb.from('price_rules').select('*').order('name');
   const { data: svc } = await sb.from('services').select('*').order('sort_order');
+  const { data: internalRows, error: internalError } = await sb.from('internal_pricing').select('*').eq('active', true).order('category').order('item_name');
+  if (internalError) throw internalError;
   const { data: published, error: publishedError } = await sb.from('published_pricing')
     .select('category,item_name,description,minimum_price,unit,source_path')
     .eq('active', true)
@@ -1095,6 +1097,12 @@ async function pricingView() {
           </table></div>
         </div>`).join('')}
     </div>
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><div><h3 style="margin:0">İç Maliyet Kataloğu</h3><p class="muted small">Bu tutarlar yalnızca iç hesaplamada kullanılır. Web sitesindeki fiyatları değiştirmez ve müşteriye gösterilmez. Maliyet girilmemiş kalemlerde kâr hesabı eksik olarak işaretlenir.</p></div><span class="status accepted">\${(internalRows||[]).filter(x=>x.cost_price!==null).length}/\${(internalRows||[]).length} maliyet girildi</span></div>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>Kategori / iş kalemi</th><th>Web satış tabanı</th><th>İç maliyet</th><th>Hedef marj %</th><th>İç not</th></tr></thead><tbody>
+      \${(internalRows||[]).map(r=>{const pub=published?.find(p=>p.item_name===r.item_name);return \`<tr><td><strong>\${esc(r.item_name)}</strong><div class="muted small">\${esc(r.category)}</div></td><td>\${pub?money(pub.minimum_price)+(pub.unit==='TL'?'':' / m²'):'—'}</td><td><input class="internal-cost-price" data-id="\${r.id}" type="number" min="0" step="0.01" value="\${r.cost_price===null?'':num(r.cost_price)}" placeholder="Maliyet gir" style="width:130px"></td><td><input class="internal-margin" data-id="\${r.id}" type="number" min="0" max="500" step="0.5" value="\${r.target_margin_pct===null?'':num(r.target_margin_pct)}" placeholder="Genel kural" style="width:110px"></td><td><input class="internal-note" data-id="\${r.id}" value="\${esc(r.notes||'')}" placeholder="Tedarik / personel vb." style="width:170px"></td></tr>\`}).join('')}
+      </tbody></table></div>
+    </div>
     <div class="grid2">
       <div class="panel"><h3>İç Hizmet Fiyatları</h3>
         ${(services||[]).map(s=>`<div class="price-row">
@@ -1113,12 +1121,19 @@ async function pricingView() {
     </div>`;
 }
 async function savePricing() {
-  for (const el of $$('[data-rule-id]')) {
-    await sb.from('price_rules').update({ value: num(el.value), updated_at: new Date().toISOString() }).eq('id', el.dataset.ruleId);
+  const updates=[];
+  for (const el of $$('[data-rule-id]')) updates.push(sb.from('price_rules').update({value:num(el.value),updated_at:new Date().toISOString()}).eq('id',el.dataset.ruleId));
+  for (const el of $$('.svc-cost')) updates.push(sb.from('services').update({base_cost:num(el.value)}).eq('id',el.dataset.id));
+  for (const el of $$('.svc-price')) updates.push(sb.from('services').update({base_price:num(el.value)}).eq('id',el.dataset.id));
+  for (const el of $$('.internal-cost-price')) {
+    const id=el.dataset.id, margin=document.querySelector('.internal-margin[data-id="'+id+'"]'), note=document.querySelector('.internal-note[data-id="'+id+'"]');
+    updates.push(sb.from('internal_pricing').update({cost_price:el.value===''?null:num(el.value),target_margin_pct:margin?.value===''?null:num(margin?.value),notes:note?.value?.trim()||null,updated_at:new Date().toISOString()}).eq('id',id));
   }
-  for (const el of $$('.svc-cost')) await sb.from('services').update({ base_cost: num(el.value) }).eq('id', el.dataset.id);
-  for (const el of $$('.svc-price')) await sb.from('services').update({ base_price: num(el.value) }).eq('id', el.dataset.id);
-  toast('Fiyatlandırma kaydedildi');
+  const results=await Promise.all(updates);
+  const failed=results.find(x=>x.error);
+  if(failed)return toast('Fiyatlandırma kaydedilemedi: '+failed.error.message,false);
+  toast('İç maliyetler ve fiyatlandırma kuralları kaydedildi');
+  await loadView('pricing');
 }
 function serviceModal(id) {
   const s = id ? services.find((x) => x.id === id) : null;
