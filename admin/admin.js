@@ -412,7 +412,9 @@ async function openOffer(id) {
     </div></div>`);
   loadOfferCatalog().then(() => {
     const items=Array.isArray(o.services)?o.services:[];
-    if(items.length)items.forEach(item=>addOfferLine('edit',item));
+    const costs=Array.isArray(o.internal_costs)?o.internal_costs:[];
+    const merged=items.map(item=>{const cost=costs.find(c=>c.name===(item.name||item.item_name));return {...item,cost_unit:cost?.cost_unit??getInternalCost(item.name||item.item_name)};});
+    if(merged.length)merged.forEach(item=>addOfferLine('edit',item));
     else addOfferLine('edit',{name:o.type||'Eski teklif kapsamı',quantity:1,unit_price:num(o.total),price:num(o.total),description:''});
     recalcOfferLines('edit');
   }).catch(e=>toast('Hizmet listesi yüklenemedi: '+e.message,false));
