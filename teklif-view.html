@@ -80,7 +80,7 @@ async function load() {
 function renderQuoteItems(q) {
   const items = Array.isArray(q.services) ? q.services : [];
   const subtotal = items.reduce((sum, item) => sum + Number(item.total ?? ((Number(item.quantity ?? 1) || 0) * (Number(item.unit_price ?? item.price ?? 0) || 0))), 0);
-  const discount = Math.max(0, Number(q.discount) || 0);
+  const discount = Math.max(0, Number(q.discount) || Math.round((subtotal - (Number(q.total) || 0)) * 100) / 100);
   const rows = items.map(item => {
     const qty = Number(item.quantity ?? 1) || 0;
     const price = Number(item.unit_price ?? item.price ?? 0) || 0;
