@@ -159,37 +159,33 @@ jobs:
             test -s "/tmp/verify/$asset"
           done
           (cd /tmp/verify && sha256sum --check SHA256SUMS)
-      - name: Publish verified manifest
+      - name: Preflight Supabase metadata access
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
         run: |
           set -euo pipefail
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          mkdir -p "$RUNNER_TEMP/stagepulse-manifest"
-          cp latest.json "$RUNNER_TEMP/stagepulse-manifest/latest.json"
-          cp app-update.json "$RUNNER_TEMP/stagepulse-manifest/app-update.json"
-          git restore --source=HEAD -- latest.json app-update.json
-          git fetch origin main --depth=100
-          git rebase origin/main
-          cp "$RUNNER_TEMP/stagepulse-manifest/latest.json" latest.json
-          cp "$RUNNER_TEMP/stagepulse-manifest/app-update.json" app-update.json
-          git add latest.json app-update.json
-          git diff --cached --quiet && { echo 'Manifest already current; nothing to publish.'; exit 0; }
-          git commit -m "chore(android): publish verified APK manifest ${VERSION_NAME}"
-          for attempt in 1 2 3; do
-            if git push origin "HEAD:main"; then
-              break
-            fi
-            test "$attempt" -lt 3 || exit 1
-            git fetch origin main --depth=100
-            git rebase origin/main
-          done
-          published=$(git rev-parse HEAD)
-          git fetch origin main --depth=100
-          remote=$(git rev-parse origin/main)
-          git merge-base --is-ancestor "$published" "$remote"
-          test "$(git show "$published":latest.json)" = "$(cat latest.json)"
-          test "$(git show "$published":app-update.json)" = "$(cat app-update.json)"
-          echo "Verified manifest commit $published is published on main (remote=$remote)."
+          test -n "$SUPABASE_ACCESS_TOKEN" && test -n "$SUPABASE_PROJECT_REF"
+          printf '%s' '{"query":"select 1 as stagepulse_release_preflight","read_only":true}' > /tmp/supabase-preflight.json
+          http_status=$(curl -sS --connect-timeout 15 --max-time 30 \
+            -o /tmp/supabase-preflight-response.json -w '%{http_code}' \
+            -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query" \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data @/tmp/supabase-preflight.json)
+          if [ "$http_status" != "200" ]; then
+            echo "::error title=Supabase release preflight::HTTP $http_status. Update the production SUPABASE_ACCESS_TOKEN secret and verify SUPABASE_PROJECT_REF before publishing."
+            exit 1
+          fi
+          python3 - /tmp/supabase-preflight-response.json <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as source:
+              data = json.load(source)
+          rows = data if isinstance(data, list) else data.get("result", []) if isinstance(data, dict) else []
+          if not rows or not isinstance(rows[0], dict) or rows[0].get("stagepulse_release_preflight") not in (1, "1"):
+              raise SystemExit("Supabase preflight query did not return the expected read-only result")
+          print("Supabase release metadata credentials and SQL endpoint verified.")
+          PY
       - name: Sync verified release metadata and notifications
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -234,6 +230,37 @@ jobs:
                   raise SystemExit(f"Supabase verification failed: expected 2 rows, got {verified}")
           print("Supabase release metadata synchronized and verified.")
           PY
+      - name: Publish verified manifest
+        run: |
+          set -euo pipefail
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          mkdir -p "$RUNNER_TEMP/stagepulse-manifest"
+          cp latest.json "$RUNNER_TEMP/stagepulse-manifest/latest.json"
+          cp app-update.json "$RUNNER_TEMP/stagepulse-manifest/app-update.json"
+          git restore --source=HEAD -- latest.json app-update.json
+          git fetch origin main --depth=100
+          git rebase origin/main
+          cp "$RUNNER_TEMP/stagepulse-manifest/latest.json" latest.json
+          cp "$RUNNER_TEMP/stagepulse-manifest/app-update.json" app-update.json
+          git add latest.json app-update.json
+          git diff --cached --quiet && { echo 'Manifest already current; nothing to publish.'; exit 0; }
+          git commit -m "chore(android): publish verified APK manifest ${VERSION_NAME}"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:main"; then
+              break
+            fi
+            test "$attempt" -lt 3 || exit 1
+            git fetch origin main --depth=100
+            git rebase origin/main
+          done
+          published=$(git rev-parse HEAD)
+          git fetch origin main --depth=100
+          remote=$(git rev-parse origin/main)
+          git merge-base --is-ancestor "$published" "$remote"
+          test "$(git show "$published":latest.json)" = "$(cat latest.json)"
+          test "$(git show "$published":app-update.json)" = "$(cat app-update.json)"
+          echo "Verified manifest commit $published is published on main (remote=$remote)."
       - name: Promote verified prerelease to latest release
         env:
           GH_TOKEN: ${{ github.token }}

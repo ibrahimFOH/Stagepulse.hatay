@@ -78,13 +78,16 @@ for step in (
 ordered_steps = (
     "Upload verified assets to a non-latest prerelease",
     "Verify release downloads before publishing manifest",
-    "Publish verified manifest",
+    "Preflight Supabase metadata access",
     "Sync verified release metadata and notifications",
+    "Publish verified manifest",
     "Promote verified prerelease to latest release",
 )
 positions = [release.find(f"- name: {step}") for step in ordered_steps]
 if -1 in positions or positions != sorted(positions):
-    errors.append("Android release must become latest only after manifest and production sync")
+    errors.append("Android release must preflight and sync production metadata before publishing its public manifest")
+if 'select 1 as stagepulse_release_preflight' not in release or 'http_status' not in release:
+    errors.append("Android release must verify Supabase SQL API access before production mutation")
 
 if errors:
     raise SystemExit("\n".join(errors))
