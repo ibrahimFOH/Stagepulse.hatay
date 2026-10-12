@@ -246,8 +246,22 @@ class AppUpdater(private val activity: MainActivity) {
                 verifyDownloadedPackage(file, v)
                 activity.runOnUiThread { packageInstall(file, v) }
             } catch (e: Exception) {
-                prefs().edit().remove(INSTALLING).apply()
-                activity.runOnUiThread { AlertDialog.Builder(activity).setTitle("Güncelleme yüklenemedi").setMessage("Güncelleme indirilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.").setPositiveButton("Tekrar Dene") { _, _ -> startInstall() }.show() }
+                prefs().edit().remove(INSTALLING).remove(INSTALLING_SESSION).apply()
+                fileForVersion(prefs().getInt(PENDING_VERSION, 0))?.delete()
+                val detail = when (e) {
+                    is SecurityException -> "Güvenlik doğrulaması başarısız oldu."
+                    is java.net.SocketTimeoutException -> "İndirme zaman aşımına uğradı."
+                    else -> e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                }
+                android.util.Log.e("StagepulseUpdater", "Update failed: $detail", e)
+                activity.runOnUiThread {
+                    if (!activity.isFinishing) AlertDialog.Builder(activity)
+                        .setTitle("Güncelleme yüklenemedi")
+                        .setMessage("Ayrıntı: $detail\n\nİnternet bağlantısını kontrol edin. Sorun sürerse destek için bu hata bilgisini paylaşın.")
+                        .setPositiveButton("Tekrar Dene") { _, _ -> startInstall() }
+                        .setNegativeButton("Kapat", null)
+                        .show()
+                }
             } finally { installing.set(false) }
         }
     }
