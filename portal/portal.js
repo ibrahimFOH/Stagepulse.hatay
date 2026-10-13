@@ -9,6 +9,7 @@ if (!window.supabase) {
 }
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+window.__stagepulsePortalClient = sb;
 
 // Güvenlik ağı: yakalanmamış bir promise reddi olursa kullanıcıyı sessizce
 // bırakmak yerine bilgilendir (bkz. admin/admin.js'deki aynı yaklaşım).
@@ -147,6 +148,7 @@ function afterLogin() {
   const hash = (location.hash || '#home').slice(1);
   const allowed = ['home', ...Object.keys(VIEW_PERM).filter(can)];
   loadView(allowed.includes(hash) ? hash : 'home');
+  window.StagepulseOffline?.flush().catch(() => {});
 }
 
 function bindShell() {
@@ -196,23 +198,49 @@ async function loadView(v) {
 
 async function fetchJobs() {
   if (!can('jobs')) { jobs = []; return; }
+  const offline = window.StagepulseOffline;
+  if (!navigator.onLine && offline) {
+    jobs = (await offline.getCache('portal.jobs')) || [];
+    if (!jobs.length) throw new Error('Çevrimdışı iş listesi henüz kaydedilmemiş. Bu ekranı önce internet bağlantısıyla aç.');
+    return;
+  }
   const source = can('view_assigned_jobs') ? 'my_jobs_staff' : (can('jobs') ? 'jobs' : null);
   const { data, error } = await sb.from(source).select('*').order('event_at', { ascending: true, nullsFirst: false });
-  if (error) throw error;
+  if (error) {
+    if (offline?.networkFailure(error)) {
+      const cached = await offline.getCache('portal.jobs');
+      if (cached) { jobs = cached; return; }
+    }
+    throw error;
+  }
   jobs = data || [];
+  if (offline) await offline.putCache('portal.jobs', offline.safeJobSnapshot(jobs)).catch(() => {});
 }
 async function fetchEquipment() {
   if (!can('equipment') && !can('jobs')) { equipment = []; return; }
+  const offline = window.StagepulseOffline;
+  if (!navigator.onLine && offline) {
+    equipment = (await offline.getCache('portal.equipment')) || [];
+    if (!equipment.length) throw new Error('Çevrimdışı ekipman listesi henüz kaydedilmemiş. Önce internet bağlantısıyla aç.');
+    return;
+  }
   // Güvenli view: maliyet / satış fiyatı bu view'da hiç yok.
   const { data, error } = await sb.from('equipment_staff')
     .select('id,category,brand,model,quantity,active,notes')
     .order('category');
-  if (error) throw error;
+  if (error) {
+    if (offline?.networkFailure(error)) {
+      const cached = await offline.getCache('portal.equipment');
+      if (cached) { equipment = cached; return; }
+    }
+    throw error;
+  }
   equipment = data || [];
+  if (offline) await offline.putCache('portal.equipment', equipment).catch(() => {});
 }
 async function fetchOffers() {
   if (!can('offers')) { offers = []; return; }
-  // Güvenli view: maliyet/kâr yok, sadece anlaşılan tutar (agreed_amount).
+  if (!navigator.onLine) { offers = []; return; } // Müşteri ve tutar içeren kayıtlar kalıcı çevrimdışı önbelleğe alınmaz.
   const { data, error } = await sb.from('offers_staff')
     .select('id,quote_number,name,company,location,people,event_date,event_type,type,agreed_amount,currency,status,created_at')
     .order('event_date', { ascending: true, nullsFirst: false });
@@ -221,12 +249,25 @@ async function fetchOffers() {
 }
 async function fetchJobEquipment() {
   if (!can('jobs') && !can('equipment')) { jobEquipment = []; return; }
+  const offline = window.StagepulseOffline;
+  if (!navigator.onLine && offline) {
+    jobEquipment = (await offline.getCache('portal.jobEquipment')) || [];
+    return;
+  }
   const { data, error } = await sb.from('job_equipment').select('*');
   if (error) {
+    if (offline?.networkFailure(error)) {
+      jobEquipment = (await offline.getCache('portal.jobEquipment')) || [];
+      return;
+    }
     jobEquipment = [];
     return;
   }
-  jobEquipment = data || [];
+  jobEquipment = (data || []).map(row => ({
+    id: row.id, job_id: row.job_id, equipment_id: row.equipment_id,
+    quantity: row.quantity, notes: row.notes
+  }));
+  if (offline) await offline.putCache('portal.jobEquipment', jobEquipment).catch(() => {});
 }
 
 /* — Mali / hassas veriler: sadece ilgili yetki açıksa satır döner — */
@@ -249,12 +290,25 @@ async function fetchPayments() {
   payments = data || [];
 }
 async function fetchPricing() {
+  const offline = window.StagepulseOffline;
+  if (!navigator.onLine && offline) {
+    pricing = (await offline.getCache('portal.pricing')) || [];
+    if (!pricing.length) throw new Error('Fiyat listesi çevrimdışı olarak henüz kaydedilmemiş.');
+    return;
+  }
   const { data, error } = await sb.from('published_pricing')
     .select('category,item_name,description,minimum_price,unit,source_path')
     .eq('active', true)
     .order('sort_order');
-  if (error) throw error;
+  if (error) {
+    if (offline?.networkFailure(error)) {
+      const cached = await offline.getCache('portal.pricing');
+      if (cached) { pricing = cached; return; }
+    }
+    throw error;
+  }
   pricing = data || [];
+  if (offline) await offline.putCache('portal.pricing', pricing).catch(() => {});
 }
 async function fetchOffersFinancial() {
   if (!can('financials')) { offersFinancial = []; return; }
@@ -390,6 +444,7 @@ window.openJob = async function openJob(id) {
 window.respondJob = async function respondJob(id, response) {
   if (response === 'accepted' && !can('accept_job')) return toast('İş kabul yetkiniz yok', false);
   if (response === 'rejected' && !can('reject_job')) return toast('İş red yetkiniz yok', false);
+  if (!navigator.onLine) return toast('İşi kabul/red işlemi için internet gerekir. Bu karar çevrimdışı kuyruğa alınmadı.', false);
   const note = prompt(response === 'rejected' ? 'Red nedeni (opsiyonel):' : 'Not (opsiyonel):') || null;
   const { data, error } = await sb.rpc('staff_respond_job', { p_job_id: id, p_response: response, p_note: note });
   if (error) return toast(error.message, false);
@@ -400,7 +455,19 @@ window.respondJob = async function respondJob(id, response) {
 
 window.setJobStatus = async function setJobStatus(id, status) {
   if (!can('update_job_status')) return toast('Bu işlem için yetkiniz yok', false);
-  const { error } = await sb.rpc('staff_update_job_status', { p_job_id: id, p_status: status });
+  const args = { p_job_id: id, p_status: status };
+  if (!navigator.onLine) {
+    try {
+      await window.StagepulseOffline.queueStaffAction('staff_update_job_status', args, staffUser?.id, { jobId: id, status });
+      const job = jobs.find(item => item.id === id);
+      if (job) job.status = status;
+      await window.StagepulseOffline.putCache('portal.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
+      toast('Durum cihazda kuyruğa alındı. Sunucu onayı bağlantı gelince alınacak.', true);
+      await openJob(id);
+    } catch (e) { toast(e.message || 'Çevrimdışı kayıt saklanamadı.', false); }
+    return;
+  }
+  const { error } = await sb.rpc('staff_update_job_status', args);
   if (error) return toast(error.message, false);
   toast('Durum güncellendi');
   await fetchJobs();
@@ -413,7 +480,18 @@ window.updateJobNotes = async function updateJobNotes(id) {
   if (!j) return;
   const note = prompt('İş notu:', j.notes || '');
   if (note === null) return;
-  const { error } = await sb.rpc('staff_update_job_notes', { p_job_id: id, p_notes: note });
+  const args = { p_job_id: id, p_notes: note };
+  if (!navigator.onLine) {
+    try {
+      await window.StagepulseOffline.queueStaffAction('staff_update_job_notes', args, staffUser?.id, { jobId: id, notes: note });
+      j.notes = note;
+      await window.StagepulseOffline.putCache('portal.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
+      toast('Not cihazda kuyruğa alındı. Sunucu onayı bağlantı gelince alınacak.', true);
+      await openJob(id);
+    } catch (e) { toast(e.message || 'Çevrimdışı kayıt saklanamadı.', false); }
+    return;
+  }
+  const { error } = await sb.rpc('staff_update_job_notes', args);
   if (error) return toast(error.message, false);
   toast('İş notu güncellendi');
   await fetchJobs();
@@ -458,6 +536,10 @@ async function equipmentView() {
 }
 
 async function offersView() {
+  if (!navigator.onLine) {
+    $('#content').innerHTML = '<div class="panel"><h1>Teklifler</h1><p class="muted">Tekliflerde müşteri bilgileri ve tutarlar bulunduğundan bu kayıtlar cihazda kalıcı çevrimdışı saklanmıyor. İnternet bağlantısı geldiğinde yeniden aç.</p></div>';
+    return;
+  }
   const tasks = [fetchOffers()];
   if (can('financials')) tasks.push(fetchOffersFinancial());
   await Promise.all(tasks);
@@ -567,13 +649,22 @@ async function init() {
   $('#loginForm')?.addEventListener('submit', login);
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    try {
-      staffUser = JSON.parse(localStorage.getItem('sp_staff_meta') || 'null');
-    } catch (_) { staffUser = null; }
-    const { data: prof } = await sb.from('staff_profiles')
+    try { staffUser = JSON.parse(localStorage.getItem('sp_staff_meta') || 'null'); }
+    catch (_) { staffUser = null; }
+    if (staffUser?.id === session.user.id && !navigator.onLine) {
+      afterLogin();
+      window.StagepulseOffline?.renderBanner().catch(() => {});
+      return;
+    }
+    const { data: prof, error: profileError } = await sb.from('staff_profiles')
       .select('user_id,username,display_name,role,active,permissions')
       .eq('user_id', session.user.id)
       .maybeSingle();
+    if (profileError && window.StagepulseOffline?.networkFailure(profileError) && staffUser?.id === session.user.id) {
+      afterLogin();
+      window.StagepulseOffline?.renderBanner().catch(() => {});
+      return;
+    }
     if (prof?.active) {
       staffUser = {
         id: prof.user_id,
@@ -584,8 +675,10 @@ async function init() {
       };
       localStorage.setItem('sp_staff_meta', JSON.stringify(staffUser));
       afterLogin();
+      window.StagepulseOffline?.flush().catch(() => {});
       return;
     }
+    if (profileError) throw profileError;
     await sb.auth.signOut();
   }
   showLogin();

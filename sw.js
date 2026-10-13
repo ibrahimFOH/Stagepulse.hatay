@@ -1,5 +1,5 @@
-/* Stagepulse Service Worker v8 */
-const CACHE_VERSION='stagepulse-v8';
+/* Stagepulse Service Worker v9: offline portal/admin shell + Supabase SDK */
+const CACHE_VERSION='stagepulse-v9';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const AUTHENTICATED_PATHS = ['/admin', '/portal'];
@@ -14,7 +14,8 @@ function isOfflineShellAsset(request,url){
   return ['script','style','image','font'].includes(request.destination)||/\.(html|css|js|svg|woff2?|png|jpe?g|webp)$/i.test(url.pathname);
 }
 
-const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js','/admin/','/portal/'];
+const SUPABASE_SDK_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4';
+const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js','/offline-sync.js','/admin/','/portal/',SUPABASE_SDK_URL];
 const NETWORK_FIRST_PATHS=['/','/index.html','/style.css','/script.js','/i18n.js','/consent.js','/teklif.html','/hizmetler.html','/muhendislik.html','/galeri.html','/dokumanlar.html','/hakkimizda.html','/referanslar.html','/nasil-calisiyoruz.html','/sss.html','/ekipman.html','/Kvkk.html','/media.json'];
 
 self.addEventListener('install',event=>{
@@ -34,6 +35,13 @@ self.addEventListener('activate',event=>{
 self.addEventListener('fetch',event=>{
   const request=event.request;
   const url=new URL(request.url);
+  if(url.href===SUPABASE_SDK_URL){
+    event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
+      if(response&&response.status===200){const copy=response.clone();caches.open(STATIC_CACHE).then(cache=>cache.put(request,copy));}
+      return response;
+    })));
+    return;
+  }
   if(url.origin!==self.location.origin)return;
 
   if (isAuthenticatedPath(url.pathname)) {

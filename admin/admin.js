@@ -174,13 +174,28 @@ async function guard(session) {
     }
     const username = session.user?.user_metadata?.username || session.user?.email?.split('@')[0] || 'admin';
     const displayName = session.user?.user_metadata?.display_name || session.user?.user_metadata?.full_name || username;
+    localStorage.setItem('stagepulse-admin-offline-context', JSON.stringify({ username, displayName, validatedAt: Date.now() }));
     showApp();
     $('#adminUser').textContent = '@' + username;
     $('#sideAdminName').textContent = displayName;
     const hash = (location.hash || '#dashboard').slice(1);
     await loadView(viewMeta[hash] ? hash : 'dashboard');
+    window.StagepulseOffline?.flush().catch(() => {});
   } catch (error) {
     console.error('Admin guard:', error);
+    if (window.StagepulseOffline?.networkFailure(error)) {
+      try {
+        const cached = JSON.parse(localStorage.getItem('stagepulse-admin-offline-context') || 'null');
+        if (cached && Date.now() - Number(cached.validatedAt || 0) < 7 * 24 * 60 * 60 * 1000) {
+          showApp();
+          $('#adminUser').textContent = '@' + (cached.username || 'admin');
+          $('#sideAdminName').textContent = cached.displayName || cached.username || 'Admin';
+          await loadView('calendar');
+          window.StagepulseOffline?.renderBanner().catch(() => {});
+          return;
+        }
+      } catch (_) {}
+    }
     await sb.auth.signOut();
     showLogin();
     $('#loginError').textContent = error.message || 'Bu hesap admin yetkisine sahip değil.';
@@ -212,6 +227,22 @@ async function login(e) {
   }
 }
 
+function renderOfflineCalendar(html) {
+  const content = $('#content');
+  if (!content) return;
+  content.innerHTML = html;
+  content.querySelectorAll('script,[onclick],[onchange],[onsubmit]').forEach(el => {
+    if (el.tagName === 'SCRIPT') el.remove();
+    else { el.removeAttribute('onclick'); el.removeAttribute('onchange'); el.removeAttribute('onsubmit'); }
+  });
+  content.querySelectorAll('button,input,select,textarea').forEach(el => { el.disabled = true; });
+  content.querySelectorAll('a[href]').forEach(el => el.removeAttribute('href'));
+  const notice = document.createElement('div');
+  notice.className = 'notice';
+  notice.setAttribute('role', 'status');
+  notice.textContent = 'ÇEVRİMDIŞI · Son kaydedilen operasyon takvimi gösteriliyor. Bu ekran salt okunurdur; değişiklikler sunucuya gönderilmedi.';
+  content.prepend(notice);
+}
 async function loadView(v) {
   if (!viewMeta[v]) v = 'dashboard';
   document.querySelectorAll('#sideNav button[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
@@ -226,7 +257,26 @@ async function loadView(v) {
     finance: financeView, personnel: personnelView, analytics: analyticsView, activity: activityView,
     notifications: notificationsView, settings: settingsView
   };
-  try { await map[v](); } catch (e) { fatal(e); }
+  if (!navigator.onLine) {
+    if (v === 'calendar' && window.StagepulseOffline) {
+      const cached = await window.StagepulseOffline.getCache('admin.calendar').catch(() => null);
+      if (cached) { renderOfflineCalendar(cached); return; }
+    }
+    $('#content').innerHTML = '<div class="notice" role="status"><b>Çevrimdışı mod</b><p>Bu yönetim ekranının güncel verisi cihazda bulunmuyor. İşlemler sunucuya bağlı olduğu için kayıt yapma ve finansal değişiklikler devre dışı.</p><p>Bağlantı geldiğinde tekrar deneyin.</p></div>';
+    return;
+  }
+  try {
+    await map[v]();
+    if (v === 'calendar' && window.StagepulseOffline) {
+      await window.StagepulseOffline.putCache('admin.calendar', $('#content')?.innerHTML || '').catch(() => {});
+    }
+  } catch (e) {
+    if (v === 'calendar' && window.StagepulseOffline?.networkFailure(e)) {
+      const cached = await window.StagepulseOffline.getCache('admin.calendar').catch(() => null);
+      if (cached) { renderOfflineCalendar(cached); return; }
+    }
+    fatal(e);
+  }
 }
 
 async function getOffers() {
