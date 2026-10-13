@@ -13,7 +13,13 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 CASES = {
-    "7.4.9": ("7.4.10", 7_004_010),
+    "7.4.8": ("7.4.9", 7_004_009),
+    "7.4.9": ("7.5.0", 7_005_000),
+    "7.5.8": ("7.5.9", 7_005_009),
+    "7.5.9": ("7.6.0", 7_006_000),
+    "7.9.9": ("8.0.0", 8_000_000),
+    "9.9.9": ("10.0.0", 10_000_000),
+    "7.4.16": ("7.5.0", 7_005_000),
     "7.4.999": ("7.5.0", 7_005_000),
     "7.999.999": ("8.0.0", 8_000_000),
     "9.999.999": ("10.0.0", 10_000_000),
@@ -34,4 +40,4 @@ for invalid in ("", "7.04.9", "7.1000.0", "7.4.1000", "v7.4.9", "-1.0.0"):
         continue
     raise AssertionError(f"Expected invalid version to fail: {invalid}")
 
-print(f"Stagepulse version sequence checks passed ({len(CASES)} valid cases plus invalid inputs).")
+print(f"Stagepulse version sequence checks passed ({len(CASES)} valid and legacy-normalization cases plus invalid inputs).")

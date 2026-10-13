@@ -13,13 +13,27 @@ def next_version(current: str) -> tuple[str, int]:
         raise ValueError("version must be MAJOR.MINOR.PATCH")
     major, minor, patch = map(int, match.groups())
 
-    # The versionCode layout reserves three decimal digits each for minor and patch.
+    # Stagepulse uses one decimal digit per MINOR and PATCH component.
+    # Normalize older releases produced by the previous 0..999 patch scheme:
+    # e.g. 7.4.16 -> 7.5.0, preserving a strictly increasing Android versionCode.
     if minor > 999 or patch > 999:
-        raise ValueError("MINOR and PATCH components must be between 0 and 999")
+        raise ValueError("Legacy MINOR and PATCH components must not exceed 999")
 
-    if patch < 999:
+    if minor > 9:
+        major += 1
+        minor = 0
+        patch = 0
+    elif patch > 9:
+        if minor < 9:
+            minor += 1
+            patch = 0
+        else:
+            major += 1
+            minor = 0
+            patch = 0
+    elif patch < 9:
         patch += 1
-    elif minor < 999:
+    elif minor < 9:
         minor += 1
         patch = 0
     else:

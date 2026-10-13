@@ -53,7 +53,9 @@ require(stagepulseVersionParts.size == 3 && stagepulseVersionParts.all { it.toIn
 val stagepulseMajor = stagepulseVersionParts[0].toInt()
 val stagepulseMinor = stagepulseVersionParts[1].toInt()
 val stagepulsePatch = stagepulseVersionParts[2].toInt()
-require(stagepulseMajor >= 2 && stagepulseMinor >= 0 && stagepulsePatch >= 0) { "Stagepulse production release must be 2.0.0 or newer." }
+require(stagepulseMajor >= 2 && stagepulseMinor in 0..9 && stagepulsePatch in 0..9) {
+    "Stagepulse production version must be MAJOR.MINOR.PATCH with MINOR and PATCH each between 0 and 9."
+}
 val semanticVersionCode = stagepulseMajor * 1_000_000 + stagepulseMinor * 1_000 + stagepulsePatch
 val stagepulseVersionCode = (project.findProperty("stagepulse.versionCode") as String?)?.trim()?.toIntOrNull() ?: semanticVersionCode
 require(stagepulseVersionCode >= 2_000_000) { "Stagepulse production versionCode must be 2.0.0 or newer." }

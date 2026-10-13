@@ -15,7 +15,7 @@ Bu dosya, çalışan APK güncelleme mimarisinin sözleşmesidir.
 5. APK yalnızca daha yüksek `versionCode` gördüğünde güncelleme önerir.
 6. İndirilen APK'nın SHA-256 değeri doğrulanmadan kurulum başlatılmaz.
 7. Mevcut release keystore değiştirilmeyecek; aksi halde mevcut kurulu APK'lara güncelleme yüklenemez.
-8. Sürüm zinciri sıralı ilerler: `2.0.0 -> 2.0.1 -> 2.0.2 ...`.
+8. Sürüm zinciri onluk taşıma kuralıyla ilerler: `7.4.8 -> 7.4.9 -> 7.5.0`; `7.9.9 -> 8.0.0`; `9.9.9 -> 10.0.0`. MINOR ve PATCH bileşenleri 0–9 aralığındadır. Eski sistemin ürettiği `7.4.16` gibi sürümler bir sonraki yayında `7.5.0` biçiminde normalize edilir.
 9. Release'e Admin ve Personel APK birlikte yayınlanır.
 10. `latest.json` Release ile aynı sürümü ve doğru APK dosyalarını göstermelidir.
 
