@@ -9,8 +9,15 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.Gravity
+import android.graphics.Color
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
+import android.webkit.WebResourceError
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -36,6 +43,10 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var root: FrameLayout
+    private lateinit var loadingOverlay: LinearLayout
+    private lateinit var loadingMessage: TextView
+    private lateinit var loadingProgress: ProgressBar
+    private lateinit var retryButton: Button
     private lateinit var appUpdater: AppUpdater
     private lateinit var secureTokenStore: SecureTokenStore
     private var pendingWebAudioRequest: PermissionRequest? = null
@@ -54,7 +65,10 @@ class MainActivity : AppCompatActivity() {
         root = FrameLayout(this)
         webView = WebView(this)
         root.addView(webView, FrameLayout.LayoutParams(-1, -1))
+        createLoadingOverlay()
+        root.addView(loadingOverlay, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
+        showLoading("Stagepulse açılıyor…")
         appUpdater = AppUpdater(this)
         secureTokenStore = SecureTokenStore(this)
         configureWebView()
@@ -101,8 +115,9 @@ class MainActivity : AppCompatActivity() {
         webView.settings.javaScriptCanOpenWindowsAutomatically = false
         webView.settings.setSupportMultipleWindows(false)
         webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-        webView.settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
-        webView.clearCache(true)
+        // Keep cached assets between launches; clearing them every time causes
+        // long blank screens when the portal or network responds slowly.
+        webView.settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) webView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
 
         webView.webChromeClient = object : WebChromeClient() {
@@ -139,6 +154,21 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                if (url != null && AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant)) {
+                    showLoading("Stagepulse yükleniyor…")
+                }
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                super.onReceivedError(view, request, error)
+                if (request.isForMainFrame) showLoadError("Bağlantı kurulamadı. İnternet bağlantını kontrol edip tekrar dene.")
+            }
+
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: android.webkit.WebResourceResponse) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                if (request.isForMainFrame && errorResponse.statusCode >= 500) {
+                    showLoadError("Stagepulse sunucusu şu anda yanıt vermiyor. Biraz sonra tekrar deneyebilirsin.")
+                }
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
@@ -150,8 +180,60 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 if (!AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant)) return
+                hideLoading()
                 readSupabaseSession()
             }
+        }
+    }
+
+    private fun createLoadingOverlay() {
+        loadingOverlay = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(40, 40, 40, 40)
+            setBackgroundColor(Color.rgb(9, 9, 9))
+        }
+        loadingProgress = ProgressBar(this)
+        loadingMessage = TextView(this).apply {
+            text = "Stagepulse açılıyor…"
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(0, 24, 0, 16)
+        }
+        retryButton = Button(this).apply {
+            text = "Tekrar Dene"
+            visibility = View.GONE
+            setOnClickListener {
+                showLoading("Stagepulse yeniden yükleniyor…")
+                webView.reload()
+            }
+        }
+        loadingOverlay.addView(loadingProgress, LinearLayout.LayoutParams(-2, -2))
+        loadingOverlay.addView(loadingMessage, LinearLayout.LayoutParams(-1, -2))
+        loadingOverlay.addView(retryButton, LinearLayout.LayoutParams(-2, -2))
+    }
+
+    private fun showLoading(message: String) {
+        if (!::loadingOverlay.isInitialized) return
+        loadingMessage.text = message
+        loadingProgress.visibility = View.VISIBLE
+        retryButton.visibility = View.GONE
+        loadingOverlay.visibility = View.VISIBLE
+    }
+
+    private fun showLoadError(message: String) {
+        runOnUiThread {
+            loadingMessage.text = message
+            loadingProgress.visibility = View.GONE
+            retryButton.visibility = View.VISIBLE
+            loadingOverlay.visibility = View.VISIBLE
+        }
+    }
+
+    private fun hideLoading() {
+        runOnUiThread {
+            if (::loadingOverlay.isInitialized) loadingOverlay.visibility = View.GONE
         }
     }
 
