@@ -446,29 +446,59 @@ window.respondJob = async function respondJob(id, response) {
   if (response === 'rejected' && !can('reject_job')) return toast('İş red yetkiniz yok', false);
   if (!navigator.onLine) return toast('İşi kabul/red işlemi için internet gerekir. Bu karar çevrimdışı kuyruğa alınmadı.', false);
   const note = prompt(response === 'rejected' ? 'Red nedeni (opsiyonel):' : 'Not (opsiyonel):') || null;
-  const { data, error } = await sb.rpc('staff_respond_job', { p_job_id: id, p_response: response, p_note: note });
-  if (error) return toast(error.message, false);
+  try {
+    const { error } = await sb.rpc('staff_respond_job', { p_job_id: id, p_response: response, p_note: note });
+    if (error) {
+      if (window.StagepulseOffline?.networkFailure(error)) return toast('İş yanıtı sunucuya ulaşmadı. Kabul/red kararı tekrar kontrol edilmeden kuyruğa alınmadı.', false);
+      return toast(error.message, false);
+    }
+  } catch (error) {
+    if (window.StagepulseOffline?.networkFailure(error)) return toast('İş yanıtı sunucuya ulaşmadı. Kabul/red kararı tekrar kontrol edilmeden kuyruğa alınmadı.', false);
+    return toast(error.message || 'İş yanıtı gönderilemedi.', false);
+  }
   toast(response === 'accepted' ? 'İş kabul edildi' : 'İş reddedildi');
   await fetchJobs();
   openJob(id);
 };
 
+async function queueStaffOffline(rpc, args, id, patch, label) {
+  try {
+    await window.StagepulseOffline.queueStaffAction(rpc, args, staffUser?.id, { jobId: id, ...patch });
+    const job = jobs.find(item => item.id === id);
+    if (job) Object.assign(job, patch);
+    await window.StagepulseOffline.putCache('portal.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
+    toast(label + ' cihazda kuyruğa alındı. Sunucu onayı bağlantı gelince alınacak.', true);
+    await openJob(id);
+    return true;
+  } catch (error) {
+    toast(error.message || 'Çevrimdışı kayıt saklanamadı.', false);
+    return false;
+  }
+}
+
 window.setJobStatus = async function setJobStatus(id, status) {
   if (!can('update_job_status')) return toast('Bu işlem için yetkiniz yok', false);
   const args = { p_job_id: id, p_status: status };
   if (!navigator.onLine) {
-    try {
-      await window.StagepulseOffline.queueStaffAction('staff_update_job_status', args, staffUser?.id, { jobId: id, status });
-      const job = jobs.find(item => item.id === id);
-      if (job) job.status = status;
-      await window.StagepulseOffline.putCache('portal.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
-      toast('Durum cihazda kuyruğa alındı. Sunucu onayı bağlantı gelince alınacak.', true);
-      await openJob(id);
-    } catch (e) { toast(e.message || 'Çevrimdışı kayıt saklanamadı.', false); }
+    await queueStaffOffline('staff_update_job_status', args, id, { status }, 'Durum');
     return;
   }
-  const { error } = await sb.rpc('staff_update_job_status', args);
-  if (error) return toast(error.message, false);
+  try {
+    const { error } = await sb.rpc('staff_update_job_status', args);
+    if (error) {
+      if (window.StagepulseOffline?.networkFailure(error)) {
+        await queueStaffOffline('staff_update_job_status', args, id, { status }, 'Durum');
+        return;
+      }
+      return toast(error.message, false);
+    }
+  } catch (error) {
+    if (window.StagepulseOffline?.networkFailure(error)) {
+      await queueStaffOffline('staff_update_job_status', args, id, { status }, 'Durum');
+      return;
+    }
+    return toast(error.message || 'Durum güncellenemedi.', false);
+  }
   toast('Durum güncellendi');
   await fetchJobs();
   openJob(id);
@@ -476,23 +506,31 @@ window.setJobStatus = async function setJobStatus(id, status) {
 
 window.updateJobNotes = async function updateJobNotes(id) {
   if (!can('update_job_notes')) return toast('İş notu güncelleme yetkiniz yok', false);
-  const j = jobs.find((x) => x.id === id);
-  if (!j) return;
-  const note = prompt('İş notu:', j.notes || '');
+  const job = jobs.find((x) => x.id === id);
+  if (!job) return;
+  const note = prompt('İş notu:', job.notes || '');
   if (note === null) return;
   const args = { p_job_id: id, p_notes: note };
   if (!navigator.onLine) {
-    try {
-      await window.StagepulseOffline.queueStaffAction('staff_update_job_notes', args, staffUser?.id, { jobId: id, notes: note });
-      j.notes = note;
-      await window.StagepulseOffline.putCache('portal.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
-      toast('Not cihazda kuyruğa alındı. Sunucu onayı bağlantı gelince alınacak.', true);
-      await openJob(id);
-    } catch (e) { toast(e.message || 'Çevrimdışı kayıt saklanamadı.', false); }
+    await queueStaffOffline('staff_update_job_notes', args, id, { notes: note }, 'Not');
     return;
   }
-  const { error } = await sb.rpc('staff_update_job_notes', args);
-  if (error) return toast(error.message, false);
+  try {
+    const { error } = await sb.rpc('staff_update_job_notes', args);
+    if (error) {
+      if (window.StagepulseOffline?.networkFailure(error)) {
+        await queueStaffOffline('staff_update_job_notes', args, id, { notes: note }, 'Not');
+        return;
+      }
+      return toast(error.message, false);
+    }
+  } catch (error) {
+    if (window.StagepulseOffline?.networkFailure(error)) {
+      await queueStaffOffline('staff_update_job_notes', args, id, { notes: note }, 'Not');
+      return;
+    }
+    return toast(error.message || 'İş notu güncellenemedi.', false);
+  }
   toast('İş notu güncellendi');
   await fetchJobs();
   openJob(id);
