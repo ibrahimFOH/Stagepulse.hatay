@@ -35,6 +35,8 @@ class AppUpdater(private val activity: MainActivity) {
         private const val LAST_SUCCESS = "apk_last_successful_install_version"
         private const val INSTALLING = "apk_installing_version"
         private const val INSTALLING_SESSION = "apk_installing_session_id"
+        private const val INSTALL_RETRY_BLOCKED = "apk_install_retry_blocked"
+        private const val RETRY_PROMPT_SHOWN = "apk_install_retry_prompt_shown"
         private const val INTERVAL = 60L * 1000L
         const val INSTALL_SESSION_ID = "stagepulse_install_session_id"
         const val INSTALL_APK_PATH = "stagepulse_install_apk_path"
@@ -105,10 +107,35 @@ class AppUpdater(private val activity: MainActivity) {
 
     fun checkOnStartup() {
         reconcileInstallState()
-        activity.window.decorView.postDelayed({ check(true) }, 500L)
+        activity.window.decorView.postDelayed({
+            if (prefs().getBoolean(INSTALL_RETRY_BLOCKED, false)) showBlockedRetryPrompt()
+            else check(true)
+        }, 500L)
     }
-    fun checkOnResume() { activity.window.decorView.postDelayed({ if (!resumePending()) check(false) }, 250L) }
+    fun checkOnResume() {
+        activity.window.decorView.postDelayed({
+            if (prefs().getBoolean(INSTALL_RETRY_BLOCKED, false)) showBlockedRetryPrompt()
+            else if (!resumePending()) check(false)
+        }, 250L)
+    }
     fun manualCheck() { check(true, reportResult = true) }
+
+    private fun showBlockedRetryPrompt() {
+        if (activity.isFinishing || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed)) return
+        if (prefs().getBoolean(RETRY_PROMPT_SHOWN, false)) return
+        if (pending() == null) {
+            prefs().edit().putBoolean(INSTALL_RETRY_BLOCKED, false).putBoolean(RETRY_PROMPT_SHOWN, false).apply()
+            check(false)
+            return
+        }
+        prefs().edit().putBoolean(RETRY_PROMPT_SHOWN, true).apply()
+        AlertDialog.Builder(activity)
+            .setTitle("Güncelleme tamamlanmadı")
+            .setMessage("Önceki kurulum tamamlanmadı. Uygulama tekrar tekrar kurulum ekranı açmayacak. İnternet ve Android yükleme iznini kontrol ettikten sonra yeniden deneyebilirsin.")
+            .setPositiveButton("Tekrar Dene") { _, _ -> startInstall() }
+            .setNegativeButton("Kapat", null)
+            .show()
+    }
 
     private fun check(force: Boolean, reportResult: Boolean = false) {
         if (activity.isFinishing || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed)) return
@@ -297,12 +324,15 @@ class AppUpdater(private val activity: MainActivity) {
         val requested = prefs().getInt(INSTALLING, 0)
         if (requested <= 0) return
         if (currentVersionCode() >= requested) {
-            prefs().edit().putLong(LAST_SUCCESS, requested.toLong()).remove(PENDING_VERSION).remove(PENDING_URL).remove(PENDING_SHA).remove(INSTALLING).remove(INSTALLING_SESSION).apply()
+            prefs().edit().putLong(LAST_SUCCESS, requested.toLong()).remove(PENDING_VERSION).remove(PENDING_URL).remove(PENDING_SHA).remove(INSTALLING).remove(INSTALLING_SESSION).putBoolean(INSTALL_RETRY_BLOCKED, false).putBoolean(RETRY_PROMPT_SHOWN, false).apply()
             return
         }
         val sessionId = prefs().getInt(INSTALLING_SESSION, -1)
         val active = if (sessionId >= 0) try { activity.packageManager.packageInstaller.getSessionInfo(sessionId) != null } catch (_: Exception) { false } else false
-        if (!active) clearInstallState()
+        if (!active) {
+            clearInstallState()
+            prefs().edit().putBoolean(INSTALL_RETRY_BLOCKED, true).putBoolean(RETRY_PROMPT_SHOWN, false).apply()
+        }
     }
 
     private fun savePending(i: UpdateInfo) { prefs().edit().putInt(PENDING_VERSION, i.version).putString(PENDING_URL, i.url).putString(PENDING_SHA, i.sha).apply() }
@@ -315,6 +345,10 @@ class AppUpdater(private val activity: MainActivity) {
 
     private fun resumePending(): Boolean {
         if (hasActiveInstall()) return true
+        if (!UpdateInstallStatePolicy.shouldAutoResume(prefs().getBoolean(INSTALL_RETRY_BLOCKED, false))) {
+            showBlockedRetryPrompt()
+            return true
+        }
         val p = pending() ?: return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) { requestUnknownSourcesPermission(); return true }
         install(p); return true
@@ -423,6 +457,7 @@ class AppUpdater(private val activity: MainActivity) {
         // The dialog already holds this validated UpdateInfo. Persist it for resume-after-
         // permission flow, but start the install from this exact record instead of
         // re-reading SharedPreferences and risking a silent no-op.
+        prefs().edit().putBoolean(INSTALL_RETRY_BLOCKED, false).putBoolean(RETRY_PROMPT_SHOWN, false).apply()
         savePending(update)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
             requestUnknownSourcesPermission()
@@ -437,6 +472,7 @@ class AppUpdater(private val activity: MainActivity) {
             showInstallError("Bir kurulum isteği zaten bekliyor. Android'in kurulum onay ekranını veya bildirim panelini kontrol et.")
             return
         }
+        prefs().edit().putBoolean(INSTALL_RETRY_BLOCKED, false).putBoolean(RETRY_PROMPT_SHOWN, false).apply()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
             requestUnknownSourcesPermission()
             return
@@ -477,7 +513,8 @@ class AppUpdater(private val activity: MainActivity) {
                     packageInstall(file, v)
                 }
             } catch (e: Exception) {
-                prefs().edit().remove(INSTALLING).remove(INSTALLING_SESSION).apply()
+                prefs().edit().remove(INSTALLING).remove(INSTALLING_SESSION)
+                    .putBoolean(INSTALL_RETRY_BLOCKED, true).putBoolean(RETRY_PROMPT_SHOWN, false).apply()
                 val detail = when (e) {
                     is SecurityException -> e.message?.takeIf { it.isNotBlank() } ?: "Güvenlik doğrulaması başarısız oldu."
                     is java.net.SocketTimeoutException -> "İndirme zaman aşımına uğradı."
@@ -568,11 +605,13 @@ class AppUpdater(private val activity: MainActivity) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
                 requestUnknownSourcesPermission()
             } else {
+                prefs().edit().putBoolean(INSTALL_RETRY_BLOCKED, true).putBoolean(RETRY_PROMPT_SHOWN, false).apply()
                 showInstallError("Android uygulama kurulumunu reddetti. Ayrıntı: ${e.message ?: e.javaClass.simpleName}")
             }
         } catch (e: Exception) {
             abandonInstallSession(installer, sessionId)
             clearInstallState()
+            prefs().edit().putBoolean(INSTALL_RETRY_BLOCKED, true).putBoolean(RETRY_PROMPT_SHOWN, false).apply()
             try {
                 fallbackInstall(file)
             } catch (fallbackError: Exception) {
@@ -610,14 +649,14 @@ class AppUpdateReceiver : BroadcastReceiver() {
         if (s == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             val pendingIntent = if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java) else @Suppress("DEPRECATION") i.getParcelableExtra(Intent.EXTRA_INTENT)
             if (pendingIntent == null) {
-                p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
+                p.edit().remove("apk_installing_version").remove("apk_installing_session_id").putBoolean("apk_install_retry_blocked", true).putBoolean("apk_install_retry_prompt_shown", false).apply()
                 android.util.Log.e("StagepulseUpdater", "Paket yükleyici kullanıcı onay Intent'i döndürmedi")
                 Toast.makeText(c, "Stagepulse kurulumu başlatılamadı. Güncellemeyi yeniden dene.", Toast.LENGTH_LONG).show()
             } else pendingIntent.apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 try { c.startActivity(this) }
                 catch (e: Exception) {
-                    p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
+                    p.edit().remove("apk_installing_version").remove("apk_installing_session_id").putBoolean("apk_install_retry_blocked", true).putBoolean("apk_install_retry_prompt_shown", false).apply()
                     android.util.Log.e("StagepulseUpdater", "Paket yükleyici onay ekranı açılamadı", e)
                     Toast.makeText(c, "Android kurulum ekranı açılamadı: ${e.message ?: "bilinmeyen hata"}", Toast.LENGTH_LONG).show()
                 }
@@ -625,13 +664,16 @@ class AppUpdateReceiver : BroadcastReceiver() {
         } else if (s == PackageInstaller.STATUS_SUCCESS) {
             val installed = try { val info = c.packageManager.getPackageInfo(c.packageName, 0); if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode } catch (_: Exception) { 0 }
             val edit = p.edit().remove("apk_installing_version").remove("apk_installing_session_id")
-            if (installed >= v && v > 0) edit.putLong("apk_last_successful_install_version", v.toLong()).remove("apk_pending_version").remove("apk_pending_url").remove("apk_pending_sha256")
-            else android.util.Log.e("StagepulseUpdater", "Paket yükleyici başarı bildirdi ancak yüklü sürüm doğrulanamadı")
+            if (installed >= v && v > 0) edit.putLong("apk_last_successful_install_version", v.toLong()).remove("apk_pending_version").remove("apk_pending_url").remove("apk_pending_sha256").putBoolean("apk_install_retry_blocked", false).putBoolean("apk_install_retry_prompt_shown", false)
+            else {
+                edit.putBoolean("apk_install_retry_blocked", true).putBoolean("apk_install_retry_prompt_shown", false)
+                android.util.Log.e("StagepulseUpdater", "Paket yükleyici başarı bildirdi ancak yüklü sürüm doğrulanamadı")
+            }
             edit.apply()
             i.getStringExtra(AppUpdater.INSTALL_APK_PATH)?.let { File(it).delete() }
         } else {
             val message = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
-            p.edit().remove("apk_installing_version").remove("apk_installing_session_id").apply()
+            p.edit().remove("apk_installing_version").remove("apk_installing_session_id").putBoolean("apk_install_retry_blocked", true).putBoolean("apk_install_retry_prompt_shown", false).apply()
             i.getStringExtra(AppUpdater.INSTALL_APK_PATH)?.let { File(it).delete() }
             android.util.Log.e("StagepulseUpdater", "APK yükleme başarısız (durum=$s): $message")
             Toast.makeText(c, "Stagepulse güncellemesi yüklenemedi: ${message.ifBlank { "Android kurulum hatası ($s)" }}", Toast.LENGTH_LONG).show()
