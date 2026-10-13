@@ -334,8 +334,8 @@ class AppUpdater(private val activity: MainActivity) {
     private fun downloadApkOnly() {
         val p=pending()
         if(p==null){
-            check(true)
-            Toast.makeText(activity,"Güncelleme bilgisi yenileniyor. Biraz sonra tekrar dene.",Toast.LENGTH_LONG).show()
+            Toast.makeText(activity,"Güncelleme kaydı yenileniyor; sonuç ekranda gösterilecek.",Toast.LENGTH_LONG).show()
+            check(true, reportResult = true)
             return
         }
         if(!installing.compareAndSet(false,true)){
