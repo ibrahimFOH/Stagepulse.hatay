@@ -36,8 +36,14 @@ for platform in ("staff", "admin"):
 
     if document["status"] == "verified":
         major, minor, patch = map(int, item["web_version"].split("."))
-        if minor > 999 or patch > 999:
-            raise SystemExit(f"{platform} MINOR and PATCH components must not exceed 999")
+        # One-time migration exception: current stable release was published by
+        # the old 0..999 patch scheme. The next release normalizes it to 7.5.0.
+        legacy_current_release = (
+            document["release"] == "v7.4.16-build.504"
+            and item["web_version"] == "7.4.16"
+        )
+        if not legacy_current_release and not (0 <= minor <= 9 and 0 <= patch <= 9):
+            raise SystemExit(f"{platform} MINOR and PATCH components must each be between 0 and 9")
         expected_version_code = major * 1_000_000 + minor * 1_000 + patch
         if item["apk_version"] != expected_version_code:
             raise SystemExit(
