@@ -311,8 +311,12 @@ async function offlineJobEditor(id) {
       await window.StagepulseOffline.queueAdminJobUpdate(id, payload, session.user.id);
       Object.assign(job, payload);
       await window.StagepulseOffline.putCache('admin.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
-      const row = document.querySelector('tr[data-job-id="' + CSS.escape(id) + '"]');
+      const row = [...document.querySelectorAll('tr')].find(candidate =>
+        candidate.dataset.jobId === id ||
+        candidate.querySelector('[data-sp-offline-job-id]')?.dataset.spOfflineJobId === id
+      );
       if (row) {
+        row.dataset.jobId = id;
         const cells = row.querySelectorAll('td');
         if (cells[0]) cells[0].textContent = payload.title;
         if (cells[1]) cells[1].textContent = payload.location || '—';
