@@ -1,12 +1,20 @@
-/* Stagepulse Service Worker v7 */
-const CACHE_VERSION='stagepulse-v7';
+/* Stagepulse Service Worker v8 */
+const CACHE_VERSION='stagepulse-v8';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const AUTHENTICATED_PATHS = ['/admin', '/portal'];
 
 function isAuthenticatedPath(pathname){return AUTHENTICATED_PATHS.some(path=>pathname===path||pathname.startsWith(`${path}/`));}
+function isOfflineShellAsset(request,url){
+  if(request.method!=='GET'||!isAuthenticatedPath(url.pathname))return false;
+  const root=AUTHENTICATED_PATHS.find(path=>url.pathname===path||url.pathname.startsWith(path+'/'));
+  if(!root)return false;
+  if(request.mode==='navigate'&&(url.pathname===root||url.pathname===root+'/'||url.pathname===root+'/index.html'))return true;
+  if(!url.pathname.startsWith(root+'/'))return false;
+  return ['script','style','image','font'].includes(request.destination)||/\.(html|css|js|svg|woff2?|png|jpe?g|webp)$/i.test(url.pathname);
+}
 
-const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js'];
+const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js','/admin/','/portal/'];
 const NETWORK_FIRST_PATHS=['/','/index.html','/style.css','/script.js','/i18n.js','/consent.js','/teklif.html','/hizmetler.html','/muhendislik.html','/galeri.html','/dokumanlar.html','/hakkimizda.html','/referanslar.html','/nasil-calisiyoruz.html','/sss.html','/ekipman.html','/Kvkk.html','/media.json'];
 
 self.addEventListener('install',event=>{
@@ -29,7 +37,14 @@ self.addEventListener('fetch',event=>{
   if(url.origin!==self.location.origin)return;
 
   if (isAuthenticatedPath(url.pathname)) {
-    event.respondWith(fetch(request, { cache: 'no-store' }).catch(()=>new Response('Stagepulse yönetim alanı çevrimdışı.',{status: 503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}})));
+    if (isOfflineShellAsset(request,url)) {
+      event.respondWith(fetch(request,{cache:'no-store'}).then(response=>{
+        if(response&&response.status===200){const copy=response.clone();caches.open(STATIC_CACHE).then(cache=>cache.put(request,copy));}
+        return response;
+      }).catch(()=>caches.match(request).then(cached=>cached||new Response('Bu ekranın çevrimdışı açılması için önce internet bağlantısıyla yüklenmiş olması gerekir. Veriler ve kayıtlar çevrimdışı eşitlenmez.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}}))));
+    } else {
+      event.respondWith(fetch(request,{cache:'no-store'}));
+    }
     return;
   }
 
