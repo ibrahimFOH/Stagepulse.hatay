@@ -158,6 +158,7 @@
   window.addEventListener('stagepulse:offline-synced', () => {
     const target = window.__stagepulsePortalClient ? 'portal' : 'admin';
     if (target === 'portal' && window.loadView && location.pathname.startsWith('/portal')) window.loadView((location.hash || '#home').slice(1));
+    if (target === 'admin' && window.loadView && location.pathname.startsWith('/admin')) window.loadView('calendar');
   });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => renderBanner().catch(() => {}), { once: true });
   else renderBanner().catch(() => {});

@@ -227,21 +227,111 @@ async function login(e) {
   }
 }
 
-function renderOfflineCalendar(html) {
+async function renderOfflineCalendar(html) {
   const content = $('#content');
   if (!content) return;
   content.innerHTML = html;
-  content.querySelectorAll('script,[onclick],[onchange],[onsubmit]').forEach(el => {
-    if (el.tagName === 'SCRIPT') el.remove();
-    else { el.removeAttribute('onclick'); el.removeAttribute('onchange'); el.removeAttribute('onsubmit'); }
+  jobs = (await window.StagepulseOffline?.getCache('admin.jobs').catch(() => null)) || [];
+  content.querySelectorAll('script').forEach(el => el.remove());
+  content.querySelectorAll('button[onclick]').forEach(button => {
+    const handler = button.getAttribute('onclick') || '';
+    const match = handler.match(/jobModal\(['"]([^'"]+)['"]\)/);
+    if (match && match[1] !== 'null') {
+      button.dataset.spOfflineJobId = match[1];
+      button.removeAttribute('onclick');
+    } else {
+      button.removeAttribute('onclick');
+      button.disabled = true;
+    }
   });
-  content.querySelectorAll('button,input,select,textarea').forEach(el => { el.disabled = true; });
+  content.querySelectorAll('[onclick],[onchange],[onsubmit]').forEach(el => {
+    el.removeAttribute('onclick'); el.removeAttribute('onchange'); el.removeAttribute('onsubmit');
+  });
+  content.querySelectorAll('button,input,select,textarea').forEach(el => {
+    if (!el.matches('[data-sp-offline-job-id]')) el.disabled = true;
+  });
   content.querySelectorAll('a[href]').forEach(el => el.removeAttribute('href'));
+  content.querySelectorAll('[data-sp-offline-job-id]').forEach(button => {
+    button.disabled = false;
+    button.addEventListener('click', () => offlineJobEditor(button.dataset.spOfflineJobId));
+  });
   const notice = document.createElement('div');
-  notice.className = 'notice';
+  notice.className = 'notice sp-offline-calendar-notice';
   notice.setAttribute('role', 'status');
-  notice.textContent = 'ÇEVRİMDIŞI · Son kaydedilen operasyon takvimi gösteriliyor. Bu ekran salt okunurdur; değişiklikler sunucuya gönderilmedi.';
+  notice.textContent = 'ÇEVRİMDIŞI · Son eşitlenen operasyon takvimi. Var olan işlerin temel bilgileri ve notları cihazda kuyruğa alınabilir; bağlantı gelince sunucu yetkileriyle eşitlenir. Yeni iş, malzeme, teklif ve finans işlemleri çevrimiçi yapılmalıdır.';
   content.prepend(notice);
+}
+async function offlineJobEditor(id) {
+  if (navigator.onLine) return loadView('calendar');
+  const job = jobs.find(row => row.id === id);
+  if (!job) return toast('Bu işin çevrimdışı kaydı bulunamadı.', false);
+  $('#spOfflineJobEditor')?.remove();
+  const toLocal = value => {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value).slice(0,16) : new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  };
+  const modal = document.createElement('div');
+  modal.id = 'spOfflineJobEditor';
+  modal.className = 'modal';
+  modal.innerHTML = `<div class="modal-card" style="max-width:640px">
+    <h2>Çevrimdışı iş düzenle</h2>
+    <p class="muted">Değişiklikler cihazda saklanır. Sunucu onayı bağlantı geldiğinde alınır. Malzeme ve teklif bağlantısı bu ekranda değiştirilemez.</p>
+    <label>İş başlığı *<input id="spOfflineJobTitle" value="${esc(job.title||'')}"></label>
+    <label>Lokasyon<input id="spOfflineJobLocation" value="${esc(job.location||'')}"></label>
+    <div class="grid2">
+      <label>Durum<select id="spOfflineJobStatus">${Object.entries(jobStatuses).map(([key,label])=>`<option value="${key}" ${job.status===key?'selected':''}>${label}</option>`).join('')}</select></label>
+      <label>Kurulum<input id="spOfflineJobSetup" type="datetime-local" value="${toLocal(job.setup_at)}"></label>
+      <label>Etkinlik<input id="spOfflineJobEvent" type="datetime-local" value="${toLocal(job.event_at)}"></label>
+      <label>Söküm<input id="spOfflineJobTeardown" type="datetime-local" value="${toLocal(job.teardown_at)}"></label>
+    </div>
+    <label>Operasyon notu<textarea id="spOfflineJobNotes" rows="3">${esc(job.notes||'')}</textarea></label>
+    <div class="modal-actions"><button type="button" class="btn btn-primary" data-save>Çevrimdışı kaydet</button><button type="button" class="btn" data-cancel>İptal</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-cancel]').addEventListener('click', () => modal.remove());
+  modal.querySelector('[data-save]').addEventListener('click', async () => {
+    const title = modal.querySelector('#spOfflineJobTitle').value.trim();
+    if (!title) return toast('İş başlığı zorunlu.', false);
+    const asIso = selector => { const value = modal.querySelector(selector).value; return value ? new Date(value).toISOString() : null; };
+    const payload = {
+      title,
+      location: modal.querySelector('#spOfflineJobLocation').value.trim() || null,
+      status: modal.querySelector('#spOfflineJobStatus').value,
+      setup_at: asIso('#spOfflineJobSetup'),
+      event_at: asIso('#spOfflineJobEvent'),
+      teardown_at: asIso('#spOfflineJobTeardown'),
+      notes: modal.querySelector('#spOfflineJobNotes').value.trim() || null
+    };
+    const save = modal.querySelector('[data-save]');
+    save.disabled = true;
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session?.user?.id) throw new Error('Oturum doğrulanamadı. İnternete bağlanıp tekrar giriş yap.');
+      await window.StagepulseOffline.queueAdminJobUpdate(id, payload, session.user.id);
+      Object.assign(job, payload);
+      await window.StagepulseOffline.putCache('admin.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
+      const row = document.querySelector('tr[data-job-id="' + CSS.escape(id) + '"]');
+      if (row) {
+        const cells = row.querySelectorAll('td');
+        if (cells[0]) cells[0].textContent = payload.title;
+        if (cells[1]) cells[1].textContent = payload.location || '—';
+        if (cells[2]) cells[2].textContent = (payload.setup_at||'').slice(0,16).replace('T',' ');
+        if (cells[3]) cells[3].textContent = (payload.event_at||'').slice(0,16).replace('T',' ');
+        if (cells[4]) cells[4].textContent = (payload.teardown_at||'').slice(0,16).replace('T',' ');
+        if (cells[5]) cells[5].textContent = jobStatuses[payload.status] || payload.status;
+      }
+      modal.remove();
+      const notice = document.querySelector('.sp-offline-calendar-notice');
+      notice?.remove();
+      await window.StagepulseOffline.putCache('admin.calendar', $('#content')?.innerHTML || '');
+      if (notice) $('#content')?.prepend(notice);
+      toast('İş cihazda kaydedildi; bağlantı gelince eşitlenecek.', true);
+    } catch (error) {
+      save.disabled = false;
+      toast(error.message || 'Çevrimdışı kayıt saklanamadı.', false);
+    }
+  });
 }
 async function loadView(v) {
   if (!viewMeta[v]) v = 'dashboard';
@@ -260,7 +350,7 @@ async function loadView(v) {
   if (!navigator.onLine) {
     if (v === 'calendar' && window.StagepulseOffline) {
       const cached = await window.StagepulseOffline.getCache('admin.calendar').catch(() => null);
-      if (cached) { renderOfflineCalendar(cached); return; }
+      if (cached) { await renderOfflineCalendar(cached); return; }
     }
     $('#content').innerHTML = '<div class="notice" role="status"><b>Çevrimdışı mod</b><p>Bu yönetim ekranının güncel verisi cihazda bulunmuyor. İşlemler sunucuya bağlı olduğu için kayıt yapma ve finansal değişiklikler devre dışı.</p><p>Bağlantı geldiğinde tekrar deneyin.</p></div>';
     return;
@@ -273,7 +363,7 @@ async function loadView(v) {
   } catch (e) {
     if (v === 'calendar' && window.StagepulseOffline?.networkFailure(e)) {
       const cached = await window.StagepulseOffline.getCache('admin.calendar').catch(() => null);
-      if (cached) { renderOfflineCalendar(cached); return; }
+      if (cached) { await renderOfflineCalendar(cached); return; }
     }
     fatal(e);
   }
@@ -1402,6 +1492,7 @@ async function calendarView() {
   const { data, error } = await sb.from('jobs').select('*').order('event_at', { ascending: true, nullsFirst: false });
   if (error) throw error;
   jobs = data || [];
+  if (window.StagepulseOffline) await window.StagepulseOffline.putCache('admin.jobs', window.StagepulseOffline.safeJobSnapshot(jobs)).catch(() => {});
   await getOffers();
   $('#content').innerHTML = `
     <div class="page-head">
@@ -1412,7 +1503,7 @@ async function calendarView() {
       <thead><tr>
         <th>İş</th><th>Lokasyon</th><th>Kurulum</th><th>Etkinlik</th><th>Söküm</th><th>Durum</th><th></th>
       </tr></thead>
-      <tbody>${jobs.map(j=>`<tr>
+      <tbody>${jobs.map(j=>`<tr data-job-id="${esc(j.id)}">
         <td><strong>${esc(j.title)}</strong></td>
         <td>${esc(j.location||'—')}</td>
         <td>${esc((j.setup_at||'').slice(0,16).replace('T',' '))}</td>
