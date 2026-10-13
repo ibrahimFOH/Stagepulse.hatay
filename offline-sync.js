@@ -113,7 +113,7 @@
     const queue = await getQueue().catch(() => []);
     const pending = queue.filter(x => x.state !== 'blocked').length;
     const blocked = queue.filter(x => x.state === 'blocked').length;
-    const offline = navigator.onLine === false;
+    const offline = navigator.onLine === false || window.__stagepulseOfflineMode === true;
     if (!offline && !pending && !blocked) { banner?.remove(); return; }
     if (!banner) {
       banner = document.createElement('div');
@@ -153,7 +153,14 @@
     }
   };
 
-  window.addEventListener('online', () => { flush().catch(() => {}).finally(() => renderBanner().catch(() => {})); });
+  window.addEventListener('online', () => {
+    flush().then(result => {
+      if (window.__stagepulseOfflineMode && result.synced === 0 && window.loadView) {
+        if (location.pathname.startsWith('/admin')) window.loadView('calendar');
+        else if (location.pathname.startsWith('/portal')) window.loadView((location.hash || '#home').slice(1));
+      }
+    }).catch(() => {}).finally(() => renderBanner().catch(() => {}));
+  });
   window.addEventListener('offline', () => { renderBanner().catch(() => {}); });
   window.addEventListener('stagepulse:offline-synced', () => {
     const target = window.__stagepulsePortalClient ? 'portal' : 'admin';

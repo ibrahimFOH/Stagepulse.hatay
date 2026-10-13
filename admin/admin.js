@@ -228,6 +228,7 @@ async function login(e) {
 }
 
 async function renderOfflineCalendar(html) {
+  window.__stagepulseOfflineMode = true;
   const content = $('#content');
   if (!content) return;
   content.innerHTML = html;
@@ -262,7 +263,7 @@ async function renderOfflineCalendar(html) {
   content.prepend(notice);
 }
 async function offlineJobEditor(id) {
-  if (navigator.onLine) return loadView('calendar');
+  if (navigator.onLine && !window.__stagepulseOfflineMode) return loadView('calendar');
   const job = jobs.find(row => row.id === id);
   if (!job) return toast('Bu işin çevrimdışı kaydı bulunamadı.', false);
   $('#spOfflineJobEditor')?.remove();
@@ -361,6 +362,7 @@ async function loadView(v) {
   }
   try {
     await map[v]();
+    window.__stagepulseOfflineMode = false;
     if (v === 'calendar' && window.StagepulseOffline) {
       await window.StagepulseOffline.putCache('admin.calendar', $('#content')?.innerHTML || '').catch(() => {});
     }
