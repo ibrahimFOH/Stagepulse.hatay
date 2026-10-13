@@ -64,9 +64,10 @@ requireMatch(!quoteFunction.includes("select('id,quote_number,status,event_date"
 
 requireMatch(serviceWorker.includes("AUTHENTICATED_PATHS = ['/admin', '/portal']"), 'Service worker must recognize the admin root as authenticated.');
 requireMatch(serviceWorker.includes("AUTHENTICATED_PATHS = ['/admin', '/portal']"), 'Service worker must recognize the portal root as authenticated.');
-requireMatch(/if \(isAuthenticatedPath\(url\.pathname\)\) \{[\s\S]*fetch\(request, \{ cache: 'no-store' \}\)/.test(serviceWorker), 'Authenticated paths must bypass all service-worker caches.');
+requireMatch(/function isOfflineShellAsset\(request,url\)\s*\{[\s\S]*?request\.method!=='GET'[\s\S]*?return \['script','style','image','font'\]/.test(serviceWorker), 'Only GET navigation and static app-shell assets may be cached for authenticated screens.');
+requireMatch(/if\s*\(isAuthenticatedPath\(url\.pathname\)\)\s*\{[\s\S]*?if\s*\(isOfflineShellAsset\(request,url\)\)[\s\S]*?else\s*\{\s*event\.respondWith\(fetch\(request,\s*\{\s*cache:\s*'no-store'\s*\}\)\)\s*;\s*\}\s*return;/.test(serviceWorker), 'Authenticated API and data requests must remain network-only; only static shell resources may use offline cache.');
 requireMatch(serviceWorker.includes("'/index.html'") && serviceWorker.includes('Promise.allSettled'), 'Service worker install must build a resilient offline shell.');
-requireMatch(serviceWorker.includes("status: 503"), 'Service worker must return an explicit offline failure response when no shell exists.');
+requireMatch(/status\s*:\s*503/.test(serviceWorker), 'Service worker must return an explicit offline failure response when no shell exists.');
 
 for (const city of ['adana', 'gaziantep', 'hatay', 'mersin', 'sanliurfa']) {
   const html = read(`${city}/index.html`);
