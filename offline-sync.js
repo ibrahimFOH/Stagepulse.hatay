@@ -160,6 +160,11 @@
     if (target === 'portal' && window.loadView && location.pathname.startsWith('/portal')) window.loadView((location.hash || '#home').slice(1));
     if (target === 'admin' && window.loadView && location.pathname.startsWith('/admin')) window.loadView('calendar');
   });
+  const registerServiceWorker = () => {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  };
+  if (document.readyState === 'complete') registerServiceWorker();
+  else window.addEventListener('load', registerServiceWorker, { once: true });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => renderBanner().catch(() => {}), { once: true });
   else renderBanner().catch(() => {});
 })();
