@@ -8,6 +8,7 @@
   const STORE_CACHE = 'cache';
   const STORE_QUEUE = 'queue';
   const ALLOWED_STAFF_RPCS = new Set(['staff_update_job_status', 'staff_update_job_notes']);
+  const ALLOWED_ADMIN_JOB_FIELDS = new Set(['title','location','status','setup_at','event_at','teardown_at','notes']);
   let dbPromise;
 
   function openDb() {
@@ -64,6 +65,25 @@
     await renderBanner();
     return row;
   }
+  async function queueAdminJobUpdate(rowId, payload, actorId, baseUpdatedAt) {
+    if (!rowId || !actorId) throw new Error('Yönetici oturumu veya iş kimliği doğrulanamadı.');
+    const safePayload = Object.fromEntries(Object.entries(payload || {}).filter(([key]) => ALLOWED_ADMIN_JOB_FIELDS.has(key)));
+    if (!Object.keys(safePayload).length || Object.keys(safePayload).length !== Object.keys(payload || {}).length) {
+      throw new Error('Çevrimdışı yalnızca iş başlığı, konum, durum, zamanlar ve operasyon notu değiştirilebilir.');
+    }
+    const existing = (await getQueue()).find(item => item.scope === 'admin' && item.kind === 'table_update' && item.table === 'jobs' && item.rowId === rowId && item.actorId === actorId && item.state === 'pending');
+    if (existing) {
+      existing.payload = { ...existing.payload, ...safePayload };
+      await updateQueue(existing);
+      await renderBanner();
+      return existing;
+    }
+    const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'sp-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+    const row = { id, scope: 'admin', kind: 'table_update', table: 'jobs', rowId, payload: safePayload, actorId, baseUpdatedAt: baseUpdatedAt || null, createdAt: Date.now(), state: 'pending', attempts: 0 };
+    await storeRequest(STORE_QUEUE, 'readwrite', store => store.put(row));
+    await renderBanner();
+    return row;
+  }
   async function updateQueue(row) {
     return storeRequest(STORE_QUEUE, 'readwrite', store => store.put(row));
   }
@@ -84,17 +104,26 @@
     let synced = 0;
     const queue = await getQueue();
     for (const item of queue) {
-      if (item.scope !== 'staff' || item.actorId !== actorId || item.state === 'blocked') continue;
+      if (item.actorId !== actorId || item.state === 'blocked') continue;
+      if (item.scope === 'staff' && !ALLOWED_STAFF_RPCS.has(item.rpc)) continue;
+      if (item.scope === 'admin' && !(item.kind === 'table_update' && item.table === 'jobs')) continue;
       item.attempts = (item.attempts || 0) + 1;
       item.lastAttemptAt = Date.now();
       try {
-        const result = await client.rpc(item.rpc, item.args);
-        if (result.error) {
-          item.state = networkFailure(result.error) ? 'pending' : 'blocked';
-          item.lastError = String(result.error.message || result.error).slice(0, 300);
-          await updateQueue(item);
-          if (item.state === 'pending') break;
-          continue;
+        let result;
+        if (item.scope === 'staff') {
+          result = await client.rpc(item.rpc, item.args);
+          if (result.error) throw result.error;
+        } else {
+          const current = await client.from('jobs').select('id,updated_at').eq('id', item.rowId).maybeSingle();
+          if (current.error) throw current.error;
+          if (!current.data) throw new Error('İş güncellenmedi: kayıt bulunamadı veya erişim yetkisi değişti.');
+          if (item.baseUpdatedAt && current.data.updated_at && String(current.data.updated_at) !== String(item.baseUpdatedAt)) {
+            throw new Error('Çakışma: iş çevrimdışıyken sunucuda da değişmiş. Kayıt otomatik üzerine yazılmadı; çevrimiçi kontrol gerekiyor.');
+          }
+          result = await client.from('jobs').update(item.payload).eq('id', item.rowId).select('id');
+          if (result.error) throw result.error;
+          if (!Array.isArray(result.data) || result.data.length === 0) throw new Error('İş güncellenmedi: kayıt bulunamadı veya yetki değişti. Yönetici kontrolü gerekiyor.');
         }
         await removeQueue(item.id);
         synced += 1;
@@ -144,7 +173,7 @@
   }
 
   window.StagepulseOffline = {
-    putCache, getCache, queueStaffAction, flush, renderBanner, networkFailure,
+    putCache, getCache, queueStaffAction, queueAdminJobUpdate, flush, renderBanner, networkFailure,
     async queueCount() { return (await getQueue()).length; },
     async pendingForActor(actorId) { return (await getQueue()).filter(x => x.actorId === actorId); },
     safeJobSnapshot(rows) {
