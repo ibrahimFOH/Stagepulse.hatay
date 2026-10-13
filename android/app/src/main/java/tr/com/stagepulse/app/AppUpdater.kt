@@ -83,6 +83,16 @@ class AppUpdater(private val activity: MainActivity) {
             .show()
     }
 
+    private fun showDownloadError(message: String) {
+        if (activity.isFinishing || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed)) return
+        AlertDialog.Builder(activity)
+            .setTitle("APK indirilemedi")
+            .setMessage(message)
+            .setPositiveButton("Tekrar İndir") { _, _ -> downloadApkOnly() }
+            .setNegativeButton("Kapat", null)
+            .show()
+    }
+
     private fun requestUnknownSourcesPermission() {
         if (activity.isFinishing || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed)) return
         AlertDialog.Builder(activity)
@@ -98,13 +108,20 @@ class AppUpdater(private val activity: MainActivity) {
         activity.window.decorView.postDelayed({ check(true) }, 500L)
     }
     fun checkOnResume() { activity.window.decorView.postDelayed({ if (!resumePending()) check(false) }, 250L) }
-    fun manualCheck() { check(true) }
+    fun manualCheck() { check(true, reportResult = true) }
 
-    private fun check(force: Boolean) {
+    private fun check(force: Boolean, reportResult: Boolean = false) {
         if (activity.isFinishing || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed)) return
         val now = System.currentTimeMillis()
         if (!force && now - prefs().getLong(LAST_CHECK, 0L) < INTERVAL) return
-        if (!checking.compareAndSet(false, true)) return
+        if (!checking.compareAndSet(false, true)) {
+            if (reportResult) activity.runOnUiThread {
+                if (!activity.isFinishing && (Build.VERSION.SDK_INT < 17 || !activity.isDestroyed)) {
+                    Toast.makeText(activity, "Güncelleme kontrolü zaten sürüyor.", Toast.LENGTH_LONG).show()
+                }
+            }
+            return
+        }
         thread {
             try {
                 val candidates = listOfNotNull(fetchSupabase(), fetchPublicManifest())
@@ -135,10 +152,26 @@ class AppUpdater(private val activity: MainActivity) {
                     activity.runOnUiThread { showUpdate(info, mustUpdate) }
                 } else {
                     clearPending()
+                    if (reportResult) activity.runOnUiThread {
+                        if (!activity.isFinishing && (Build.VERSION.SDK_INT < 17 || !activity.isDestroyed)) {
+                            Toast.makeText(activity, "Stagepulse güncel. Yeni APK bulunamadı.", Toast.LENGTH_LONG).show()
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 prefs().edit().remove(LAST_CHECK).apply()
                 android.util.Log.e("StagepulseUpdater", "Update check failed", e)
+                if (reportResult) activity.runOnUiThread {
+                    if (!activity.isFinishing && (Build.VERSION.SDK_INT < 17 || !activity.isDestroyed)) {
+                        val detail = (e.message ?: e.javaClass.simpleName).take(240)
+                        AlertDialog.Builder(activity)
+                            .setTitle("Güncelleme kontrol edilemedi")
+                            .setMessage("Güncelleme kaynakları doğrulanamadı. APK indirilmedi ve uygulama değiştirilmedi.\n\nAyrıntı: " + detail)
+                            .setPositiveButton("Tekrar Dene") { _, _ -> check(true, reportResult = true) }
+                            .setNegativeButton("Kapat", null)
+                            .show()
+                    }
+                }
             } finally {
                 checking.set(false)
             }
@@ -345,7 +378,7 @@ class AppUpdater(private val activity: MainActivity) {
                 android.util.Log.e("StagepulseUpdater","APK download failed",e)
                 activity.runOnUiThread {
                     dismissInstallProgress()
-                    showInstallError("APK indirilemedi veya doğrulanamadı. Ayrıntı: ${e.message ?: e.javaClass.simpleName}")
+                    showDownloadError("APK indirilemedi veya doğrulanamadı. Ayrıntı: ${e.message ?: e.javaClass.simpleName}")
                 }
             } finally { installing.set(false) }
         }
