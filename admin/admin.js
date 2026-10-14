@@ -309,7 +309,7 @@ async function offlineJobEditor(id) {
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (!session?.user?.id) throw new Error('Oturum doğrulanamadı. İnternete bağlanıp tekrar giriş yap.');
-      await window.StagepulseOffline.queueAdminJobUpdate(id, payload, session.user.id);
+      await window.StagepulseOffline.queueAdminJobUpdate(id, payload, session.user.id, job.updated_at || null);
       Object.assign(job, payload);
       await window.StagepulseOffline.putCache('admin.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
       const row = [...document.querySelectorAll('tr')].find(candidate =>
