@@ -40,11 +40,23 @@
     });
   }
 
+  async function cacheKeyForActor(key) {
+    // Cached operational data can include customer and financial records. Never
+    // share a cache namespace between accounts on the same device.
+    const client = window.__stagepulsePortalClient || window.__stagepulseAdminClient;
+    if (!client?.auth?.getSession) throw new Error('Çevrimdışı veri için kullanıcı oturumu doğrulanamadı.');
+    const { data, error } = await client.auth.getSession();
+    const actorId = data?.session?.user?.id;
+    if (error || !actorId) throw new Error('Çevrimdışı veri için oturum bulunamadı. İnternet bağlantısıyla tekrar giriş yapın.');
+    return 'actor:' + actorId + ':' + String(key);
+  }
   async function putCache(key, value) {
-    return storeRequest(STORE_CACHE, 'readwrite', store => store.put({ key, value, updatedAt: Date.now() }));
+    const scopedKey = await cacheKeyForActor(key);
+    return storeRequest(STORE_CACHE, 'readwrite', store => store.put({ key: scopedKey, value, updatedAt: Date.now() }));
   }
   async function getCache(key) {
-    const row = await storeRequest(STORE_CACHE, 'readonly', store => store.get(key));
+    const scopedKey = await cacheKeyForActor(key);
+    const row = await storeRequest(STORE_CACHE, 'readonly', store => store.get(scopedKey));
     return row ? row.value : null;
   }
   async function getQueue() {
