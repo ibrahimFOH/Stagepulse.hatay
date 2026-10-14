@@ -184,7 +184,10 @@
 
   window.addEventListener('online', () => {
     flush().then(result => {
-      if (window.__stagepulseOfflineMode && result.synced === 0 && window.loadView) {
+      // Automatic sync must refresh the visible view too, not only the banner button.
+      if (result.synced > 0) {
+        window.dispatchEvent(new CustomEvent('stagepulse:offline-synced', { detail: result }));
+      } else if (window.__stagepulseOfflineMode && window.loadView) {
         if (location.pathname.startsWith('/admin')) window.loadView('calendar');
         else if (location.pathname.startsWith('/portal')) window.loadView((location.hash || '#home').slice(1));
       }
