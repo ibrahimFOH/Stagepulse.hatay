@@ -59,6 +59,28 @@
     const row = await storeRequest(STORE_CACHE, 'readonly', store => store.get(scopedKey));
     return row ? row.value : null;
   }
+  async function clearActorCache() {
+    const client = window.__stagepulsePortalClient || window.__stagepulseAdminClient;
+    const { data, error } = await client?.auth?.getSession?.() || {};
+    const actorId = data?.session?.user?.id;
+    if (error || !actorId) return 0;
+    const prefix = 'actor:' + actorId + ':';
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CACHE, 'readwrite');
+      const store = tx.objectStore(STORE_CACHE);
+      const request = store.openCursor();
+      let removed = 0;
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        if (String(cursor.key).startsWith(prefix)) { cursor.delete(); removed += 1; }
+        cursor.continue();
+      };
+      tx.oncomplete = () => resolve(removed);
+      tx.onerror = () => reject(tx.error || new Error('Yerel önbellek temizlenemedi.'));
+    });
+  }
   async function getQueue() {
     const db = await openDb();
     return new Promise((resolve, reject) => {
@@ -185,7 +207,7 @@
   }
 
   window.StagepulseOffline = {
-    putCache, getCache, queueStaffAction, queueAdminJobUpdate, flush, renderBanner, networkFailure,
+    putCache, getCache, clearActorCache, queueStaffAction, queueAdminJobUpdate, flush, renderBanner, networkFailure,
     async queueCount() { return (await getQueue()).length; },
     async pendingForActor(actorId) { return (await getQueue()).filter(x => x.actorId === actorId); },
     safeJobSnapshot(rows) {
