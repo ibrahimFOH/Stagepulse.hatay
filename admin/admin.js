@@ -139,6 +139,7 @@ function bindShell() {
   document.getElementById('sidebarClose')?.addEventListener('click', closeMenu);
   document.getElementById('mobileOverlay')?.addEventListener('click', closeMenu);
   document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+    await window.StagepulseOffline?.clearActorCache?.().catch(() => {});
     await sb.auth.signOut();
     location.reload();
   });
