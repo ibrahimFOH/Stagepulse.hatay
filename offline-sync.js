@@ -118,8 +118,8 @@
           const current = await client.from('jobs').select('id,updated_at').eq('id', item.rowId).maybeSingle();
           if (current.error) throw current.error;
           if (!current.data) throw new Error('İş güncellenmedi: kayıt bulunamadı veya erişim yetkisi değişti.');
-          if (item.baseUpdatedAt && current.data.updated_at && String(current.data.updated_at) !== String(item.baseUpdatedAt)) {
-            throw new Error('Çakışma: iş çevrimdışıyken sunucuda da değişmiş. Kayıt otomatik üzerine yazılmadı; çevrimiçi kontrol gerekiyor.');
+          if (item.baseUpdatedAt && (!current.data.updated_at || String(current.data.updated_at) !== String(item.baseUpdatedAt))) {
+            throw new Error('Çakışma: iş çevrimdışıyken sunucudaki kayıt değişmiş veya zaman damgası doğrulanamıyor. Kayıt otomatik üzerine yazılmadı; çevrimiçi kontrol gerekiyor.');
           }
           result = await client.from('jobs').update(item.payload).eq('id', item.rowId).select('id');
           if (result.error) throw result.error;
