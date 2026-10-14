@@ -156,6 +156,7 @@ function bindShell() {
     btn.onclick = () => loadView(btn.dataset.view);
   });
   $('#logoutBtn')?.addEventListener('click', async () => {
+    await window.StagepulseOffline?.clearActorCache?.().catch(() => {});
     await sb.auth.signOut();
     localStorage.removeItem('sp_staff_meta');
     location.reload();
