@@ -160,7 +160,8 @@
       return;
     }
     if (!window.StagepulseOffline) throw new Error('Çevrimdışı depolama modülü yüklenemedi.');
-    const calendar = await window.StagepulseOffline.getCache('admin.calendar');
+    if (!cached.userId) throw new Error('Doğrulanmış yönetici kimliği bulunamadı.');
+    const calendar = await window.StagepulseOffline.getCache('admin.calendar:' + cached.userId);
     if (!calendar) {
       root.innerHTML = '<main style="padding:28px;font:16px/1.5 system-ui;background:#090909;color:#fff;min-height:100vh"><h1>Çevrimdışı takvim bulunamadı</h1><p>Takvimi internet bağlantısı varken en az bir kez açıp eşitleyin.</p></main>';
       return;
