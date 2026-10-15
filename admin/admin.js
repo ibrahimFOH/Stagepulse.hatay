@@ -267,6 +267,27 @@ async function login(e) {
   }
 }
 
+async function renderOfflineReadOnlyView(html, view) {
+  window.__stagepulseOfflineMode = true;
+  const content = $('#content');
+  if (!content) return;
+  content.innerHTML = html;
+  content.querySelectorAll('script,iframe,object,embed').forEach(el => el.remove());
+  content.querySelectorAll('*').forEach(el => {
+    for (const attr of [...el.attributes]) {
+      if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
+    }
+  });
+  content.querySelectorAll('button,input,select,textarea').forEach(el => { el.disabled = true; });
+  content.querySelectorAll('a[href]').forEach(el => { el.removeAttribute('href'); });
+  content.querySelectorAll('form').forEach(el => { el.removeAttribute('action'); });
+  const notice = document.createElement('div');
+  notice.className = 'notice sp-offline-calendar-notice';
+  notice.setAttribute('role', 'status');
+  notice.textContent = 'ÇEVRİMDIŞI · ' + (viewMeta[view]?.[0] || 'Yönetim ekranı') + ' için cihazda kayıtlı son görüntü. Bu ekranda değişiklik yapılamaz; güncel veri ve işlemler için internet bağlantısı gerekir.';
+  content.prepend(notice);
+}
+
 async function renderOfflineCalendar(html) {
   window.__stagepulseOfflineMode = true;
   const content = $('#content');
@@ -398,18 +419,24 @@ async function loadView(v) {
     notifications: notificationsView, settings: settingsView
   };
   if (!navigator.onLine) {
-    if (v === 'calendar' && window.StagepulseOffline) {
-      const cached = await window.StagepulseOffline.getCache(adminCacheKey('admin.calendar')).catch(() => null);
-      if (cached) { await renderOfflineCalendar(cached); return; }
+    if (window.StagepulseOffline) {
+      const cacheKey = v === 'calendar' ? adminCacheKey('admin.calendar') : adminCacheKey('admin.view:' + v);
+      const cached = await window.StagepulseOffline.getCache(cacheKey).catch(() => null);
+      if (cached) {
+        if (v === 'calendar') await renderOfflineCalendar(cached);
+        else await renderOfflineReadOnlyView(cached, v);
+        return;
+      }
     }
-    $('#content').innerHTML = '<div class="notice" role="status"><b>Çevrimdışı mod</b><p>Bu yönetim ekranının güncel verisi cihazda bulunmuyor. İşlemler sunucuya bağlı olduğu için kayıt yapma ve finansal değişiklikler devre dışı.</p><p>Bağlantı geldiğinde tekrar deneyin.</p></div>';
+    $('#content').innerHTML = '<div class="notice" role="status"><b>Bu ekran çevrimdışı kaydedilmemiş</b><p>Bu ekranı internet bağlantısı varken en az bir kez açıp eşitleyin. Daha önce kaydedilen diğer ekranlar çevrimdışı görüntülenebilir.</p><p>Çevrimdışı modda sunucuya bağlı kayıt ve finans işlemleri devre dışıdır.</p></div>';
     return;
   }
   try {
     await map[v]();
     window.__stagepulseOfflineMode = false;
-    if (v === 'calendar' && window.StagepulseOffline) {
-      await window.StagepulseOffline.putCache(adminCacheKey('admin.calendar'), $('#content')?.innerHTML || '').catch(() => {});
+    if (window.StagepulseOffline) {
+      const cacheKey = v === 'calendar' ? adminCacheKey('admin.calendar') : adminCacheKey('admin.view:' + v);
+      await window.StagepulseOffline.putCache(cacheKey, $('#content')?.innerHTML || '').catch((cacheError) => console.warn('Admin view cache write failed:', v, cacheError));
     }
   } catch (e) {
     if (v === 'calendar' && window.StagepulseOffline?.networkFailure(e)) {
