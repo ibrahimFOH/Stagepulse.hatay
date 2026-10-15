@@ -13,8 +13,8 @@
 <script>
 (function () {
   var sources = [
-    { url: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4', sri: 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV' },
-    { url: 'https://fastly.jsdelivr.net/npm/@supabase/supabase-js@2.112.4', sri: 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV' }
+    { url: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4' },
+    { url: 'https://fastly.jsdelivr.net/npm/@supabase/supabase-js@2.112.4' }
   ];
   var timeoutId;
   function showFailure(details) {
@@ -43,8 +43,6 @@
     }
     timeoutId = setTimeout(function () { fail('zaman aşımı'); }, 12000);
     script.src = source.url;
-    script.integrity = source.sri;
-    script.crossOrigin = 'anonymous';
     script.onload = function () {
       if (settled) return;
       if (window.supabase && typeof window.supabase.createClient === 'function') {
