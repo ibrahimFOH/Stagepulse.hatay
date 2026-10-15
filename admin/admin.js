@@ -1543,8 +1543,10 @@ async function calendarView() {
   const { data, error } = await sb.from('jobs').select('*').order('event_at', { ascending: true, nullsFirst: false });
   if (error) throw error;
   jobs = data || [];
-  if (window.StagepulseOffline) await window.StagepulseOffline.putCache(adminCacheKey('admin.jobs'), window.StagepulseOffline.safeJobSnapshot(jobs)).catch(() => {});
-  await getOffers();
+  if (window.StagepulseOffline) {
+    await window.StagepulseOffline.putCache(adminCacheKey('admin.jobs'), window.StagepulseOffline.safeJobSnapshot(jobs)).catch((cacheError) => console.warn('Admin jobs cache write failed:', cacheError));
+  }
+  // Takvim yalnızca jobs verisine bağlıdır; teklif yükleme hatası takvimi engellememeli.
   $('#content').innerHTML = `
     <div class="page-head">
       <div><h1>Takvim / İşler</h1><p class="muted">Kurulum, etkinlik, söküm</p></div>
@@ -1564,6 +1566,9 @@ async function calendarView() {
         <td><button class="btn" onclick="jobModal('${j.id}')">Düzenle</button></td>
       </tr>`).join('')||'<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">İş kaydı yok. + İş ekle ile başla.</td></tr>'}
     </tbody></table></div></div>`;
+  if (window.StagepulseOffline) {
+    await window.StagepulseOffline.putCache(adminCacheKey('admin.calendar'), $('#content')?.innerHTML || '').catch((cacheError) => console.warn('Admin calendar cache write failed:', cacheError));
+  }
 }
 
 async function jobModal(id) {
