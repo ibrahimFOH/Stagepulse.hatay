@@ -13,33 +13,55 @@
 <script>
 (function () {
   var sources = [
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4',
-    'https://fastly.jsdelivr.net/npm/@supabase/supabase-js@2.112.4'
+    { url: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4', sri: 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV' },
+    { url: 'https://fastly.jsdelivr.net/npm/@supabase/supabase-js@2.112.4', sri: 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV' }
   ];
-  function load(index) {
+  var timeoutId;
+  function showFailure(details) {
+    document.body.innerHTML = '<div role="alert" style="padding:28px;font:16px/1.5 system-ui;color:#fff;background:#090909;min-height:100vh;box-sizing:border-box"><strong>Supabase kütüphanesi yüklenemedi.</strong><p>Bu, veritabanı kayıtlarının silindiği anlamına gelmez. Bağlantı veya CDN yüklemesi başarısız oldu.</p><p id="spLoadDetail" style="color:#bbb;font-size:13px"></p><button id="spRetry" style="padding:12px 18px;background:#ffb000;border:0;border-radius:8px;font-weight:700">Tekrar dene</button></div>';
+    var detail = document.getElementById('spLoadDetail');
+    if (detail) detail.textContent = details || 'İki CDN denemesi de başarısız.';
+    document.getElementById('spRetry')?.addEventListener('click', function () { location.reload(); });
+    console.error('Stagepulse Supabase SDK load failure:', details);
+  }
+  function load(index, errors) {
     if (index >= sources.length) {
-      document.body.innerHTML = '<div role="alert" style="padding:40px;font-family:system-ui;color:#fff;background:#090909;min-height:100vh">Supabase bağlantısı kurulamadı. İnternet bağlantısını kontrol edip sayfayı yenileyin.</div>';
-      console.error('Supabase SDK could not be loaded from available CDNs.');
+      clearTimeout(timeoutId);
+      showFailure(errors.join(' | '));
       return;
     }
+    var source = sources[index];
     var script = document.createElement('script');
-    script.src = sources[index];
-    script.integrity = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
+    var settled = false;
+    function fail(reason) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      script.remove();
+      errors.push(source.url + ': ' + reason);
+      load(index + 1, errors);
+    }
+    timeoutId = setTimeout(function () { fail('zaman aşımı'); }, 12000);
+    script.src = source.url;
+    script.integrity = source.sri;
     script.crossOrigin = 'anonymous';
     script.onload = function () {
+      if (settled) return;
       if (window.supabase && typeof window.supabase.createClient === 'function') {
+        settled = true;
+        clearTimeout(timeoutId);
         var app = document.createElement('script');
-        app.src = 'admin.js?v=20261015-supabase-fallback1';
+        app.src = 'admin.js?v=20261015-supabase-loader-diagnostics2';
+        app.onerror = function () { showFailure('Supabase SDK yüklendi ancak admin.js yüklenemedi.'); };
         document.body.appendChild(app);
       } else {
-        script.remove();
-        load(index + 1);
+        fail('SDK yüklendi fakat createClient bulunamadı');
       }
     };
-    script.onerror = function () { script.remove(); load(index + 1); };
+    script.onerror = function () { fail('ağ, CDN veya SRI doğrulaması başarısız'); };
     document.head.appendChild(script);
   }
-  load(0);
+  load(0, []);
 })();
 </script>
 </head>
