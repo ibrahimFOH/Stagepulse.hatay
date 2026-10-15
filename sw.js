@@ -1,5 +1,5 @@
-/* Stagepulse Service Worker v9: offline portal/admin shell + Supabase SDK */
-const CACHE_VERSION='stagepulse-v9';
+/* Stagepulse Service Worker v11: refresh Supabase SDK cache */
+const CACHE_VERSION='stagepulse-v11';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const AUTHENTICATED_PATHS = ['/admin', '/portal'];
@@ -36,10 +36,10 @@ self.addEventListener('fetch',event=>{
   const request=event.request;
   const url=new URL(request.url);
   if(url.href===SUPABASE_SDK_URL){
-    event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
+    event.respondWith(fetch(request,{cache:'no-store'}).then(response=>{
       if(response&&response.status===200){const copy=response.clone();caches.open(STATIC_CACHE).then(cache=>cache.put(request,copy));}
       return response;
-    })));
+    }).catch(()=>caches.match(request).then(cached=>cached||Response.error())));
     return;
   }
   if(url.origin!==self.location.origin)return;
