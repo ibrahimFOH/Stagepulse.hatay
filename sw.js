@@ -1,5 +1,5 @@
-/* Stagepulse Service Worker v9: offline portal/admin shell + Supabase SDK */
-const CACHE_VERSION='stagepulse-v9';
+/* Stagepulse Service Worker v11: refreshed Supabase SDK cache */
+const CACHE_VERSION='stagepulse-v11';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const AUTHENTICATED_PATHS = ['/admin', '/portal'];
@@ -49,7 +49,14 @@ self.addEventListener('fetch',event=>{
       event.respondWith(fetch(request,{cache:'no-store'}).then(response=>{
         if(response&&response.status===200){const copy=response.clone();caches.open(STATIC_CACHE).then(cache=>cache.put(request,copy));}
         return response;
-      }).catch(()=>caches.match(request).then(cached=>cached||new Response('Bu ekranın çevrimdışı açılması için önce internet bağlantısıyla yüklenmiş olması gerekir. Veriler ve kayıtlar çevrimdışı eşitlenmez.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}}))));
+      }).catch(async()=>{
+        // APK WebView adds query parameters; use the canonical shell URL as fallback.
+        const exact=await caches.match(request);
+        if(exact)return exact;
+        const canonical=url.pathname.endsWith('/index.html')?url.pathname:url.pathname.endsWith('/')?url.pathname:url.pathname+'/';
+        const fallback=await caches.match(canonical)||await caches.match(canonical.replace(/\/$/,'/index.html'));
+        return fallback||new Response('Bu ekran henüz çevrimdışı önbelleğe alınmamış. İnternet varken ekranı bir kez açın.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
+      }));
     } else {
       event.respondWith(fetch(request,{cache:'no-store'}));
     }

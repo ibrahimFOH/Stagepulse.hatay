@@ -10,7 +10,7 @@ if (!window.supabase) {
   throw new Error('Supabase missing');
 }
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'stagepulse-admin-auth-v2', storage: window.sessionStorage } });
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'stagepulse-admin-auth-v2', storage: window.localStorage } });
 window.__stagepulseAdminClient = sb;
 
 // Güvenlik ağı: async fonksiyonlardan (onclick handler'ları vb.) kaçan,
@@ -139,6 +139,7 @@ function bindShell() {
   document.getElementById('sidebarClose')?.addEventListener('click', closeMenu);
   document.getElementById('mobileOverlay')?.addEventListener('click', closeMenu);
   document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+    await window.StagepulseOffline?.clearActorCache?.().catch(() => {});
     await sb.auth.signOut();
     location.reload();
   });
@@ -309,7 +310,7 @@ async function offlineJobEditor(id) {
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (!session?.user?.id) throw new Error('Oturum doğrulanamadı. İnternete bağlanıp tekrar giriş yap.');
-      await window.StagepulseOffline.queueAdminJobUpdate(id, payload, session.user.id);
+      await window.StagepulseOffline.queueAdminJobUpdate(id, payload, session.user.id, job.updated_at || null);
       Object.assign(job, payload);
       await window.StagepulseOffline.putCache('admin.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
       const row = [...document.querySelectorAll('tr')].find(candidate =>

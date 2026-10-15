@@ -40,12 +40,46 @@
     });
   }
 
+  async function cacheKeyForActor(key) {
+    // Cached operational data can include customer and financial records. Never
+    // share a cache namespace between accounts on the same device.
+    const client = window.__stagepulsePortalClient || window.__stagepulseAdminClient;
+    if (!client?.auth?.getSession) throw new Error('Çevrimdışı veri için kullanıcı oturumu doğrulanamadı.');
+    const { data, error } = await client.auth.getSession();
+    const actorId = data?.session?.user?.id;
+    if (error || !actorId) throw new Error('Çevrimdışı veri için oturum bulunamadı. İnternet bağlantısıyla tekrar giriş yapın.');
+    return 'actor:' + actorId + ':' + String(key);
+  }
   async function putCache(key, value) {
-    return storeRequest(STORE_CACHE, 'readwrite', store => store.put({ key, value, updatedAt: Date.now() }));
+    const scopedKey = await cacheKeyForActor(key);
+    return storeRequest(STORE_CACHE, 'readwrite', store => store.put({ key: scopedKey, value, updatedAt: Date.now() }));
   }
   async function getCache(key) {
-    const row = await storeRequest(STORE_CACHE, 'readonly', store => store.get(key));
+    const scopedKey = await cacheKeyForActor(key);
+    const row = await storeRequest(STORE_CACHE, 'readonly', store => store.get(scopedKey));
     return row ? row.value : null;
+  }
+  async function clearActorCache() {
+    const client = window.__stagepulsePortalClient || window.__stagepulseAdminClient;
+    const { data, error } = await client?.auth?.getSession?.() || {};
+    const actorId = data?.session?.user?.id;
+    if (error || !actorId) return 0;
+    const prefix = 'actor:' + actorId + ':';
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CACHE, 'readwrite');
+      const store = tx.objectStore(STORE_CACHE);
+      const request = store.openCursor();
+      let removed = 0;
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        if (String(cursor.key).startsWith(prefix)) { cursor.delete(); removed += 1; }
+        cursor.continue();
+      };
+      tx.oncomplete = () => resolve(removed);
+      tx.onerror = () => reject(tx.error || new Error('Yerel önbellek temizlenemedi.'));
+    });
   }
   async function getQueue() {
     const db = await openDb();
@@ -118,8 +152,8 @@
           const current = await client.from('jobs').select('id,updated_at').eq('id', item.rowId).maybeSingle();
           if (current.error) throw current.error;
           if (!current.data) throw new Error('İş güncellenmedi: kayıt bulunamadı veya erişim yetkisi değişti.');
-          if (item.baseUpdatedAt && current.data.updated_at && String(current.data.updated_at) !== String(item.baseUpdatedAt)) {
-            throw new Error('Çakışma: iş çevrimdışıyken sunucuda da değişmiş. Kayıt otomatik üzerine yazılmadı; çevrimiçi kontrol gerekiyor.');
+          if (item.baseUpdatedAt && (!current.data.updated_at || String(current.data.updated_at) !== String(item.baseUpdatedAt))) {
+            throw new Error('Çakışma: iş çevrimdışıyken sunucudaki kayıt değişmiş veya zaman damgası doğrulanamıyor. Kayıt otomatik üzerine yazılmadı; çevrimiçi kontrol gerekiyor.');
           }
           result = await client.from('jobs').update(item.payload).eq('id', item.rowId).select('id');
           if (result.error) throw result.error;
@@ -173,7 +207,7 @@
   }
 
   window.StagepulseOffline = {
-    putCache, getCache, queueStaffAction, queueAdminJobUpdate, flush, renderBanner, networkFailure,
+    putCache, getCache, clearActorCache, queueStaffAction, queueAdminJobUpdate, flush, renderBanner, networkFailure,
     async queueCount() { return (await getQueue()).length; },
     async pendingForActor(actorId) { return (await getQueue()).filter(x => x.actorId === actorId); },
     safeJobSnapshot(rows) {
@@ -184,7 +218,10 @@
 
   window.addEventListener('online', () => {
     flush().then(result => {
-      if (window.__stagepulseOfflineMode && result.synced === 0 && window.loadView) {
+      // Automatic sync must refresh the visible view too, not only the banner button.
+      if (result.synced > 0) {
+        window.dispatchEvent(new CustomEvent('stagepulse:offline-synced', { detail: result }));
+      } else if (window.__stagepulseOfflineMode && window.loadView) {
         if (location.pathname.startsWith('/admin')) window.loadView('calendar');
         else if (location.pathname.startsWith('/portal')) window.loadView((location.hash || '#home').slice(1));
       }
