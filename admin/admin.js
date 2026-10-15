@@ -149,7 +149,27 @@ async function init() {
   bindShell();
   const { data: { session } } = await sb.auth.getSession();
   if (session) { await guard(session); return; }
+  if (navigator.onLine === false && await enterOfflineMode()) return;
   showLogin();
+}
+
+async function enterOfflineMode() {
+  try {
+    const cached = JSON.parse(localStorage.getItem('stagepulse-admin-offline-context') || 'null');
+    if (!cached || Date.now() - Number(cached.validatedAt || 0) >= 7 * 24 * 60 * 60 * 1000) return false;
+    const calendar = await window.StagepulseOffline?.getCache('admin.calendar');
+    if (!calendar) return false;
+    showApp();
+    $('#adminUser').textContent = '@' + (cached.username || 'admin');
+    $('#sideAdminName').textContent = cached.displayName || cached.username || 'Admin';
+    window.__stagepulseOfflineMode = true;
+    await loadView('calendar');
+    await window.StagepulseOffline?.renderBanner().catch(() => {});
+    return true;
+  } catch (error) {
+    console.warn('Stagepulse offline entry unavailable:', error);
+    return false;
+  }
 }
 
 async function guard(session) {
@@ -174,7 +194,7 @@ async function guard(session) {
     }
     const username = session.user?.user_metadata?.username || session.user?.email?.split('@')[0] || 'admin';
     const displayName = session.user?.user_metadata?.display_name || session.user?.user_metadata?.full_name || username;
-    localStorage.setItem('stagepulse-admin-offline-context', JSON.stringify({ username, displayName, validatedAt: Date.now() }));
+    localStorage.setItem('stagepulse-admin-offline-context', JSON.stringify({ username, displayName, userId: session.user?.id || null, validatedAt: Date.now() }));
     showApp();
     $('#adminUser').textContent = '@' + username;
     $('#sideAdminName').textContent = displayName;
@@ -220,6 +240,10 @@ async function login(e) {
     await guard((await sb.auth.getSession()).data.session);
   } catch (ex) {
     console.error(ex);
+    if (window.StagepulseOffline?.networkFailure(ex) && await enterOfflineMode()) {
+      err.textContent = 'İnternet yok. Son eşitlenen takvim çevrimdışı açıldı; sunucu işlemleri bağlantı gerektirir.';
+      return;
+    }
     err.textContent = ex.message || 'Giriş başarısız';
   } finally {
     btn.disabled = false;
@@ -308,8 +332,13 @@ async function offlineJobEditor(id) {
     save.disabled = true;
     try {
       const { data: { session } } = await sb.auth.getSession();
-      if (!session?.user?.id) throw new Error('Oturum doğrulanamadı. İnternete bağlanıp tekrar giriş yap.');
-      await window.StagepulseOffline.queueAdminJobUpdate(id, payload, session.user.id);
+      let actorId = session?.user?.id || null;
+      if (!actorId && window.__stagepulseOfflineMode) {
+        const cachedContext = JSON.parse(localStorage.getItem('stagepulse-admin-offline-context') || 'null');
+        actorId = cachedContext?.userId || null;
+      }
+      if (!actorId) throw new Error('Bu cihazda doğrulanmış yönetici kimliği yok. Bağlantı gelince giriş yapıp tekrar dene.');
+      await window.StagepulseOffline.queueAdminJobUpdate(id, payload, actorId);
       Object.assign(job, payload);
       await window.StagepulseOffline.putCache('admin.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
       const row = [...document.querySelectorAll('tr')].find(candidate =>
