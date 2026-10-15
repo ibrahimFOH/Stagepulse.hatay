@@ -1,5 +1,5 @@
-/* Stagepulse Service Worker v12: offline portal/admin shell + Supabase SDK */
-const CACHE_VERSION='stagepulse-v12';
+/* Stagepulse Service Worker v13: offline portal/admin shell + Supabase SDK */
+const CACHE_VERSION='stagepulse-v13';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const AUTHENTICATED_PATHS = ['/admin', '/portal'];
