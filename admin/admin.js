@@ -232,6 +232,7 @@ async function guard(session) {
       } catch (_) {}
     }
     await sb.auth.signOut();
+    localStorage.removeItem('stagepulse-admin-offline-context');
     showLogin();
     $('#loginError').textContent = error.message || 'Bu hesap admin yetkisine sahip değil.';
   }
