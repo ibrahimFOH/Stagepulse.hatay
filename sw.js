@@ -1,5 +1,5 @@
-/* Stagepulse Service Worker v10: refresh Supabase SDK from network */
-const CACHE_VERSION='stagepulse-v10';
+/* Stagepulse Service Worker v11: refresh Supabase SDK cache */
+const CACHE_VERSION='stagepulse-v11';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const AUTHENTICATED_PATHS = ['/admin', '/portal'];
