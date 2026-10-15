@@ -46,7 +46,7 @@ jobs:
         - language: actions
           build-mode: none
         - language: java-kotlin
-          build-mode: autobuild
+          build-mode: manual
         - language: javascript-typescript
           build-mode: none
         - language: python
@@ -62,6 +62,19 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+    - name: Set up Java for Android CodeQL
+      if: matrix.language == 'java-kotlin'
+      uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+      with:
+        distribution: temurin
+        java-version: '17'
+
+    - name: Set up Gradle for Android CodeQL
+      if: matrix.language == 'java-kotlin'
+      uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
+      with:
+        gradle-version: '8.11.1'
 
     # Add any setup steps before running the `github/codeql-action/init` action.
     # This includes steps like installing compilers or runtimes (`actions/setup-node`
@@ -90,12 +103,13 @@ jobs:
       if: matrix.build-mode == 'manual'
       shell: bash
       run: |
-        echo 'If you are using a "manual" build mode for one or more of the' \
-          'languages you are analyzing, replace this with the commands to build' \
-          'your code, for example:'
-        echo '  make bootstrap'
-        echo '  make release'
-        exit 1
+        set -euo pipefail
+        if [ "${{ matrix.language }}" = "java-kotlin" ]; then
+          gradle -p android :app:lintPersonelDebug :app:lintAdminDebug :app:testPersonelDebugUnitTest :app:testAdminDebugUnitTest :app:assemblePersonelDebug :app:assembleAdminDebug --no-daemon
+        else
+          echo 'Manual build mode is configured only for java-kotlin; other languages must use their supported build mode.'
+          exit 1
+        fi
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
