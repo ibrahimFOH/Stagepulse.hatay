@@ -354,7 +354,7 @@ async function offlineJobEditor(id) {
         actorId = cachedContext?.userId || null;
       }
       if (!actorId) throw new Error('Bu cihazda doğrulanmış yönetici kimliği yok. Bağlantı gelince giriş yapıp tekrar dene.');
-      await window.StagepulseOffline.queueAdminJobUpdate(id, payload, actorId);
+      await window.StagepulseOffline.queueAdminJobUpdate(id, payload, actorId, job.updated_at || null);
       Object.assign(job, payload);
       await window.StagepulseOffline.putCache(adminCacheKey('admin.jobs'), window.StagepulseOffline.safeJobSnapshot(jobs));
       const row = [...document.querySelectorAll('tr')].find(candidate =>
