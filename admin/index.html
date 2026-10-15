@@ -161,23 +161,48 @@
     }
     if (!window.StagepulseOffline) throw new Error('Çevrimdışı depolama modülü yüklenemedi.');
     if (!cached.userId) throw new Error('Doğrulanmış yönetici kimliği bulunamadı.');
-    const calendar = await window.StagepulseOffline.getCache('admin.calendar:' + cached.userId);
-    if (!calendar) {
-      root.innerHTML = '<main style="padding:28px;font:16px/1.5 system-ui;background:#090909;color:#fff;min-height:100vh"><h1>Çevrimdışı takvim bulunamadı</h1><p>Takvimi internet bağlantısı varken en az bir kez açıp eşitleyin.</p></main>';
-      return;
+    const views = [
+      ['dashboard','Genel Bakış'],['offers','Teklifler'],['customers','Müşteriler'],
+      ['settlements','Gelir · Gider'],['pricing','Fiyatlandırma'],['equipment','Ekipman'],
+      ['calendar','Takvim / İşler'],['finance','Ödemeler'],['personnel','Personel'],
+      ['analytics','Analitik'],['activity','Aktivite'],['notifications','Bildirimler'],['settings','Ayarlar']
+    ];
+    root.innerHTML = '<main id="spOfflineShell" style="padding:16px;min-height:100vh;background:#090909;color:#fff;font:15px/1.5 system-ui;box-sizing:border-box"><header style="padding:12px 0;border-bottom:1px solid #444;margin-bottom:14px"><strong>STAGEPULSE ADMIN · ÇEVRİMDIŞI</strong><p style="margin:4px 0">Yönetici: ' + String(cached.displayName || cached.username || 'Admin').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + '</p><p style="margin:4px 0">Yalnızca bu hesap için cihazda kaydedilmiş son ekranlar gösterilir. Sunucu işlemleri çevrimiçi yapılmalıdır.</p></header><nav id="spOfflineNav" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></nav><section id="spOfflineContent" aria-live="polite"><p>Ekranlar yükleniyor…</p></section></main>';
+    const nav = document.getElementById('spOfflineNav');
+    const area = document.getElementById('spOfflineContent');
+    const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    async function showOfflineView(view, label, button) {
+      nav.querySelectorAll('button').forEach(item => item.style.outline = 'none');
+      if (button) button.style.outline = '2px solid #ffb000';
+      area.innerHTML = '<p>Kaydedilmiş ekran aranıyor…</p>';
+      const key = view === 'calendar' ? 'admin.calendar:' + cached.userId : 'admin.view:' + view + ':' + cached.userId;
+      const html = await window.StagepulseOffline.getCache(key).catch(() => null);
+      if (!html) {
+        area.innerHTML = '<section style="padding:16px;border:1px solid #333;border-radius:12px"><h2>' + escapeHtml(label) + '</h2><p>Bu ekran bu cihazda henüz kaydedilmemiş. İnternet bağlantısı varken bu ekranı açıp yükleyin.</p></section>';
+        return;
+      }
+      area.innerHTML = html;
+      area.querySelectorAll('script,iframe,object,embed').forEach(el => el.remove());
+      area.querySelectorAll('*').forEach(el => {
+        [...el.attributes].forEach(attr => { if (/^on/i.test(attr.name)) el.removeAttribute(attr.name); });
+      });
+      area.querySelectorAll('button,input,select,textarea').forEach(el => { el.disabled = true; });
+      area.querySelectorAll('a[href]').forEach(el => el.removeAttribute('href'));
+      area.querySelectorAll('form').forEach(el => el.removeAttribute('action'));
+      const notice = document.createElement('div');
+      notice.style.cssText = 'padding:12px;margin-bottom:12px;border:1px solid #b88622;border-radius:8px;color:#f4d58b';
+      notice.textContent = 'ÇEVRİMDIŞI · ' + label + ' ekranının cihazdaki son görüntüsü. Bu ekranda düzenleme yapılamaz.';
+      area.prepend(notice);
     }
-    root.innerHTML = '<main id="spOfflineShell" style="padding:18px;min-height:100vh;background:#090909;color:#fff;font:15px/1.5 system-ui"><header style="padding:12px 0;border-bottom:1px solid #444;margin-bottom:14px"><strong>STAGEPULSE ADMIN · ÇEVRİMDIŞI</strong><p style="margin:4px 0">Yönetici: ' + String(cached.displayName || cached.username || 'Admin').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + '</p><p style="margin:4px 0">Yalnızca cihazda son eşitlenen takvim gösterilir. Sunucu işlemleri çevrimiçi yapılmalıdır.</p></header><section id="spOfflineCalendar"></section></main>';
-    const area = document.getElementById('spOfflineCalendar');
-    area.innerHTML = calendar;
-    area.querySelectorAll('script').forEach(el => el.remove());
-    area.querySelectorAll('[onclick],[onchange],[onsubmit]').forEach(el => {
-      el.removeAttribute('onclick'); el.removeAttribute('onchange'); el.removeAttribute('onsubmit');
+    views.forEach(([view,label]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.style.cssText = 'padding:9px 12px;border:1px solid #444;border-radius:8px;background:#171717;color:#fff;font-weight:700';
+      button.addEventListener('click', () => showOfflineView(view,label,button));
+      nav.appendChild(button);
     });
-    area.querySelectorAll('button,input,select,textarea,a').forEach(el => {
-      if (el.tagName === 'A') el.removeAttribute('href');
-      if ('disabled' in el) el.disabled = true;
-    });
-    await window.StagepulseOffline.renderBanner();
+    await showOfflineView('calendar','Takvim / İşler',nav.querySelector('button'));
   } catch (error) {
     console.error('Stagepulse offline bootstrap:', error);
     root.innerHTML = '<main style="padding:28px;font:16px/1.5 system-ui;background:#090909;color:#fff;min-height:100vh"><h1>Çevrimdışı ekran açılamadı</h1><p>Önbellek okunamadı. İnternete bağlanıp takvimi yeniden eşitleyin.</p></main>';
