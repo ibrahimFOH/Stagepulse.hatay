@@ -1,5 +1,5 @@
-/* Stagepulse Service Worker v18: offline admin bootstrap; third-party SDK is network-only */
-const CACHE_VERSION='stagepulse-v18';
+/* Stagepulse Service Worker v19: offline admin bootstrap; third-party SDK is network-only */
+const CACHE_VERSION='stagepulse-v19';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const AUTHENTICATED_PATHS = ['/admin', '/portal'];
@@ -14,7 +14,7 @@ function isOfflineShellAsset(request,url){
   return ['script','style','image','font'].includes(request.destination)||/\.(html|css|js|svg|woff2?|png|jpe?g|webp)$/i.test(url.pathname);
 }
 
-const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js','/offline-sync.js','/admin/','/portal/','/portal/portal.js','/portal/portal.css','/admin/admin.js?v=20261015-offline-views6','/admin/admin.css?v=20261007-admin-rbac6'];
+const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js','/offline-sync.js','/admin/','/portal/','/portal/portal.js','/portal/portal.css','/admin/admin.js?v=20261015-offline-nav7','/admin/admin.css?v=20261007-admin-rbac6'];
 const NETWORK_FIRST_PATHS=['/','/index.html','/style.css','/script.js','/i18n.js','/consent.js','/teklif.html','/hizmetler.html','/muhendislik.html','/galeri.html','/dokumanlar.html','/hakkimizda.html','/referanslar.html','/nasil-calisiyoruz.html','/sss.html','/ekipman.html','/Kvkk.html','/media.json'];
 
 self.addEventListener('install',event=>{
