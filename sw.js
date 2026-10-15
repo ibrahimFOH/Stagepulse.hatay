@@ -1,5 +1,5 @@
-/* Stagepulse Service Worker v13: offline portal/admin shell + Supabase SDK */
-const CACHE_VERSION='stagepulse-v13';
+/* Stagepulse Service Worker v14: offline portal/admin shell; third-party SDK is network-only */
+const CACHE_VERSION='stagepulse-v14';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const AUTHENTICATED_PATHS = ['/admin', '/portal'];
@@ -14,8 +14,7 @@ function isOfflineShellAsset(request,url){
   return ['script','style','image','font'].includes(request.destination)||/\.(html|css|js|svg|woff2?|png|jpe?g|webp)$/i.test(url.pathname);
 }
 
-const SUPABASE_SDK_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4';
-const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js','/offline-sync.js','/admin/','/portal/','/portal/portal.js','/portal/portal.css','/admin/admin.js?v=20261015-supabase-fallback1','/admin/admin.css?v=20261007-admin-rbac6',SUPABASE_SDK_URL];
+const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js','/offline-sync.js','/admin/','/portal/','/portal/portal.js','/portal/portal.css','/admin/admin.js?v=20261015-supabase-fallback1','/admin/admin.css?v=20261007-admin-rbac6'];
 const NETWORK_FIRST_PATHS=['/','/index.html','/style.css','/script.js','/i18n.js','/consent.js','/teklif.html','/hizmetler.html','/muhendislik.html','/galeri.html','/dokumanlar.html','/hakkimizda.html','/referanslar.html','/nasil-calisiyoruz.html','/sss.html','/ekipman.html','/Kvkk.html','/media.json'];
 
 self.addEventListener('install',event=>{
@@ -35,13 +34,6 @@ self.addEventListener('activate',event=>{
 self.addEventListener('fetch',event=>{
   const request=event.request;
   const url=new URL(request.url);
-  if(url.href===SUPABASE_SDK_URL){
-    event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
-      if(response&&response.status===200){const copy=response.clone();caches.open(STATIC_CACHE).then(cache=>cache.put(request,copy));}
-      return response;
-    })));
-    return;
-  }
   if(url.origin!==self.location.origin)return;
 
   if (isAuthenticatedPath(url.pathname)) {
