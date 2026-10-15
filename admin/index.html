@@ -10,7 +10,37 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="admin.css?v=20261007-admin-rbac6">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV" crossorigin="anonymous"></script>
+<script>
+(function () {
+  var sources = [
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4',
+    'https://unpkg.com/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
+  ];
+  function load(index) {
+    if (index >= sources.length) {
+      document.body.innerHTML = '<div role="alert" style="padding:40px;font-family:system-ui;color:#fff;background:#090909;min-height:100vh">Supabase bağlantısı kurulamadı. İnternet bağlantısını kontrol edip sayfayı yenileyin.</div>';
+      console.error('Supabase SDK could not be loaded from available CDNs.');
+      return;
+    }
+    var script = document.createElement('script');
+    script.src = sources[index];
+    script.crossOrigin = 'anonymous';
+    script.onload = function () {
+      if (window.supabase && typeof window.supabase.createClient === 'function') {
+        var app = document.createElement('script');
+        app.src = 'admin.js?v=20261015-supabase-fallback1';
+        document.body.appendChild(app);
+      } else {
+        script.remove();
+        load(index + 1);
+      }
+    };
+    script.onerror = function () { script.remove(); load(index + 1); };
+    document.head.appendChild(script);
+  }
+  load(0);
+})();
+</script>
 </head>
 <body class="admin-body">
 
@@ -91,7 +121,7 @@
   </div>
 </div>
 
-<script src="admin.js?v=20261013-offer-catalog-download1"></script>
+
 <script src="/offline-sync.js"></script>
 </body>
 </html>
