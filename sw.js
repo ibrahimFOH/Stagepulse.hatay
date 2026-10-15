@@ -1,5 +1,5 @@
-/* Stagepulse Service Worker v9: offline portal/admin shell + Supabase SDK */
-const CACHE_VERSION='stagepulse-v9';
+/* Stagepulse Service Worker v10: offline portal/admin shell + Supabase SDK */
+const CACHE_VERSION='stagepulse-v10';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
 const AUTHENTICATED_PATHS = ['/admin', '/portal'];
@@ -15,7 +15,7 @@ function isOfflineShellAsset(request,url){
 }
 
 const SUPABASE_SDK_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4';
-const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js','/offline-sync.js','/admin/','/portal/','/portal/portal.js','/portal/portal.css','/admin/admin.js?v=20261013-offer-catalog-download1','/admin/admin.css?v=20261007-admin-rbac6',SUPABASE_SDK_URL];
+const PRECACHE_ASSETS=['/favicon.svg','/manifest.webmanifest','/i18n.js','/offline-sync.js','/admin/','/portal/','/portal/portal.js','/portal/portal.css','/admin/admin.js?v=20261015-supabase-fallback1','/admin/admin.css?v=20261007-admin-rbac6',SUPABASE_SDK_URL];
 const NETWORK_FIRST_PATHS=['/','/index.html','/style.css','/script.js','/i18n.js','/consent.js','/teklif.html','/hizmetler.html','/muhendislik.html','/galeri.html','/dokumanlar.html','/hakkimizda.html','/referanslar.html','/nasil-calisiyoruz.html','/sss.html','/ekipman.html','/Kvkk.html','/media.json'];
 
 self.addEventListener('install',event=>{
