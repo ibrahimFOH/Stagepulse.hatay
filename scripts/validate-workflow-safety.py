@@ -10,6 +10,7 @@ known_action_commits = {
     "actions/checkout": {
         "11d5960a326750d5838078e36cf38b85af677262",
         "fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+        "3d3c42e5aac5ba805825da76410c181273ba90b1",
     },
     "actions/setup-node": {"49933ea5288caeca8642d1e84afbd3f7d6820020"},
     "actions/setup-java": {"cf277c60eb25467037889841efdb72551f06f6c3"},
@@ -23,10 +24,14 @@ known_action_commits = {
     "actions/upload-pages-artifact": {"56afc609e74202658d3ffba0e8f6dda462b719fa"},
     "actions/deploy-pages": {"d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e"},
     "softprops/action-gh-release": {"3bb12739c298aeb8a4eeaf626c5b8d85266b0e65"},
+    "github/codeql-action/init": {"6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee"},
+    "github/codeql-action/analyze": {"6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee"},
 }
 for path in sorted(WORKFLOWS.glob("*.yml")):
     text = path.read_text(encoding="utf-8")
     for line_number, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith("#"):
+            continue
         match = re.search(r"\buses:\s*([^@\s]+)@([^\s#]+)", line)
         if match and not re.fullmatch(r"[0-9a-f]{40}", match.group(2)):
             errors.append(
