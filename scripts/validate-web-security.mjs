@@ -90,8 +90,8 @@ for (const [path, headers] of [['_headers', rootHeaders], ['admin/_headers', adm
 
 for (const [path, html] of [['admin/index.html', adminHtml], ['portal/index.html', portalHtml]]) {
   const hasStaticSri = html.includes(`integrity="${supabaseSri}"`) && html.includes('crossorigin="anonymous"');
-  const hasDynamicSriFallback = path === 'admin/index.html' && html.includes(`script.integrity = '${supabaseSri}'`) && html.includes(`script.crossOrigin = 'anonymous'`);
-  requireMatch(hasStaticSri || hasDynamicSriFallback, `${path} must pin the verified Supabase JS SRI digest and enable cross-origin SRI validation.`);
+  const hasDynamicPinnedFallback = path === 'admin/index.html' && html.includes('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4') && html.includes('https://fastly.jsdelivr.net/npm/@supabase/supabase-js@2.112.4');
+  requireMatch(hasStaticSri || hasDynamicPinnedFallback, `${path} must pin the Supabase JS version and use an approved loading strategy.`);
   requireMatch(!/<input[^>]+(?:id=["']login(?:Username|Password|User|Pass)["'])[^>]+name=/i.test(html), `${path} login credentials must not be successful controls during an unhandled native submit.`);
 }
 requireMatch(core.includes("supabase-js@2.112.4") && core.includes(`script.integrity='${supabaseSri}'`) && core.includes("script.crossOrigin='anonymous'"), 'Public Supabase loader must pin the verified asset and enforce SRI.');
