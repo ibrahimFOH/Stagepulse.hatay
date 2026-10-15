@@ -60,6 +60,10 @@
     script.onerror = function () { fail('ağ, CDN veya SRI doğrulaması başarısız'); };
     document.head.appendChild(script);
   }
+  if (navigator.onLine === false) {
+    window.__stagepulseAdminOfflineBootstrap = true;
+    return;
+  }
   load(0, []);
 })();
 </script>
@@ -145,5 +149,39 @@
 
 
 <script src="/offline-sync.js"></script>
+<script>
+(async function () {
+  if (!window.__stagepulseAdminOfflineBootstrap) return;
+  const root = document.body;
+  try {
+    const cached = JSON.parse(localStorage.getItem('stagepulse-admin-offline-context') || 'null');
+    if (!cached || Date.now() - Number(cached.validatedAt || 0) >= 7 * 24 * 60 * 60 * 1000) {
+      root.innerHTML = '<main style="padding:28px;font:16px/1.5 system-ui;background:#090909;color:#fff;min-height:100vh"><h1>Çevrimdışı erişim kullanılamıyor</h1><p>Bu cihazdaki yönetici doğrulaması 7 günden eski veya bulunamadı. İnternete bağlanıp giriş yapmanız gerekiyor.</p></main>';
+      return;
+    }
+    if (!window.StagepulseOffline) throw new Error('Çevrimdışı depolama modülü yüklenemedi.');
+    const calendar = await window.StagepulseOffline.getCache('admin.calendar');
+    if (!calendar) {
+      root.innerHTML = '<main style="padding:28px;font:16px/1.5 system-ui;background:#090909;color:#fff;min-height:100vh"><h1>Çevrimdışı takvim bulunamadı</h1><p>Takvimi internet bağlantısı varken en az bir kez açıp eşitleyin.</p></main>';
+      return;
+    }
+    root.innerHTML = '<main id="spOfflineShell" style="padding:18px;min-height:100vh;background:#090909;color:#fff;font:15px/1.5 system-ui"><header style="padding:12px 0;border-bottom:1px solid #444;margin-bottom:14px"><strong>STAGEPULSE ADMIN · ÇEVRİMDIŞI</strong><p style="margin:4px 0">Yönetici: ' + String(cached.displayName || cached.username || 'Admin').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + '</p><p style="margin:4px 0">Yalnızca cihazda son eşitlenen takvim gösterilir. Sunucu işlemleri çevrimiçi yapılmalıdır.</p></header><section id="spOfflineCalendar"></section></main>';
+    const area = document.getElementById('spOfflineCalendar');
+    area.innerHTML = calendar;
+    area.querySelectorAll('script').forEach(el => el.remove());
+    area.querySelectorAll('[onclick],[onchange],[onsubmit]').forEach(el => {
+      el.removeAttribute('onclick'); el.removeAttribute('onchange'); el.removeAttribute('onsubmit');
+    });
+    area.querySelectorAll('button,input,select,textarea,a').forEach(el => {
+      if (el.tagName === 'A') el.removeAttribute('href');
+      if ('disabled' in el) el.disabled = true;
+    });
+    await window.StagepulseOffline.renderBanner();
+  } catch (error) {
+    console.error('Stagepulse offline bootstrap:', error);
+    root.innerHTML = '<main style="padding:28px;font:16px/1.5 system-ui;background:#090909;color:#fff;min-height:100vh"><h1>Çevrimdışı ekran açılamadı</h1><p>Önbellek okunamadı. İnternete bağlanıp takvimi yeniden eşitleyin.</p></main>';
+  }
+})();
+</script>
 </body>
 </html>
