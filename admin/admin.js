@@ -97,6 +97,16 @@ const viewMeta = {
   settings: ['Ayarlar', 'İşletme ve hesap']
 };
 
+function adminCacheKey(key) {
+  try {
+    const context = JSON.parse(localStorage.getItem('stagepulse-admin-offline-context') || 'null');
+    if (!context || !context.userId) throw new Error('Missing verified admin identity');
+    return key + ':' + context.userId;
+  } catch (_) {
+    throw new Error('Hesaba özel çevrimdışı önbellek için doğrulanmış yönetici kimliği gerekli.');
+  }
+}
+
 function showLogin() {
   const login = document.getElementById('loginView');
   const app = document.getElementById('appView');
@@ -139,7 +149,12 @@ function bindShell() {
   document.getElementById('sidebarClose')?.addEventListener('click', closeMenu);
   document.getElementById('mobileOverlay')?.addEventListener('click', closeMenu);
   document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-    await sb.auth.signOut();
+    const { error } = await sb.auth.signOut();
+    if (error) {
+      toast('Çıkış doğrulanamadı. Çevrimdışı yönetici bağlamı korundu; bağlantıyı kontrol edip tekrar deneyin.', false);
+      return;
+    }
+    localStorage.removeItem('stagepulse-admin-offline-context');
     location.reload();
   });
   document.getElementById('loginForm')?.addEventListener('submit', login);
@@ -157,7 +172,7 @@ async function enterOfflineMode() {
   try {
     const cached = JSON.parse(localStorage.getItem('stagepulse-admin-offline-context') || 'null');
     if (!cached || Date.now() - Number(cached.validatedAt || 0) >= 7 * 24 * 60 * 60 * 1000) return false;
-    const calendar = await window.StagepulseOffline?.getCache('admin.calendar');
+    const calendar = await window.StagepulseOffline?.getCache(adminCacheKey('admin.calendar'));
     if (!calendar) return false;
     showApp();
     $('#adminUser').textContent = '@' + (cached.username || 'admin');
@@ -256,7 +271,7 @@ async function renderOfflineCalendar(html) {
   const content = $('#content');
   if (!content) return;
   content.innerHTML = html;
-  jobs = (await window.StagepulseOffline?.getCache('admin.jobs').catch(() => null)) || [];
+  jobs = (await window.StagepulseOffline?.getCache(adminCacheKey('admin.jobs')).catch(() => null)) || [];
   content.querySelectorAll('script').forEach(el => el.remove());
   content.querySelectorAll('button[onclick]').forEach(button => {
     const handler = button.getAttribute('onclick') || '';
@@ -340,7 +355,7 @@ async function offlineJobEditor(id) {
       if (!actorId) throw new Error('Bu cihazda doğrulanmış yönetici kimliği yok. Bağlantı gelince giriş yapıp tekrar dene.');
       await window.StagepulseOffline.queueAdminJobUpdate(id, payload, actorId);
       Object.assign(job, payload);
-      await window.StagepulseOffline.putCache('admin.jobs', window.StagepulseOffline.safeJobSnapshot(jobs));
+      await window.StagepulseOffline.putCache(adminCacheKey('admin.jobs'), window.StagepulseOffline.safeJobSnapshot(jobs));
       const row = [...document.querySelectorAll('tr')].find(candidate =>
         candidate.dataset.jobId === id ||
         candidate.querySelector('[data-sp-offline-job-id]')?.dataset.spOfflineJobId === id
@@ -358,7 +373,7 @@ async function offlineJobEditor(id) {
       modal.remove();
       const notice = document.querySelector('.sp-offline-calendar-notice');
       notice?.remove();
-      await window.StagepulseOffline.putCache('admin.calendar', $('#content')?.innerHTML || '');
+      await window.StagepulseOffline.putCache(adminCacheKey('admin.calendar'), $('#content')?.innerHTML || '');
       if (notice) $('#content')?.prepend(notice);
       toast('İş cihazda kaydedildi; bağlantı gelince eşitlenecek.', true);
     } catch (error) {
@@ -383,7 +398,7 @@ async function loadView(v) {
   };
   if (!navigator.onLine) {
     if (v === 'calendar' && window.StagepulseOffline) {
-      const cached = await window.StagepulseOffline.getCache('admin.calendar').catch(() => null);
+      const cached = await window.StagepulseOffline.getCache(adminCacheKey('admin.calendar')).catch(() => null);
       if (cached) { await renderOfflineCalendar(cached); return; }
     }
     $('#content').innerHTML = '<div class="notice" role="status"><b>Çevrimdışı mod</b><p>Bu yönetim ekranının güncel verisi cihazda bulunmuyor. İşlemler sunucuya bağlı olduğu için kayıt yapma ve finansal değişiklikler devre dışı.</p><p>Bağlantı geldiğinde tekrar deneyin.</p></div>';
@@ -393,11 +408,11 @@ async function loadView(v) {
     await map[v]();
     window.__stagepulseOfflineMode = false;
     if (v === 'calendar' && window.StagepulseOffline) {
-      await window.StagepulseOffline.putCache('admin.calendar', $('#content')?.innerHTML || '').catch(() => {});
+      await window.StagepulseOffline.putCache(adminCacheKey('admin.calendar'), $('#content')?.innerHTML || '').catch(() => {});
     }
   } catch (e) {
     if (v === 'calendar' && window.StagepulseOffline?.networkFailure(e)) {
-      const cached = await window.StagepulseOffline.getCache('admin.calendar').catch(() => null);
+      const cached = await window.StagepulseOffline.getCache(adminCacheKey('admin.calendar')).catch(() => null);
       if (cached) { await renderOfflineCalendar(cached); return; }
     }
     fatal(e);
@@ -1527,7 +1542,7 @@ async function calendarView() {
   const { data, error } = await sb.from('jobs').select('*').order('event_at', { ascending: true, nullsFirst: false });
   if (error) throw error;
   jobs = data || [];
-  if (window.StagepulseOffline) await window.StagepulseOffline.putCache('admin.jobs', window.StagepulseOffline.safeJobSnapshot(jobs)).catch(() => {});
+  if (window.StagepulseOffline) await window.StagepulseOffline.putCache(adminCacheKey('admin.jobs'), window.StagepulseOffline.safeJobSnapshot(jobs)).catch(() => {});
   await getOffers();
   $('#content').innerHTML = `
     <div class="page-head">
