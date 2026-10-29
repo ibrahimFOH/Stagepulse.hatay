@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#0c0c0d">
+  <meta name="description" content="Stagepulse Ses Mühendisliği Merkezi lisans ve manuel satış yönetimi.">
+  <title>Stagepulse | Lisans Yönetimi</title>
+  <link rel="stylesheet" href="./admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="./admin.js"></script>
+</head>
+<body>
+  <div class="ambient ambient-a" aria-hidden="true"></div><div class="ambient ambient-b" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Stagepulse Lisans Yönetimi ana sayfa">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      <span><strong>STAGEPULSE</strong><small>LİSANS YÖNETİMİ</small></span>
+    </a>
+    <div class="top-actions">
+      <span id="connectionStatus" class="connection"><span class="status-dot"></span><span>Bağlantı bekleniyor</span></span>
+      <button id="signOutButton" class="button button-quiet hidden" type="button">Güvenli çıkış</button>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <section id="loginView" class="login-layout" aria-labelledby="loginHeading">
+      <div class="login-intro">
+        <p class="eyebrow">STAGEPULSE · YÖNETİCİ ALANI</p>
+        <h1>Lisanslarını<br><span>tek merkezden</span> yönet.</h1>
+        <p class="lead">Elden satışları kaydet, benzersiz lisans anahtarı üret, ödeme durumunu kontrol et ve cihaz etkinleştirmelerini yönet. Bilgisayarda da telefonda da aynı panel.</p>
+        <div class="feature-line"><span class="feature-icon">✓</span> Yetkili yönetici girişi</div>
+        <div class="feature-line"><span class="feature-icon">✓</span> Anahtarlar sunucuda düz metin tutulmaz</div>
+        <div class="feature-line"><span class="feature-icon">✓</span> Ödeme onaylanmadan lisans etkinleşmez</div>
+      </div>
+      <form id="loginForm" class="panel login-card" autocomplete="on">
+        <div class="panel-kicker">GÜVENLİ OTURUM</div>
+        <h2 id="loginHeading">Yönetici girişi</h2>
+        <p class="muted">Stagepulse yönetici hesabınla giriş yap.</p>
+        <label for="loginEmail">E-posta</label>
+        <input id="loginEmail" name="email" type="email" inputmode="email" autocomplete="username" required maxlength="320" placeholder="yonetici@stagepulse.com.tr">
+        <label for="loginPassword">Şifre</label>
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="256" placeholder="Yönetici şifren">
+        <button id="loginButton" class="button button-primary button-wide" type="submit">Giriş yap <span aria-hidden="true">→</span></button>
+        <p id="loginMessage" class="feedback" role="status" aria-live="polite"></p>
+        <p class="small-note">Halka açık kayıt oluşturulmaz. Girişten sonra sunucu hesabının Stagepulse sahibi olduğunu ayrıca doğrular.</p>
+      </form>
+    </section>
+
+    <section id="appView" class="hidden" aria-labelledby="dashboardHeading">
+      <div class="page-heading">
+        <div><p class="eyebrow">TİCARİ KONTROL MERKEZİ</p><h1 id="dashboardHeading">Lisans ve satışlar</h1><p class="muted">Müşteri, tahsilat, aktivasyon ve lisans durumu aynı yerde.</p></div>
+        <div class="heading-meta"><span class="owner-pill"><span class="status-dot"></span> Yönetici doğrulandı</span><span id="currentUser" class="current-user"></span></div>
+      </div>
+      <div id="globalMessage" class="feedback global-feedback" role="status" aria-live="polite"></div>
+
+      <div class="stats-grid" aria-label="Lisans özeti">
+        <article class="stat-card"><span class="stat-label">Toplam lisans</span><strong id="statTotal">0</strong><span class="stat-caption">Kayıtlı lisans</span></article>
+        <article class="stat-card"><span class="stat-label">Aktif lisans</span><strong id="statActive">0</strong><span class="stat-caption">Ödeme ve süre kontrolünden geçen</span></article>
+        <article class="stat-card"><span class="stat-label">Ödeme bekleyen</span><strong id="statPending">0</strong><span class="stat-caption">Etkinleştirme kapalı</span></article>
+        <article class="stat-card"><span class="stat-label">Tahsilat kayıtları</span><strong id="statRevenue">₺0</strong><span class="stat-caption">Yalnızca panelde ödendi işaretlenen kayıtlar</span></article>
+      </div>
+
+      <section class="panel create-panel" aria-labelledby="newLicenseHeading">
+        <div class="section-head"><div><p class="eyebrow">YENİ SATIŞ</p><h2 id="newLicenseHeading">Lisans oluştur</h2><p class="muted">Ödeme aldıysan “Ödendi” seç. Anahtar yalnızca bir kez gösterilir.</p></div><span class="section-number">01</span></div>
+        <form id="licenseForm" class="form-grid">
+          <div class="field span-2"><label for="customerName">Müşteri / öğrenci adı</label><input id="customerName" name="customer_name" maxlength="120" placeholder="Örn. Ahmet Yılmaz" required></div>
+          <div class="field span-2"><label for="customerEmail">E-posta <span class="optional">(isteğe bağlı)</span></label><input id="customerEmail" name="customer_email" type="email" maxlength="320" placeholder="ogrenci@ornek.com"></div>
+          <div class="field span-2"><label for="licenseLabel">Ürün / lisans etiketi</label><input id="licenseLabel" name="label" maxlength="120" required value="Stagepulse Ses Mühendisliği Merkezi"></div>
+          <div class="field"><label for="licensePlan">Lisans türü</label><select id="licensePlan" name="plan_code"><option value="student">Bireysel öğrenci</option><option value="classroom">Sınıf / kurum</option><option value="lifetime">Süresiz kullanım</option></select></div>
+          <div class="field"><label for="expiresDays">Süre (gün)</label><input id="expiresDays" name="expires_days" type="number" min="0" max="3650" value="365" inputmode="numeric" required><small class="hint">0 = süre sınırı yok. Süresiz tür seçilirse 0'a ayarlanır.</small></div>
+          <div class="field"><label for="maxActivations">Cihaz sayısı</label><select id="maxActivations" name="max_activations"><option value="1">1 cihaz</option><option value="2">2 cihaz</option><option value="3">3 cihaz</option><option value="5">5 cihaz</option></select></div>
+          <div class="field"><label for="paymentMethod">Ödeme yöntemi</label><select id="paymentMethod" name="payment_method"><option value="cash">Elden nakit</option><option value="bank_transfer">Banka havalesi / EFT</option><option value="card">Kart / POS</option><option value="other">Diğer</option></select></div>
+          <div class="field"><label for="paymentStatus">Ödeme durumu</label><select id="paymentStatus" name="payment_status"><option value="unpaid">Ödeme bekleniyor</option><option value="paid">Ödeme alındı / ödendi</option></select></div>
+          <div class="field"><label for="paymentAmount">Tutar (TL)</label><input id="paymentAmount" name="amount" type="number" min="0" max="999999999" step="0.01" value="0" inputmode="decimal" required></div>
+          <div class="field"><label for="paymentReference">Dekont / satış notu <span class="optional">(isteğe bağlı)</span></label><input id="paymentReference" name="payment_reference" maxlength="120" placeholder="Makbuz no veya kısa not"></div>
+          <div class="field span-2"><label for="licenseNotes">İç not <span class="optional">(isteğe bağlı)</span></label><textarea id="licenseNotes" name="notes" rows="2" maxlength="500" placeholder="Satışa dair yöneticinin görebileceği kısa not"></textarea></div>
+          <div class="field span-2 form-footer"><p class="small-note">Ödeme durumunu yalnızca tahsilatı gerçekten yaptıktan sonra “Ödendi” olarak işaretle. Bu kayıt muhasebe belgesinin yerine geçmez.</p><button id="createLicenseButton" class="button button-primary" type="submit">Lisans anahtarı üret <span aria-hidden="true">→</span></button></div>
+        </form>
+        <div id="issuedKeyPanel" class="issued-key hidden" aria-live="polite">
+          <div><p class="eyebrow">YENİ LİSANS ANAHTARI</p><h3 id="issuedKeyTitle">Anahtar oluşturuldu</h3><p class="small-note">Anahtarı şimdi kopyalayıp müşteriye ilet. Güvenlik nedeniyle daha sonra tekrar görüntülenemez.</p></div>
+          <code id="issuedKey" class="issued-key-value"></code>
+          <div class="issued-key-actions"><button id="copyKeyButton" class="button button-primary" type="button">Anahtarı kopyala</button><button id="dismissKeyButton" class="button button-quiet" type="button">Anahtarı gizle</button></div>
+        </div>
+      </section>
+
+      <section class="panel list-panel" aria-labelledby="licenseListHeading">
+        <div class="section-head"><div><p class="eyebrow">KAYIT VE KONTROL</p><h2 id="licenseListHeading">Lisans listesi</h2><p class="muted">Ödeme onayla, süre uzat, cihazı kaldır veya lisansı iptal et.</p></div><span class="section-number">02</span></div>
+        <div class="list-toolbar"><div class="search-wrap"><span aria-hidden="true">⌕</span><input id="licenseSearch" type="search" placeholder="Müşteri, e-posta veya lisans ara" aria-label="Lisans ara"></div><select id="licenseFilter" aria-label="Lisans durumuna göre filtrele"><option value="all">Tüm durumlar</option><option value="active">Aktif</option><option value="unpaid">Ödeme bekliyor</option><option value="refunded">İade edildi</option><option value="revoked">İptal edildi</option><option value="expired">Süresi dolmuş</option></select><button id="refreshButton" class="button button-quiet" type="button">Yenile ↻</button><button id="exportButton" class="button button-outline" type="button">CSV dışa aktar</button></div>
+        <div id="licenseList" class="license-grid"><div class="empty-state">Lisans kayıtları yükleniyor…</div></div>
+      </section>
+
+      <section class="panel audit-panel" aria-labelledby="auditHeading">
+        <div class="section-head"><div><p class="eyebrow">İZLENEBİLİRLİK</p><h2 id="auditHeading">Son yönetici işlemleri</h2><p class="muted">Lisans oluşturma, ödeme değişikliği ve iptal geçmişi.</p></div><span class="section-number">03</span></div>
+        <div id="auditList" class="audit-list"><p class="empty-state">İşlem geçmişi yükleniyor…</p></div>
+      </section>
+      <footer class="page-footer"><span>STAGEPULSE · SES MÜHENDİSLİĞİ MERKEZİ</span><span>Bu panel yalnızca lisans yönetimi içindir.</span></footer>
+    </section>
+  </main>
+
+  <dialog id="activationDialog" class="activation-dialog" aria-labelledby="activationHeading">
+    <div class="dialog-head"><div><p class="eyebrow">CİHAZ ETKİNLEŞTİRMELERİ</p><h2 id="activationHeading">Aktif cihazlar</h2></div><button id="closeActivationDialog" class="icon-button" type="button" aria-label="Kapat">×</button></div>
+    <p class="muted">Cihaz parmak izleri güvenlik için kısaltılmış gösterilir. Cihazı kaldırmak o cihazın lisans kontrolünü yeniden başarısız hâle getirir.</p>
+    <div id="activationList" class="activation-list"></div>
+  </dialog>
+  <noscript><div class="noscript-warning">Bu yönetim panelini kullanmak için JavaScript açık olmalıdır.</div></noscript>
+</body>
+</html>
