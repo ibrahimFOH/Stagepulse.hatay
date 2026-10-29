@@ -1,0 +1,49 @@
+name: Stagepulse Lisans Yönetimi Uygulamaları
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'license-manager-app/**'
+      - '.github/workflows/build-license-manager.yml'
+permissions:
+  contents: read
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install packaging tools
+        run: python -m pip install --upgrade pip pywebview pyinstaller
+      - name: Build Windows EXE
+        working-directory: license-manager-app/desktop
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name StagepulseLisansYonetimi --add-data "..\assets;assets" main.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stagepulse-Lisans-Yonetimi-Windows-EXE
+          path: license-manager-app/desktop/dist/StagepulseLisansYonetimi.exe
+          if-no-files-found: error
+          retention-days: 30
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build Android debug APK
+        working-directory: license-manager-app/android
+        run: gradle --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stagepulse-Lisans-Yonetimi-Android-APK
+          path: license-manager-app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
