@@ -2,7 +2,7 @@
 const CACHE_VERSION='stagepulse-v19';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
-const AUTHENTICATED_PATHS = ['/admin', '/portal'];
+const AUTHENTICATED_PATHS = ['/admin', '/portal', '/ses-merkezi-lisans'];
 
 function isAuthenticatedPath(pathname){return AUTHENTICATED_PATHS.some(path=>pathname===path||pathname.startsWith(`${path}/`));}
 function isOfflineShellAsset(request,url){
