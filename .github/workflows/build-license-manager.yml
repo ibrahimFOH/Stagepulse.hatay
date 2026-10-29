@@ -18,6 +18,9 @@ jobs:
           python-version: '3.11'
       - name: Install packaging tools
         run: python -m pip install --upgrade pip pywebview pyinstaller
+      - name: Check JavaScript syntax
+        run: node --check ..\assets\app.js
+        working-directory: license-manager-app/desktop
       - name: Build Windows EXE
         working-directory: license-manager-app/desktop
         run: pyinstaller --noconfirm --clean --onefile --windowed --name StagepulseLisansYonetimi --add-data "..\assets;assets" main.py
@@ -35,6 +38,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK platform and build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
