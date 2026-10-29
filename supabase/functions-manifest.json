@@ -7,6 +7,7 @@
     { "name": "admin-login", "verifyJwt": false },
     { "name": "admin-offer-runtime", "verifyJwt": false },
     { "name": "admin-password-reset", "verifyJwt": false },
+    { "name": "license-admin", "verifyJwt": false },
     { "name": "offer-pdf", "verifyJwt": false },
     { "name": "org-admin-control", "verifyJwt": false },
     { "name": "portal-login", "verifyJwt": false },
