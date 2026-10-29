@@ -18,7 +18,7 @@ async function isDistributedRateLimited(db: any, key: string, max = 10) {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const ALLOWED = new Set(["https://stagepulse.com.tr", "https://www.stagepulse.com.tr"]);
+const ALLOWED = new Set(["https://stagepulse.com.tr", "https://www.stagepulse.com.tr", "null"]);
 const encoder = new TextEncoder();
 
 function headers(req: Request) {
@@ -70,7 +70,7 @@ async function signToken(username: string, secret: string) {
   return `${input}.${b64url(sig)}`;
 }
 async function verifyToken(req: Request, username: string, secret: string) {
-  const raw = (req.headers.get("authorization") || "").replace(/^Bearer\\s+/i, "");
+  const raw = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   const parts = raw.split(".");
   if (parts.length !== 3) return false;
   try {
@@ -80,6 +80,12 @@ async function verifyToken(req: Request, username: string, secret: string) {
     const payload = JSON.parse(new TextDecoder().decode(fromB64url(parts[1])));
     return payload.role === "license_admin" && payload.sub === username && Number(payload.exp) > Math.floor(Date.now() / 1000);
   } catch { return false; }
+}
+async function hashPassword(password: string) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const material = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const derived = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 210000, hash: "SHA-256" }, material, 256));
+  return `pbkdf2-sha256$210000${b64url(salt)}${b64url(derived)}`;
 }
 async function verifyPassword(password: string, passwordHash: string) {
   const parts = passwordHash.split("$");
@@ -152,6 +158,20 @@ Deno.serve(async (req) => {
     const admin = await getAdminConfig(db);
     if (!admin || !admin.username || !admin.password_hash || !admin.token_secret) return reply(req, { error: "Lisans yöneticisi yapılandırılmamış." }, 503);
     if (!(await verifyToken(req, admin.username, admin.token_secret))) return reply(req, { error: "Lisans yöneticisi oturumu geçersiz veya süresi dolmuş." }, 401);
+
+    if (action === "change_password") {
+      const nextPassword = typeof body.new_password === "string" ? body.new_password : "";
+      if (nextPassword.length < 14 || nextPassword.length > 1024) {
+        return reply(req, { error: "Yeni şifre en az 14 karakter olmalıdır." }, 400);
+      }
+      const nextHash = await hashPassword(nextPassword);
+      const nextSecret = b64url(crypto.getRandomValues(new Uint8Array(48)));
+      const { error } = await db.from("stagepulse_license_admin_config").update({
+        password_hash: nextHash, token_secret: nextSecret, updated_at: new Date().toISOString(),
+      }).eq("singleton", true);
+      if (error) throw error;
+      return reply(req, { ok: true, token: await signToken(admin.username, nextSecret), expires_in: 1800 });
+    }
 
     if (action === "list") {
       const { data, error } = await db.from("stagepulse_licenses").select("id,license_prefix,customer_name,product_code,status,max_devices,activated_devices,expires_at,notes,created_at,updated_at,revoked_at").order("created_at", { ascending: false }).limit(500);
