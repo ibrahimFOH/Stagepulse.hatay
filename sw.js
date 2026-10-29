@@ -1,8 +1,8 @@
-/* Stagepulse Service Worker v19: offline admin bootstrap; third-party SDK is network-only */
-const CACHE_VERSION='stagepulse-v19';
+/* Stagepulse Service Worker v20: license admin app assets are network-first */
+const CACHE_VERSION='stagepulse-v20';
 const STATIC_CACHE=`static-${CACHE_VERSION}`;
 const MEDIA_CACHE=`media-${CACHE_VERSION}`;
-const AUTHENTICATED_PATHS = ['/admin', '/portal'];
+const AUTHENTICATED_PATHS = ['/admin', '/portal', '/ses-merkezi-lisans'];
 
 function isAuthenticatedPath(pathname){return AUTHENTICATED_PATHS.some(path=>pathname===path||pathname.startsWith(`${path}/`));}
 function isOfflineShellAsset(request,url){
