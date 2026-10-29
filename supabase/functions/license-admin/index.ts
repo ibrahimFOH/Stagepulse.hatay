@@ -63,7 +63,6 @@ async function verifyToken(req: Request) {
   } catch { return false; }
 }
 async function verifyPassword(password: string) {
-  // LICENSE_ADMIN_PASSWORD_HASH format: pbkdf2-sha256$iterations$saltBase64Url$hashBase64Url
   const parts = PASSWORD_HASH.split("$");
   if (parts.length !== 4 || parts[0] !== "pbkdf2-sha256") return false;
   const iterations = Number(parts[1]);
@@ -105,9 +104,7 @@ Deno.serve(async (req) => {
       if (await isDistributedRateLimited(db, `license-login:ip:${ip}`, 8)) return reply(req, { error: "Çok fazla giriş denemesi. Daha sonra tekrar deneyin." }, 429);
       const username = clean(body.username, 120);
       const password = typeof body.password === "string" ? body.password.slice(0, 1024) : "";
-      if (username !== ADMIN_USERNAME || !(await verifyPassword(password))) {
-        return reply(req, { error: "Kullanıcı adı veya şifre hatalı." }, 401);
-      }
+      if (username !== ADMIN_USERNAME || !(await verifyPassword(password))) return reply(req, { error: "Kullanıcı adı veya şifre hatalı." }, 401);
       return reply(req, { ok: true, token: await signToken(username), expires_in: 1800 });
     }
 
@@ -116,18 +113,18 @@ Deno.serve(async (req) => {
       const device = deviceId(body.device_id);
       if (!key || !device) return reply(req, { valid: false, error: "Lisans anahtarı ve cihaz kimliği gerekli." }, 400);
       if (await isDistributedRateLimited(db, `license-check:ip:${getClientIp(req)}`, 60)) return reply(req, { valid: false, error: "Çok fazla istek." }, 429);
-      const licenseHash = await hashKey(key);
-      const { data: license, error } = await db.from("stagepulse_licenses").select("id,status,max_devices,activated_devices,expires_at,product_code").eq("license_hash", licenseHash).maybeSingle();
+      const { data: license, error } = await db.from("stagepulse_licenses").select("id,status,max_devices,activated_devices,expires_at,product_code").eq("license_hash", await hashKey(key)).maybeSingle();
       if (error) throw error;
       if (!license || license.status !== "active" || (license.expires_at && Date.parse(license.expires_at) <= Date.now()) || license.product_code !== clean(body.product_code || "stagepulse", 80)) {
-        return reply(req, { valid: false, error: "Lisans geçersiz, iptal edilmiş veya süresi dolmuş." }, 200);
+        return reply(req, { valid: false, error: "Lisans geçersiz, iptal edilmiş veya süresi dolmuş." });
       }
       const devices = Array.isArray(license.activated_devices) ? license.activated_devices : [];
       const known = devices.some((entry: any) => entry && entry.id === device);
+      if (action === "validate" && !known) return reply(req, { valid: false, error: "Bu cihaz lisansa etkinleştirilmemiş." });
       if (action === "activate" && !known) {
-        if (devices.length >= Number(license.max_devices)) return reply(req, { valid: false, error: "Lisansın cihaz sınırı dolmuş." }, 200);
-        const { error: updateError } = await db.from("stagepulse_licenses").update({ activated_devices: [...devices, { id: device, activated_at: new Date().toISOString() }], updated_at: new Date().toISOString() }).eq("id", license.id).eq("status", "active");
-        if (updateError) throw updateError;
+        const { data: result, error: activationError } = await db.rpc("stagepulse_activate_license_device", { p_license_id: license.id, p_device_id: device });
+        if (activationError) throw activationError;
+        if (!result?.ok) return reply(req, { valid: false, error: result?.error || "Cihaz etkinleştirilemedi." });
       }
       return reply(req, { valid: true, product_code: license.product_code, expires_at: license.expires_at, activated: true });
     }
@@ -148,8 +145,12 @@ Deno.serve(async (req) => {
       if (!customer) return reply(req, { error: "Müşteri adı zorunludur." }, 400);
       if (!/^[a-z0-9._-]{2,80}$/.test(product)) return reply(req, { error: "Ürün kodu geçersiz." }, 400);
       if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 50) return reply(req, { error: "Cihaz sınırı 1 ile 50 arasında olmalıdır." }, 400);
-      const expiresAt = expiresRaw ? new Date(expiresRaw).toISOString() : null;
-      if (expiresAt && Date.parse(expiresAt) <= Date.now()) return reply(req, { error: "Bitiş tarihi gelecekte olmalıdır." }, 400);
+      let expiresAt: string | null = null;
+      if (expiresRaw) {
+        const parsed = Date.parse(expiresRaw);
+        if (!Number.isFinite(parsed) || parsed <= Date.now()) return reply(req, { error: "Bitiş tarihi gelecekte olmalıdır." }, 400);
+        expiresAt = new Date(parsed).toISOString();
+      }
       const key = randomKey();
       const { data, error } = await db.from("stagepulse_licenses").insert({
         license_hash: await hashKey(key), license_prefix: key.slice(0, 12), customer_name: customer,
