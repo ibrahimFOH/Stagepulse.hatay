@@ -1,6 +1,20 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getClientIp, isDistributedRateLimited } from "../_shared/security.ts";
+function getClientIp(req: Request) {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || req.headers.get("cf-connecting-ip")
+    || req.headers.get("x-real-ip")
+    || "unknown";
+}
+async function isDistributedRateLimited(db: any, key: string, max = 10) {
+  try {
+    const { data, error } = await db.rpc("check_login_rate_limit", { p_key: key, p_max: max });
+    if (error || typeof data !== "boolean") return true;
+    return data !== true;
+  } catch {
+    return true;
+  }
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
