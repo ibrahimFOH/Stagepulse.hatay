@@ -173,7 +173,13 @@ Panel özellikleri:
 
 Lisans anahtarları veritabanında düz metin değil SHA-256 özeti olarak tutulur; anahtar yalnızca oluşturulduğu yanıtta gösterilir.
 
-### 5. Canlı test kontrol listesi
+### 5. Masaüstü EXE ve Android APK
+
+- Windows masaüstü paketi: `desktop-license/` içinde Electron tabanlı, ayrı pencerede açılan uygulama. Uygulama lisans panelini güvenli HTTPS üzerinden açar; internet bağlantısı gerekir.
+- Android paketi: `android/license-app/` içinde bağımsız lisans yönetimi uygulaması. Mevcut Stagepulse personel/admin uygulamalarından ayrı paket kimliği kullanır ve lisans panelini açar.
+- PR doğrulama iş akışı `Stagepulse Lisans Uygulamaları`, Windows kurulum dosyasını ve debug APK'yı ayrı GitHub Actions artifact'ları olarak üretir. Artifacts 14 gün saklanır; bu dosyalar imzalı mağaza sürümü değildir.
+
+### 6. Canlı test kontrol listesi
 
 İlk yönetici yapılandırması SQL Editor'da çalıştırıldıktan sonra şu testleri tamamlayın:
 
