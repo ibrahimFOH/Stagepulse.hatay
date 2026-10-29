@@ -2,7 +2,7 @@
 
 Windows EXE ve Android APK kaynakları. Arayüz uygulama içine gömülüdür; lisans işlemleri merkezî `license-admin` API'sine bağlanır, bu nedenle internet gerekir.
 
-- Yönetici kullanıcı adı: `stagepulseadmin`
+- Canlı sunucuda yapılandırılmış yönetici kullanıcı adı: `stagepulse`
 - Yönetici parolası Supabase Auth hesabı değildir; özel kullanıcı adı/parola doğrulaması `license-admin` Edge Function üzerinde yapılır. Parola PBKDF2-SHA256 ile özetlenir ve uygulama paketine gömülmez.
 - Yönetici parolasını uygulamadaki **Yönetici şifresini değiştir** bölümünden değiştirebilirsin. Şifre boş olamaz ve 1024 karakteri aşamaz. Parola sunucuda PBKDF2-SHA256 ile hash'lenir.
 - Windows: `desktop/BUILD_WINDOWS.bat` çalıştır; EXE `desktop/dist/StagepulseLisansYonetimi.exe` konumuna çıkar.
