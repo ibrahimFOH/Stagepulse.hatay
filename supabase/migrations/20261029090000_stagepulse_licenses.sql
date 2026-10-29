@@ -25,6 +25,50 @@ alter table public.stagepulse_licenses enable row level security;
 revoke all on public.stagepulse_licenses from anon, authenticated;
 grant all on public.stagepulse_licenses to service_role;
 
+-- Serialize device activation to prevent concurrent requests exceeding max_devices.
+create or replace function public.stagepulse_activate_license_device(p_license_id uuid, p_device_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  lic public.stagepulse_licenses%rowtype;
+  devices jsonb;
+begin
+  if p_device_id is null or length(p_device_id) < 1 or length(p_device_id) > 160 then
+    return jsonb_build_object('ok', false, 'error', 'Cihaz kimliği geçersiz.');
+  end if;
+
+  select * into lic from public.stagepulse_licenses where id = p_license_id for update;
+  if not found or lic.status <> 'active' or (lic.expires_at is not null and lic.expires_at <= now()) then
+    return jsonb_build_object('ok', false, 'error', 'Lisans geçersiz veya süresi dolmuş.');
+  end if;
+
+  devices := coalesce(lic.activated_devices, '[]'::jsonb);
+  if exists (
+    select 1 from jsonb_array_elements(devices) d
+    where d->>'id' = p_device_id
+  ) then
+    return jsonb_build_object('ok', true, 'already_activated', true);
+  end if;
+
+  if jsonb_array_length(devices) >= lic.max_devices then
+    return jsonb_build_object('ok', false, 'error', 'Lisansın cihaz sınırı dolmuş.');
+  end if;
+
+  update public.stagepulse_licenses
+  set activated_devices = devices || jsonb_build_array(jsonb_build_object('id', p_device_id, 'activated_at', now())),
+      updated_at = now()
+  where id = lic.id;
+
+  return jsonb_build_object('ok', true, 'already_activated', false);
+end;
+$$;
+
+revoke all on function public.stagepulse_activate_license_device(uuid, text) from public, anon, authenticated;
+grant execute on function public.stagepulse_activate_license_device(uuid, text) to service_role;
+
 comment on table public.stagepulse_licenses is 'Stagepulse lisansları. Erişim yalnızca service-role kullanan lisans Edge Function üzerinden yapılır; istemci rolleri doğrudan erişemez.';
 
 commit;
