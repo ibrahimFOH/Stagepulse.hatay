@@ -40,7 +40,7 @@ jobs:
           java-version: '17'
       - name: Accept Android SDK licenses and install platform
         run: |
-          yes | sdkmanager --licenses >/dev/null
+          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
