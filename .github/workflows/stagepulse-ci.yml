@@ -110,7 +110,7 @@ jobs:
           gradle-version: '8.11.1'
       - name: Compile, test, lint and build debug variants
         working-directory: android
-        run: gradle :app:lintPersonelDebug :app:lintAdminDebug :app:testPersonelDebugUnitTest :app:testAdminDebugUnitTest :app:assemblePersonelDebug :app:assembleAdminDebug --no-daemon
+        run: gradle :app:lintPersonelDebug :app:lintAdminDebug :app:testPersonelDebugUnitTest :app:testAdminDebugUnitTest :app:assemblePersonelDebug :app:assembleAdminDebug :license-app:assembleDebug --no-daemon
 
   public_integrity:
     name: Public SEO / Navigation Integrity
