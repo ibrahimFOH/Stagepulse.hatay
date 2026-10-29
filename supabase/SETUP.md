@@ -105,65 +105,86 @@ Personel yetkileri `staff_profiles.permissions` içinde tutulur. Özellikle `acc
 
 ## Lisans yönetimi (bağımsız yönetici girişi)
 
-Lisans paneli `https://stagepulse.com.tr/lisans/` adresinde yayınlanır. Bu panelin kullanıcı adı/şifresi Supabase Auth kullanıcı hesabı değildir. Lisans servisi veritabanı olarak Supabase'i kullanır; istemciye service-role anahtarı verilmez.
+Lisans paneli `https://stagepulse.com.tr/lisans/` adresinde yayınlanır. Bu giriş Supabase Auth hesabı değildir. Lisans verileri Supabase'de tutulur; istemciye service-role anahtarı verilmez.
 
 ### 1. Veritabanı
 
-Supabase Dashboard → SQL Editor üzerinden şu dosyayı çalıştırın:
+Aşağıdaki migration dosyaları lisans tablosunu ve ayrı yönetici yapılandırma tablosunu oluşturur:
 
-`supabase/migrations/20261029090000_stagepulse_licenses.sql`
+- `supabase/migrations/20261029090000_stagepulse_licenses.sql`
+- `supabase/migrations/20261029170000_stagepulse_license_admin_config.sql`
 
-Lisans tablosu RLS ile korunur ve `anon` / `authenticated` rollerine doğrudan erişim verilmez.
+Lisans tablosu ve yönetici yapılandırması RLS ile korunur. `anon` ve `authenticated` rollerine doğrudan erişim verilmez. Yalnızca sunucu tarafındaki service-role erişebilir.
 
-### 2. Lisans yöneticisi sırları
+### 2. Ayrı yönetici hesabını ilk kez oluşturma
 
-Supabase Dashboard → Edge Functions → Secrets (veya CLI) içinde şu sırları tanımlayın:
+Yönetici adı `stagepulseadmin` olabilir. Gerçek parola veya oturum imza sırrı GitHub deposuna konulmamalıdır.
 
-- `LICENSE_ADMIN_USERNAME`: panel için ayrı kullanıcı adı; ör. `stagepulseadmin`
-- `LICENSE_ADMIN_PASSWORD_HASH`: aşağıdaki biçimde PBKDF2-SHA256 parola özeti
-- `LICENSE_ADMIN_TOKEN_SECRET`: en az 32 karakterlik rastgele gizli anahtar
-- Mevcut `SUPABASE_URL` ve `SUPABASE_SERVICE_ROLE_KEY` sırları
-
-Parola özeti üretmek için yerel bilgisayarda Python 3 ile:
+Bilgisayarda Python 3 çalıştırıp aşağıdaki kodu kullanın. Kod, parola sormak yerine parolayı güvenli biçimde sizden alır ve SQL Editor'a yapıştırılacak yapılandırma komutunu üretir:
 
 ```python
 import base64, hashlib, getpass, secrets
-password = getpass.getpass("Yeni lisans yöneticisi şifresi: ")
+
+username = "stagepulseadmin"
+password = getpass.getpass("Yeni lisans yöneticisi şifresi (en az 14 karakter): ")
 if len(password) < 14:
     raise SystemExit("Şifre en az 14 karakter olmalı.")
+
+enc = lambda b: base64.urlsafe_b64encode(b).decode().rstrip("=")
 salt = secrets.token_bytes(16)
 iterations = 310000
 digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations, dklen=32)
-enc = lambda b: base64.urlsafe_b64encode(b).decode().rstrip("=")
-print(f"pbkdf2-sha256${iterations}${enc(salt)}${enc(digest)}")
+password_hash = f"pbkdf2-sha256${iterations}${enc(salt)}${enc(digest)}"
+token_secret = secrets.token_urlsafe(48)
+
+print("\nSupabase Dashboard > SQL Editor içinde çalıştırılacak SQL:\n")
+print(
+    "insert into public.stagepulse_license_admin_config "
+    "(singleton, username, password_hash, token_secret, updated_at) values "
+    f"(true, '{username}', '{password_hash}', '{token_secret}', now()) "
+    "on conflict (singleton) do update set username = excluded.username, "
+    "password_hash = excluded.password_hash, token_secret = excluded.token_secret, "
+    "updated_at = now();"
+)
 ```
 
-Çıktıyı yalnızca `LICENSE_ADMIN_PASSWORD_HASH` secret alanına girin. Gerçek şifreyi kaynak koda, GitHub'a veya HTML dosyasına yazmayın. `LICENSE_ADMIN_TOKEN_SECRET` için en az 32 rastgele karakter kullanın; parola ile aynı olmasın.
+Üretilen SQL'i Supabase Dashboard → SQL Editor içinde çalıştırın. Parola düz metin olarak veritabanına kaydedilmez; yalnızca PBKDF2-SHA256 özeti tutulur. SQL çıktısını veya parolanızı GitHub'a eklemeyin. Parolayı güvenli bir parola yöneticisinde saklayın.
 
-### 3. Deploy
+### 3. Edge Function
+
+`license-admin` Edge Function canlı projeye dağıtılmıştır. `verify_jwt=false` ayarı kullanılır; çünkü yönetici girişi fonksiyon içinde bağımsız HMAC imzalı oturumla doğrulanır. Fonksiyon, yönetici yapılandırmasını yalnızca service-role erişimli tablodan okur. Yönetici oturumu 30 dakika geçerlidir.
+
+Kod değişikliklerinden sonra yeniden dağıtmak için:
 
 ```bash
 supabase link --project-ref mtjcqqrogjqaxkagwkti
-supabase db push
 supabase functions deploy license-admin --no-verify-jwt
 ```
 
-Bu fonksiyon Supabase Auth ile yönetici girişi yapmaz. Kullanıcı adı/şifre doğrulamasından sonra 30 dakikalık HMAC imzalı yönetici oturumu verir. Giriş denemeleri IP başına sınırlandırılır. Lisans anahtarları veritabanında düz metin değil SHA-256 özeti olarak saklanır ve anahtar yalnızca oluşturulduğu yanıtta gösterilir.
-
 ### 4. Lisans paneli
 
-`lisans/index.html` statik panelidir. GitHub Pages/Cloudflare dağıtımı tamamlandıktan sonra `https://stagepulse.com.tr/lisans/` adresini açın.
+`lisans/index.html` statik panelidir. GitHub Pages/Cloudflare dağıtımı tamamlandıktan sonra `https://stagepulse.com.tr/lisans/` adresinden açılır.
 
-Panelde:
-- ayrı yönetici kullanıcı adı/şifresiyle giriş,
-- lisans oluşturma,
-- ürün kodu, cihaz limiti, son kullanma tarihi ve not,
-- lisansları listeleme,
-- lisansı iptal etme.
+Panel özellikleri:
+- Supabase Auth'tan bağımsız kullanıcı adı/şifreyle giriş,
+- lisans oluşturma, listeleme ve iptal,
+- ürün kodu, cihaz sınırı ve isteğe bağlı bitiş tarihi,
+- cihaz etkinleştirme/doğrulama API'si.
 
-### 5. Önemli yayın kontrolü
+Lisans anahtarları veritabanında düz metin değil SHA-256 özeti olarak tutulur; anahtar yalnızca oluşturulduğu yanıtta gösterilir.
 
-Kodun GitHub'a yazılması, Supabase migration'ının veya Edge Function'ın canlıya dağıtıldığı anlamına gelmez. Canlıya geçmeden önce SQL migration'ını ve function deploy işlemini çalıştırın; ardından geçerli/geçersiz giriş, lisans oluşturma, cihaz sınırı, iptal ve süresi dolmuş lisans testlerini yapın. Bu testler geçmeden sistemi üretimde hazır kabul etmeyin.
+### 5. Canlı test kontrol listesi
+
+İlk yönetici yapılandırması SQL Editor'da çalıştırıldıktan sonra şu testleri tamamlayın:
+
+1. Doğru kullanıcı adı/şifre ile giriş ve hatalı parola denemesi.
+2. Lisans oluşturma ve oluşturulan anahtarla ilk cihazı etkinleştirme.
+3. Aynı cihazda tekrar etkinleştirme ve cihaz sınırını aşma denemesi.
+4. Lisansı iptal edip yeniden doğrulamayı deneme.
+5. Süresi dolmuş lisans ve farklı ürün kodu denemesi.
+6. Mobil tarayıcıdan panel görünümü.
+
+Bu testler ve EXE/APK istemci entegrasyonu tamamlanmadan bütün lisans sistemi üretimde hazır kabul edilmemelidir.
 
 ## Mevcut admin ve personel girişleri
 
