@@ -18,9 +18,6 @@ async function isDistributedRateLimited(db: any, key: string, max = 10) {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const ADMIN_USERNAME = Deno.env.get("LICENSE_ADMIN_USERNAME") || "";
-const PASSWORD_HASH = Deno.env.get("LICENSE_ADMIN_PASSWORD_HASH") || "";
-const TOKEN_SECRET = Deno.env.get("LICENSE_ADMIN_TOKEN_SECRET") || "";
 const ALLOWED = new Set(["https://stagepulse.com.tr", "https://www.stagepulse.com.tr"]);
 const encoder = new TextEncoder();
 
@@ -52,32 +49,40 @@ function fromB64url(value: string) {
   const binary = atob(base + "=".repeat((4 - base.length % 4) % 4));
   return Uint8Array.from(binary, c => c.charCodeAt(0));
 }
-async function hmacKey() {
-  if (TOKEN_SECRET.length < 32) throw new Error("LICENSE_ADMIN_TOKEN_SECRET must be at least 32 characters");
-  return crypto.subtle.importKey("raw", encoder.encode(TOKEN_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+async function getAdminConfig(db: any) {
+  const { data, error } = await db.from("stagepulse_license_admin_config")
+    .select("username,password_hash,token_secret")
+    .eq("singleton", true)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
-async function signToken(username: string) {
+async function hmacKey(secret: string) {
+  if (secret.length < 32) throw new Error("Lisans oturum sırrı yapılandırılmamış.");
+  return crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+}
+async function signToken(username: string, secret: string) {
   const now = Math.floor(Date.now() / 1000);
   const head = b64url(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
   const body = b64url(encoder.encode(JSON.stringify({ sub: username, role: "license_admin", iat: now, exp: now + 1800 })));
   const input = `${head}.${body}`;
-  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", await hmacKey(), encoder.encode(input)));
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", await hmacKey(secret), encoder.encode(input)));
   return `${input}.${b64url(sig)}`;
 }
-async function verifyToken(req: Request) {
-  const raw = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+async function verifyToken(req: Request, username: string, secret: string) {
+  const raw = (req.headers.get("authorization") || "").replace(/^Bearer\\s+/i, "");
   const parts = raw.split(".");
   if (parts.length !== 3) return false;
   try {
     const input = `${parts[0]}.${parts[1]}`;
-    const valid = await crypto.subtle.verify("HMAC", await hmacKey(), fromB64url(parts[2]), encoder.encode(input));
+    const valid = await crypto.subtle.verify("HMAC", await hmacKey(secret), fromB64url(parts[2]), encoder.encode(input));
     if (!valid) return false;
     const payload = JSON.parse(new TextDecoder().decode(fromB64url(parts[1])));
-    return payload.role === "license_admin" && payload.sub === ADMIN_USERNAME && Number(payload.exp) > Math.floor(Date.now() / 1000);
+    return payload.role === "license_admin" && payload.sub === username && Number(payload.exp) > Math.floor(Date.now() / 1000);
   } catch { return false; }
 }
-async function verifyPassword(password: string) {
-  const parts = PASSWORD_HASH.split("$");
+async function verifyPassword(password: string, passwordHash: string) {
+  const parts = passwordHash.split("$");
   if (parts.length !== 4 || parts[0] !== "pbkdf2-sha256") return false;
   const iterations = Number(parts[1]);
   if (!Number.isInteger(iterations) || iterations < 100000 || iterations > 1000000) return false;
@@ -113,13 +118,14 @@ Deno.serve(async (req) => {
 
   try {
     if (action === "login") {
-      if (!ADMIN_USERNAME || !PASSWORD_HASH || TOKEN_SECRET.length < 32) return reply(req, { error: "Lisans yöneticisi henüz güvenli biçimde yapılandırılmamış." }, 503);
+      const admin = await getAdminConfig(db);
+      if (!admin || !admin.username || !admin.password_hash || !admin.token_secret) return reply(req, { error: "Lisans yöneticisi yapılandırılmamış." }, 503);
       const ip = getClientIp(req);
       if (await isDistributedRateLimited(db, `license-login:ip:${ip}`, 8)) return reply(req, { error: "Çok fazla giriş denemesi. Daha sonra tekrar deneyin." }, 429);
       const username = clean(body.username, 120);
       const password = typeof body.password === "string" ? body.password.slice(0, 1024) : "";
-      if (username !== ADMIN_USERNAME || !(await verifyPassword(password))) return reply(req, { error: "Kullanıcı adı veya şifre hatalı." }, 401);
-      return reply(req, { ok: true, token: await signToken(username), expires_in: 1800 });
+      if (username !== admin.username || !(await verifyPassword(password, admin.password_hash))) return reply(req, { error: "Kullanıcı adı veya şifre hatalı." }, 401);
+      return reply(req, { ok: true, token: await signToken(username, admin.token_secret), expires_in: 1800 });
     }
 
     if (action === "activate" || action === "validate") {
@@ -143,7 +149,9 @@ Deno.serve(async (req) => {
       return reply(req, { valid: true, product_code: license.product_code, expires_at: license.expires_at, activated: true });
     }
 
-    if (!(await verifyToken(req))) return reply(req, { error: "Lisans yöneticisi oturumu geçersiz veya süresi dolmuş." }, 401);
+    const admin = await getAdminConfig(db);
+    if (!admin || !admin.username || !admin.password_hash || !admin.token_secret) return reply(req, { error: "Lisans yöneticisi yapılandırılmamış." }, 503);
+    if (!(await verifyToken(req, admin.username, admin.token_secret))) return reply(req, { error: "Lisans yöneticisi oturumu geçersiz veya süresi dolmuş." }, 401);
 
     if (action === "list") {
       const { data, error } = await db.from("stagepulse_licenses").select("id,license_prefix,customer_name,product_code,status,max_devices,activated_devices,expires_at,notes,created_at,updated_at,revoked_at").order("created_at", { ascending: false }).limit(500);
