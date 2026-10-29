@@ -17,14 +17,11 @@ async function isDistributedRateLimited(db: any, key: string, max = 10) {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const ALLOWED = new Set(["https://stagepulse.com.tr", "https://www.stagepulse.com.tr", "null"]);
 const encoder = new TextEncoder();
 
 function headers(req: Request) {
-  const origin = req.headers.get("origin") || "";
   return {
-    "Access-Control-Allow-Origin": ALLOWED.has(origin) ? origin : "https://stagepulse.com.tr",
-    "Vary": "Origin",
+    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json; charset=utf-8",
@@ -50,7 +47,7 @@ function fromB64url(value: string) {
 }
 async function getAdminConfig(db: any) {
   const { data, error } = await db.from("stagepulse_license_admin_config")
-    .select("username,password_hash,token_secret")
+    .select("username,password_hash,token_secret,temporary_username,temporary_password_hash,temporary_expires_at")
     .eq("singleton", true)
     .maybeSingle();
   if (error) throw error;
@@ -60,10 +57,10 @@ async function hmacKey(secret: string) {
   if (secret.length < 32) throw new Error("Lisans oturum sırrı yapılandırılmamış.");
   return crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
-async function signToken(username: string, secret: string) {
+async function signToken(username: string, secret: string, ttlSeconds = 1800) {
   const now = Math.floor(Date.now() / 1000);
   const head = b64url(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
-  const body = b64url(encoder.encode(JSON.stringify({ sub: username, role: "license_admin", iat: now, exp: now + 1800 })));
+  const body = b64url(encoder.encode(JSON.stringify({ sub: username, role: "license_admin", iat: now, exp: now + ttlSeconds })));
   const input = `${head}.${body}`;
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", await hmacKey(secret), encoder.encode(input)));
   return `${input}.${b64url(sig)}`;
@@ -129,7 +126,21 @@ Deno.serve(async (req) => {
       if (await isDistributedRateLimited(db, `license-login:ip:${ip}`, 8)) return reply(req, { error: "Çok fazla giriş denemesi. Daha sonra tekrar deneyin." }, 429);
       const username = clean(body.username, 120);
       const password = typeof body.password === "string" ? body.password.slice(0, 1024) : "";
-      if (username !== admin.username || !(await verifyPassword(password, admin.password_hash))) return reply(req, { error: "Kullanıcı adı veya şifre hatalı." }, 401);
+      const permanentMatch = username === admin.username && await verifyPassword(password, admin.password_hash);
+      const temporaryExpiry = admin.temporary_expires_at ? Date.parse(admin.temporary_expires_at) : 0;
+      const temporaryMatch = username === admin.temporary_username
+        && Number.isFinite(temporaryExpiry) && temporaryExpiry > Date.now()
+        && !!admin.temporary_password_hash
+        && await verifyPassword(password, admin.temporary_password_hash);
+      if (!permanentMatch && !temporaryMatch) return reply(req, { error: "Kullanıcı adı veya şifre hatalı ya da geçici erişimin süresi dolmuş." }, 401);
+      if (temporaryMatch) {
+        const ttl = Math.max(1, Math.min(300, Math.floor((temporaryExpiry - Date.now()) / 1000)));
+        const { error: clearError } = await db.from("stagepulse_license_admin_config").update({
+          temporary_username: null, temporary_password_hash: null, temporary_expires_at: null,
+        }).eq("singleton", true);
+        if (clearError) throw clearError;
+        return reply(req, { ok: true, token: await signToken(admin.username, admin.token_secret, ttl), expires_in: ttl });
+      }
       return reply(req, { ok: true, token: await signToken(username, admin.token_secret), expires_in: 1800 });
     }
 
@@ -166,7 +177,9 @@ Deno.serve(async (req) => {
       const nextHash = await hashPassword(nextPassword);
       const nextSecret = b64url(crypto.getRandomValues(new Uint8Array(48)));
       const { error } = await db.from("stagepulse_license_admin_config").update({
-        password_hash: nextHash, token_secret: nextSecret, updated_at: new Date().toISOString(),
+        password_hash: nextHash, token_secret: nextSecret,
+        temporary_username: null, temporary_password_hash: null, temporary_expires_at: null,
+        updated_at: new Date().toISOString(),
       }).eq("singleton", true);
       if (error) throw error;
       return reply(req, { ok: true, token: await signToken(admin.username, nextSecret), expires_in: 1800 });
