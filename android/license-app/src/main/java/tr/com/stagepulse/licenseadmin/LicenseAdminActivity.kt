@@ -36,7 +36,7 @@ class LicenseAdminActivity : Activity() {
                     val uri = request.url
                     return !(uri.scheme == "https" &&
                         uri.host.equals("stagepulse.com.tr", ignoreCase = true) &&
-                        (uri.path == "/lisans" || uri.path == "/lisans/" || uri.path.startsWith("/lisans/")))
+                        (uri.path == "/lisans" || uri.path == "/lisans/" || (uri.path?.startsWith("/lisans/") == true)))
                 }
                 override fun onPageFinished(view: WebView, url: String) {
                     super.onPageFinished(view, url)
