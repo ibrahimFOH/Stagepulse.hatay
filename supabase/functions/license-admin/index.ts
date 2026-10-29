@@ -171,8 +171,8 @@ Deno.serve(async (req) => {
 
     if (action === "change_password") {
       const nextPassword = typeof body.new_password === "string" ? body.new_password : "";
-      if (nextPassword.length < 14 || nextPassword.length > 1024) {
-        return reply(req, { error: "Yeni şifre en az 14 karakter olmalıdır." }, 400);
+      if (nextPassword.length < 1 || nextPassword.length > 1024) {
+        return reply(req, { error: "Şifre boş bırakılamaz ve 1024 karakteri aşamaz." }, 400);
       }
       const nextHash = await hashPassword(nextPassword);
       const nextSecret = b64url(crypto.getRandomValues(new Uint8Array(48)));
