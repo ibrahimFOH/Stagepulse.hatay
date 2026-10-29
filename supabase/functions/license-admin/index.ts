@@ -85,7 +85,7 @@ async function hashPassword(password: string) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const material = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
   const derived = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 210000, hash: "SHA-256" }, material, 256));
-  return `pbkdf2-sha256$210000${b64url(salt)}${b64url(derived)}`;
+  return `pbkdf2-sha256$210000$${b64url(salt)}$${b64url(derived)}`;
 }
 async function verifyPassword(password: string, passwordHash: string) {
   const parts = passwordHash.split("$");
