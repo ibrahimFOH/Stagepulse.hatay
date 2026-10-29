@@ -111,8 +111,8 @@ Lisans paneli `https://stagepulse.com.tr/lisans/` adresinde yayınlanır. Bu gir
 
 Aşağıdaki migration dosyaları lisans tablosunu ve ayrı yönetici yapılandırma tablosunu oluşturur:
 
-- `supabase/migrations/20261029090000_stagepulse_licenses.sql`
-- `supabase/migrations/20261029170000_stagepulse_license_admin_config.sql`
+- `supabase/migrations/20261029164810_stagepulse_independent_license_management.sql`
+- `supabase/migrations/20261029164909_stagepulse_license_admin_config.sql`
 
 Lisans tablosu ve yönetici yapılandırması RLS ile korunur. `anon` ve `authenticated` rollerine doğrudan erişim verilmez. Yalnızca sunucu tarafındaki service-role erişebilir.
 
