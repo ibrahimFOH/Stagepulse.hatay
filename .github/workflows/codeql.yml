@@ -105,7 +105,7 @@ jobs:
       run: |
         set -euo pipefail
         if [ "${{ matrix.language }}" = "java-kotlin" ]; then
-          gradle -p android :app:lintPersonelDebug :app:lintAdminDebug :app:testPersonelDebugUnitTest :app:testAdminDebugUnitTest :app:assemblePersonelDebug :app:assembleAdminDebug --no-daemon
+          gradle -p android :app:lintPersonelDebug :app:lintAdminDebug :app:testPersonelDebugUnitTest :app:testAdminDebugUnitTest :app:assemblePersonelDebug :app:assembleAdminDebug :license-app:assembleDebug --no-daemon
         else
           echo 'Manual build mode is configured only for java-kotlin; other languages must use their supported build mode.'
           exit 1

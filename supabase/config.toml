@@ -1,5 +1,5 @@
 # Stagepulse Supabase config
-# Edge Function JWT doğrulaması kapalı — auth fonksiyon içinde yapılıyor
+# JWT doğrulaması kapalı olan fonksiyonlar kendi oturum/yetki kontrolünü yapar.
 
 [functions.staff-manage]
 verify_jwt = false
@@ -11,4 +11,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.admin-password-reset]
+verify_jwt = false
+
+[functions.license-admin]
 verify_jwt = false

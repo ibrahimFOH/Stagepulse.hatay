@@ -1,0 +1,17 @@
+{
+  "name": "stagepulse-license-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stagepulse bağımsız lisans yönetimi masaüstü uygulaması",
+  "main": "main.cjs",
+  "scripts": { "start": "electron .", "dist:win": "electron-builder --win nsis" },
+  "devDependencies": { "electron": "36.5.0", "electron-builder": "26.0.12" },
+  "build": {
+    "appId": "tr.com.stagepulse.licenseadmin",
+    "productName": "Stagepulse Lisans Yönetimi",
+    "directories": { "output": "dist" },
+    "files": ["main.cjs", "package.json"],
+    "win": { "target": [{"target":"nsis","arch":["x64"]}], "artifactName": "Stagepulse-Lisans-Yonetimi-Setup-${version}.${ext}" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true, "shortcutName": "Stagepulse Lisans Yönetimi" }
+  }
+}

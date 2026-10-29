@@ -100,3 +100,98 @@ Kurulum sırası:
 `finance-settlements.sql` içindeki `revenue_owner_type` ve `owner_pct` ile işin finans modeli belirlenir. `owner` = doğrudan admin hanesi ve %100; `shared` = ortak iş, gider önce toplam cirodan düşer ve kalan net `owner_pct` oranında paylaşılır (varsayılan %33); `partner` = admin hanesine yazılmaz ve gider uygulanmaz. FOH, Rider ve 3D hazırlama gibi doğrudan sana ait işlerde `owner` kullanılır; ortak kiralama gibi işlerde `shared` kullanılır.
 
 Personel yetkileri `staff_profiles.permissions` içinde tutulur. Özellikle `accept_job`, `reject_job` ve `update_job_status` operasyon yetkileridir; `finance`, `pricing` ve `financials` mali/hassas yetkilerdir ve varsayılan olarak kapalıdır.
+
+---
+
+## Lisans yönetimi (bağımsız yönetici girişi)
+
+Lisans paneli `https://stagepulse.com.tr/lisans/` adresinde yayınlanır. Bu giriş Supabase Auth hesabı değildir. Lisans verileri Supabase'de tutulur; istemciye service-role anahtarı verilmez.
+
+### 1. Veritabanı
+
+Aşağıdaki migration dosyaları lisans tablosunu ve ayrı yönetici yapılandırma tablosunu oluşturur:
+
+- `supabase/migrations/20261029164810_stagepulse_independent_license_management.sql`
+- `supabase/migrations/20261029164909_stagepulse_license_admin_config.sql`
+
+Lisans tablosu ve yönetici yapılandırması RLS ile korunur. `anon` ve `authenticated` rollerine doğrudan erişim verilmez. Yalnızca sunucu tarafındaki service-role erişebilir.
+
+### 2. Ayrı yönetici hesabını ilk kez oluşturma
+
+Yönetici adı `stagepulseadmin` olabilir. Gerçek parola veya oturum imza sırrı GitHub deposuna konulmamalıdır.
+
+Bilgisayarda Python 3 çalıştırıp aşağıdaki kodu kullanın. Kod, parola sormak yerine parolayı güvenli biçimde sizden alır ve SQL Editor'a yapıştırılacak yapılandırma komutunu üretir:
+
+```python
+import base64, hashlib, getpass, secrets
+
+username = "stagepulseadmin"
+password = getpass.getpass("Yeni lisans yöneticisi şifresi (en az 14 karakter): ")
+if len(password) < 14:
+    raise SystemExit("Şifre en az 14 karakter olmalı.")
+
+enc = lambda b: base64.urlsafe_b64encode(b).decode().rstrip("=")
+salt = secrets.token_bytes(16)
+iterations = 310000
+digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations, dklen=32)
+password_hash = f"pbkdf2-sha256${iterations}${enc(salt)}${enc(digest)}"
+token_secret = secrets.token_urlsafe(48)
+
+print("\nSupabase Dashboard > SQL Editor içinde çalıştırılacak SQL:\n")
+print(
+    "insert into public.stagepulse_license_admin_config "
+    "(singleton, username, password_hash, token_secret, updated_at) values "
+    f"(true, '{username}', '{password_hash}', '{token_secret}', now()) "
+    "on conflict (singleton) do update set username = excluded.username, "
+    "password_hash = excluded.password_hash, token_secret = excluded.token_secret, "
+    "updated_at = now();"
+)
+```
+
+Üretilen SQL'i Supabase Dashboard → SQL Editor içinde çalıştırın. Parola düz metin olarak veritabanına kaydedilmez; yalnızca PBKDF2-SHA256 özeti tutulur. SQL çıktısını veya parolanızı GitHub'a eklemeyin. Parolayı güvenli bir parola yöneticisinde saklayın.
+
+### 3. Edge Function
+
+`license-admin` Edge Function canlı projeye dağıtılmıştır. `verify_jwt=false` ayarı kullanılır; çünkü yönetici girişi fonksiyon içinde bağımsız HMAC imzalı oturumla doğrulanır. Fonksiyon, yönetici yapılandırmasını yalnızca service-role erişimli tablodan okur. Yönetici oturumu 30 dakika geçerlidir.
+
+Kod değişikliklerinden sonra yeniden dağıtmak için:
+
+```bash
+supabase link --project-ref mtjcqqrogjqaxkagwkti
+supabase functions deploy license-admin --no-verify-jwt
+```
+
+### 4. Lisans paneli
+
+`lisans/index.html` statik panelidir. GitHub Pages/Cloudflare dağıtımı tamamlandıktan sonra `https://stagepulse.com.tr/lisans/` adresinden açılır.
+
+Panel özellikleri:
+- Supabase Auth'tan bağımsız kullanıcı adı/şifreyle giriş,
+- lisans oluşturma, listeleme ve iptal,
+- ürün kodu, cihaz sınırı ve isteğe bağlı bitiş tarihi,
+- cihaz etkinleştirme/doğrulama API'si.
+
+Lisans anahtarları veritabanında düz metin değil SHA-256 özeti olarak tutulur; anahtar yalnızca oluşturulduğu yanıtta gösterilir.
+
+### 5. Masaüstü EXE ve Android APK
+
+- Windows masaüstü paketi: `desktop-license/` içinde Electron tabanlı, ayrı pencerede açılan uygulama. Uygulama lisans panelini güvenli HTTPS üzerinden açar; internet bağlantısı gerekir.
+- Android paketi: `android/license-app/` içinde bağımsız lisans yönetimi uygulaması. Mevcut Stagepulse personel/admin uygulamalarından ayrı paket kimliği kullanır ve lisans panelini açar.
+- PR doğrulama iş akışı `Stagepulse Lisans Uygulamaları`, Windows kurulum dosyasını ve debug APK'yı ayrı GitHub Actions artifact'ları olarak üretir. Artifacts 14 gün saklanır; bu dosyalar imzalı mağaza sürümü değildir.
+
+### 6. Canlı test kontrol listesi
+
+İlk yönetici yapılandırması SQL Editor'da çalıştırıldıktan sonra şu testleri tamamlayın:
+
+1. Doğru kullanıcı adı/şifre ile giriş ve hatalı parola denemesi.
+2. Lisans oluşturma ve oluşturulan anahtarla ilk cihazı etkinleştirme.
+3. Aynı cihazda tekrar etkinleştirme ve cihaz sınırını aşma denemesi.
+4. Lisansı iptal edip yeniden doğrulamayı deneme.
+5. Süresi dolmuş lisans ve farklı ürün kodu denemesi.
+6. Mobil tarayıcıdan panel görünümü.
+
+Bu testler ve EXE/APK istemci entegrasyonu tamamlanmadan bütün lisans sistemi üretimde hazır kabul edilmemelidir.
+
+## Mevcut admin ve personel girişleri
+
+Mevcut Stagepulse admin/personel giriş akışları değişmeden kalır. Bu lisans yöneticisi ayrı bir giriş alanıdır ve mevcut Supabase Auth hesaplarının şifresini değiştirmez.
