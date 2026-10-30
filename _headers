@@ -19,3 +19,9 @@
 
 /media.json
   Cache-Control: no-cache, no-store, must-revalidate
+
+/downloads/ses-merkezi/latest.json
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+

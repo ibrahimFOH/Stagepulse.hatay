@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   attest:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.published_at != '' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'v')) || (github.event_name == 'release' && github.event.release.published_at != '' && startsWith(github.event.release.tag_name, 'v')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
