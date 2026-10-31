@@ -1,6 +1,6 @@
 /* Stagepulse Admin — tam erişim, operasyon + gelir-gider */
-const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
+const SUPABASE_URL = 'https://itasctyjzyewcykozuex.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_tP3CMhVAjv6FNtrkYfVEOA_dbF9m8Jb';
 const EDGE_LOGIN = `${SUPABASE_URL}/functions/v1/admin-login`;
 const EDGE_ACCOUNT = `${SUPABASE_URL}/functions/v1/admin-password-reset`;
 const EDGE_ORG_ADMIN = `${SUPABASE_URL}/functions/v1/org-admin-control`;
