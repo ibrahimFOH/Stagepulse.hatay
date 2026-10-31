@@ -17,8 +17,8 @@ const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xrpzeegb';
 const TURNSTILE_SITE_KEY = '0x4AAAAAAENv1kw4YHXe-Gih';
 
 /* ===== Supabase ===== */
-const SUPABASE_URL = 'https://mtjcqqrogjqaxkagwkti.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6';
+const SUPABASE_URL = 'https://itasctyjzyewcykozuex.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_tP3CMhVAjv6FNtrkYfVEOA_dbF9m8Jb';
 
 let supabase = null;
 
