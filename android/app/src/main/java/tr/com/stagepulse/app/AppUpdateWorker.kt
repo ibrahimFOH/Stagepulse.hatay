@@ -29,7 +29,7 @@ class AppUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutine
         private const val CHANNEL_ID = "stagepulse_updates"
         private const val NOTIFIED_VERSION = "apk_notified_version"
         private const val MANIFEST = "https://raw.githubusercontent.com/ibrahimFOH/Stagepulse.hatay/main/latest.json"
-        private const val SUPABASE_MANIFEST = "https://mtjcqqrogjqaxkagwkti.supabase.co/rest/v1/app_versions?platform=eq.%s&select=platform,web_version,apk_version,minimum_version,apk_url,apk_sha256,notes&limit=1"
+        private const val SUPABASE_MANIFEST = "https://itasctyjzyewcykozuex.supabase.co/rest/v1/app_versions?platform=eq.%s&select=platform,web_version,apk_version,minimum_version,apk_url,apk_sha256,notes&limit=1"
         private val SHA256 = Regex("^[0-9a-f]{64}$")
 
         fun schedule(context: Context) {
