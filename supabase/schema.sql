@@ -311,11 +311,24 @@ begin
  if margin_pct is not null and margin_pct>0 then new.estimated_cost:=round(price/(1+(margin_pct/100)),2); else new.estimated_cost:=coalesce(svc.base_cost,0); end if;
  new.total:=new.estimated_price;
  new.margin:=new.total-new.estimated_cost;
- insert into public.notifications(kind,title,body,offer_id) values('new_quote','Yeni teklif talebi',coalesce(new.quote_number,'Yeni teklif')||' - '||coalesce(new.name,''),new.id);
  return new;
 end $$;
 drop trigger if exists trg_quote_insert_enrich on public.teklifler;
 create trigger trg_quote_insert_enrich before insert on public.teklifler for each row execute function public.on_quote_insert_enrich();
+
+-- Notification is inserted AFTER the quote row exists, preserving its foreign key.
+create or replace function public.notify_new_quote()
+returns trigger language plpgsql security definer set search_path='' as $
+begin
+ insert into public.notifications(kind,title,body,offer_id)
+ values('new_quote','Yeni teklif talebi',coalesce(new.quote_number,'Yeni teklif')||' - '||coalesce(new.name,''),new.id);
+ return new;
+end;
+$;
+revoke all on function public.notify_new_quote() from public,anon,authenticated;
+drop trigger if exists trg_notify_new_quote on public.teklifler;
+create trigger trg_notify_new_quote after insert on public.teklifler
+for each row execute function public.notify_new_quote();
 
 insert into public.price_rules(name,rule_type,value,notes) values('Kişi başı ek ücret','per_person',0,'İstersen kişi sayısına göre ek ücret belirle') on conflict(name) do nothing;
 
