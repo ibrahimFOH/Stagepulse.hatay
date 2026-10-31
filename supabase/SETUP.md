@@ -24,7 +24,7 @@ values ('AUTH-USER-UUID', 'stagepulseadmin', 'Stagepulse Admin');
 Fonksiyonlar `supabase/functions/` altında hazır.
 
 ```bash
-supabase link --project-ref mtjcqqrogjqaxkagwkti
+supabase link --project-ref itasctyjzyewcykozuex
 
 supabase functions deploy staff-login
 supabase functions deploy staff-manage
@@ -157,7 +157,7 @@ print(
 Kod değişikliklerinden sonra yeniden dağıtmak için:
 
 ```bash
-supabase link --project-ref mtjcqqrogjqaxkagwkti
+supabase link --project-ref itasctyjzyewcykozuex
 supabase functions deploy license-admin --no-verify-jwt
 ```
 
