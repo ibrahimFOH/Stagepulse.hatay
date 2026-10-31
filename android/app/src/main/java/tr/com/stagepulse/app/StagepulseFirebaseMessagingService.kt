@@ -36,7 +36,7 @@ class StagepulseFirebaseMessagingService : FirebaseMessagingService() {
             try {
                 val variant = BuildConfig.APP_VARIANT
                 val body = "{\"token\":\"${token.replace("\\", "\\\\").replace("\"", "\\\"")}\",\"app_variant\":\"$variant\"}"
-                val conn = (URL("https://mtjcqqrogjqaxkagwkti.supabase.co/functions/v1/register-android-device").openConnection() as HttpURLConnection).apply {
+                val conn = (URL("https://itasctyjzyewcykozuex.supabase.co/functions/v1/register-android-device").openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     doOutput = true
                     setRequestProperty("Authorization", "Bearer $accessToken")
