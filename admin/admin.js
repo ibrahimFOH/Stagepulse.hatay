@@ -158,6 +158,7 @@ function bindShell() {
     location.reload();
   });
   document.getElementById('loginForm')?.addEventListener('submit', login);
+  document.getElementById('forgotPasswordBtn')?.addEventListener('click', sendPasswordRecovery);
 }
 
 async function init() {
@@ -237,6 +238,34 @@ async function guard(session) {
     $('#loginError').textContent = error.message || 'Bu hesap admin yetkisine sahip değil.';
   }
 }
+async function sendPasswordRecovery() {
+  const button = $('#forgotPasswordBtn');
+  const message = $('#loginError');
+  const email = ($('#loginUsername')?.value || '').trim().toLowerCase();
+  message.textContent = '';
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    message.textContent = 'Şifre sıfırlamak için kullanıcı adı alanına yönetici e-posta adresini yazın.';
+    $('#loginUsername')?.focus();
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'E-posta gönderiliyor…';
+  try {
+    const redirectTo = new URL('/admin/', window.location.origin).toString();
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+    message.textContent = 'Şifre sıfırlama bağlantısı gönderildi. Gelen kutusu ve gereksiz e-posta klasörünü kontrol edin; en son gelen bağlantıyı bir kez açın.';
+  } catch (error) {
+    console.error('Admin password recovery:', error);
+    message.textContent = error?.message || 'Şifre sıfırlama e-postası gönderilemedi.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Şifremi Unuttum';
+  }
+}
+
 async function login(e) {
   e.preventDefault();
   const btn = $('#loginBtn');
