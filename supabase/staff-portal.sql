@@ -70,8 +70,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
-as $$
+set search_path = '' as $$
   select exists (
     select 1 from public.admin_profiles p
     where p.user_id = auth.uid() and p.active = true
@@ -83,8 +82,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
-as $$
+set search_path = '' as $$
   select exists (
     select 1 from public.staff_profiles p
     where p.user_id = auth.uid() and p.active = true
@@ -96,8 +94,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
-as $$
+set search_path = '' as $$
   select public.is_admin() or public.is_staff();
 $$;
 
@@ -109,8 +106,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
-as $$
+set search_path = '' as $$
   select
     public.is_admin()
     or exists (
@@ -126,13 +122,13 @@ $$;
 -- Temel görünümler: maliyet / marj YOK + ilgili yetki açık olmalı
 -- (staff_has_perm kontrolü olmadan sadece arayüz gizler, API'den yine
 -- okunabilirdi — bu yüzden burada da kontrol ediyoruz).
-create or replace view public.equipment_staff as
+create or replace view public.equipment_staff with (security_invoker = true) as
 select
   id, category, brand, model, quantity, active, notes, created_at, updated_at
 from public.equipment
 where active = true and public.staff_has_perm('equipment');
 
-create or replace view public.offers_staff as
+create or replace view public.offers_staff with (security_invoker = true) as
 select
   id, quote_number, name, company, location, people,
   event_date, event_type, type,
@@ -146,13 +142,13 @@ where status in ('accepted', 'preparing', 'sent', 'new')
 -- verdiği durumda satır döner (staff_has_perm kontrolü view tanımının
 -- içinde). Yetkisi olmayan personel bu view'lardan hiç satır alamaz —
 -- sorguyu değiştirse bile, çünkü filtre client tarafında değil burada.
-create or replace view public.customers_staff as
+create or replace view public.customers_staff with (security_invoker = true) as
 select
   id, name, company, phone, email, last_contact_at, created_at
 from public.customers
 where public.staff_has_perm('customers');
 
-create or replace view public.payments_staff as
+create or replace view public.payments_staff with (security_invoker = true) as
 select
   pay.id, pay.offer_id, pay.description, pay.amount, pay.due_date,
   pay.paid_at, pay.status, pay.created_at,
@@ -161,7 +157,7 @@ from public.payments pay
 join public.teklifler t on t.id = pay.offer_id
 where public.staff_has_perm('finance');
 
-create or replace view public.pricing_staff as
+create or replace view public.pricing_staff with (security_invoker = true) as
 select id, name, description, base_price, sort_order
 from public.services
 where active = true and public.staff_has_perm('pricing')
@@ -174,7 +170,7 @@ where active = true and public.staff_has_perm('pricing');
 -- açıkça verilmiş VE ilgili temel yetki (offers/equipment) de açık olan
 -- personele gösterilir. offers_staff / equipment_staff (yukarıdaki) bu
 -- alanları hiçbir zaman içermez.
-create or replace view public.offers_financial_staff as
+create or replace view public.offers_financial_staff with (security_invoker = true) as
 select
   id, quote_number, estimated_cost, estimated_price, discount, margin, total
 from public.teklifler
@@ -182,7 +178,7 @@ where status in ('accepted', 'preparing', 'sent', 'new')
   and public.staff_has_perm('offers')
   and public.staff_has_perm('financials');
 
-create or replace view public.equipment_financial_staff as
+create or replace view public.equipment_financial_staff with (security_invoker = true) as
 select id, daily_cost, daily_price
 from public.equipment
 where active = true
@@ -317,7 +313,7 @@ set permissions = permissions || '{
 }'::jsonb;
 
 create or replace function public.staff_has_perm(perm text)
-returns boolean language sql stable security definer set search_path=public as $$
+returns boolean language sql stable security definer set search_path = '' as $$
   select public.is_admin() or exists (
     select 1 from public.staff_profiles p
     where p.user_id = auth.uid() and p.active = true
@@ -333,7 +329,7 @@ alter table public.job_staff add column if not exists responded_at timestamptz;
 -- Yukarıdaki view'da staff_id UUID'si public.staff.id ile eşleşen kurulumlar için
 -- auth user id kullanıldığı için eski şemayı bozmamak adına ikinci güvenli view:
 drop view if exists public.my_jobs_staff;
-create or replace view public.my_jobs_staff as
+create or replace view public.my_jobs_staff with (security_invoker = true) as
 select
   j.id,j.title,j.setup_at,j.event_at,j.teardown_at,j.location,j.status,j.notes,j.created_at,
   js.response_status,js.response_note,js.responded_at,js.fee
@@ -346,7 +342,7 @@ where public.staff_has_perm('jobs');
 grant select on public.my_jobs_staff to authenticated;
 
 create or replace function public.staff_respond_job(p_job_id uuid, p_response text, p_note text default null)
-returns jsonb language plpgsql security definer set search_path=public as $$
+returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_staff_id uuid;
   v_row public.job_staff%rowtype;
@@ -419,8 +415,7 @@ create or replace function public.staff_update_job_status(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
-as $$
+set search_path = '' as $$
 declare
   v_staff_id uuid;
   v_job_staff_exists boolean;
@@ -478,8 +473,7 @@ create or replace function public.staff_update_job_notes(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
-as $$
+set search_path = '' as $$
 declare
   v_staff_id uuid;
 begin
