@@ -72,7 +72,7 @@ android {
         targetSdk = 36
         versionCode = stagepulseVersionCode
         versionName = stagepulseVersionName
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"sb_publishable_tP3CMhVAjv6FNtrkYfVEOA_dbF9m8Jb\"")
     }
     signingConfigs {
         if (hasReleaseSigning) create("release") {
