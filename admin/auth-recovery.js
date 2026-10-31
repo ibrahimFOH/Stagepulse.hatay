@@ -62,7 +62,7 @@
 
   const run = async () => {
     const state = params();
-    const recovery = Boolean(state.code || (state.accessToken && state.refreshToken) || state.type === 'recovery');
+    const recovery = Boolean(state.code || (state.accessToken && state.refreshToken) || state.type === 'recovery' || state.error);
     if (!recovery) return;
 
     const waitForClient = async () => {
