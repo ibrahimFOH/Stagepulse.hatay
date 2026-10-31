@@ -91,6 +91,7 @@ create table if not exists public.customers (
 create unique index if not exists customers_phone_uq on public.customers(phone) where phone is not null and phone <> '';
 
 create table if not exists public.teklifler (
+  public_code text unique,
   id uuid primary key default gen_random_uuid(),
   quote_number text unique,
   customer_id uuid references public.customers(id) on delete set null,
@@ -228,11 +229,11 @@ create table if not exists public.notifications (
 );
 
 create sequence if not exists public.quote_number_seq start 1;
-create or replace function public.next_quote_number() returns text language plpgsql security definer set search_path=public as $$
+create or replace function public.next_quote_number() returns text language plpgsql security definer set search_path='' as $$
 declare n bigint; begin n:=nextval('public.quote_number_seq'); return 'SP-'||to_char(current_date,'YYYY')||'-'||lpad(n::text,4,'0'); end; $$;
 
 create or replace function public.set_quote_defaults()
-returns trigger language plpgsql security definer set search_path = '' as $
+returns trigger language plpgsql security definer set search_path = '' as $$
 declare d integer;
 begin
  if new.quote_number is null or new.quote_number='' then
@@ -247,12 +248,13 @@ begin
  end if;
  new.updated_at:=now();
  return new;
-end $;
+end $$;
 drop trigger if exists trg_quote_defaults on public.teklifler;
 create trigger trg_quote_defaults before insert or update on public.teklifler for each row execute function public.set_quote_defaults();
 
-create or replace function public.is_admin() returns boolean language sql stable security definer set search_path='' as $
- select private.is_admin(); $;
+create or replace function public.is_admin() returns boolean language sql stable security definer set search_path='' as $$
+ select exists (select 1 from public.admin_profiles p where p.user_id = (select auth.uid()) and p.active = true);
+$$;
 revoke all on function public.is_admin() from public, anon;
 grant execute on function public.is_admin() to authenticated;
 grant select, insert, update, delete on table public.teklifler to authenticated;
@@ -270,7 +272,7 @@ revoke all on public.public_quotes from anon, authenticated, public;
 
 -- Public customer actions through security-definer RPC, token-only.
 create or replace function public.respond_to_quote(p_token text, p_action text)
-returns jsonb language plpgsql security definer set search_path=public as $$
+returns jsonb language plpgsql security definer set search_path='' as $$
 declare r public.teklifler; begin
  if p_action not in ('accepted','rejected') then raise exception 'Invalid action'; end if;
  update public.teklifler set status=p_action, accepted_at=case when p_action='accepted' then now() else accepted_at end,
@@ -286,7 +288,7 @@ end $$;
 
 
 -- Automatically upsert a customer record and calculate an internal estimate for new leads.
-create or replace function public.on_quote_insert_enrich() returns trigger language plpgsql security definer set search_path=public as $$
+create or replace function public.on_quote_insert_enrich() returns trigger language plpgsql security definer set search_path='' as $$
 declare c_id uuid; svc public.services; margin_pct numeric:=35; min_quote numeric:=0; base numeric:=0; price numeric:=0; per_person numeric:=0;
 begin
  select id into c_id from public.customers where phone=new.phone limit 1;
@@ -383,7 +385,7 @@ create policy pricing_admin on public.price_rules for all to authenticated using
 
 -- Public quote retrieval: intentionally requires exact token via a security-definer function.
 create or replace function public.get_public_quote(p_token text)
-returns jsonb language sql security definer set search_path=public as $$
+returns jsonb language sql security definer set search_path='' as $$
  select to_jsonb(q) from public.public_quotes q where q.public_token=p_token limit 1;
 $$;
 
@@ -433,9 +435,9 @@ revoke all on function public.check_login_rate_limit(text,integer) from public,a
 grant execute on function public.check_login_rate_limit(text,integer) to service_role;
 
 create or replace function public.enforce_public_quote_input()
-returns trigger language plpgsql security definer set search_path=public as $$
+returns trigger language plpgsql security definer set search_path='' as $$
 begin
-  if auth.role() in ('anon','authenticated') then
+  if (select auth.jwt()->>'role') in ('anon','authenticated') then
     new.quote_number:=null; new.customer_id:=null; new.status:='new'; new.currency:='TRY';
     new.estimated_cost:=0; new.estimated_price:=0; new.discount:=0; new.total:=0; new.margin:=0;
     new.public_token:=null; new.valid_until:=null; new.accepted_at:=null; new.rejected_at:=null; new.archived_at:=null;
@@ -458,7 +460,7 @@ set search_path=public,private
 as $$
 declare client_key text;
 begin
-  if auth.role() in ('anon','authenticated') then
+  if (select auth.jwt()->>'role') in ('anon','authenticated') then
     client_key := 'quote:' || coalesce(
       split_part(current_setting('request.headers', true)::json->>'x-forwarded-for', ',', 1),
       'unknown'
