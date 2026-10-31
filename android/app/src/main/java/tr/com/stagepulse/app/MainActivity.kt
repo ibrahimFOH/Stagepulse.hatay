@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
     private var fcmToken: String? = null
     private var accessToken: String? = null
     private var bridgeInstalled = false
-    private val supabaseUrl = "https://mtjcqqrogjqaxkagwkti.supabase.co"
+    private val supabaseUrl = "https://itasctyjzyewcykozuex.supabase.co"
     private val portalPath: String get() = BuildConfig.PORTAL_PATH
     private val appVariant: String get() = BuildConfig.APP_VARIANT
     private fun expectedUrl(): String = "https://stagepulse.com.tr$portalPath?apk=$appVariant-rbac-v11"
