@@ -6,8 +6,8 @@
   'use strict';
   var OVERRIDE = global.__STAGEPULSE_RUNTIME_OVERRIDE__ || {};
   var DEFAULTS = {
-    supabaseUrl: 'https://mtjcqqrogjqaxkagwkti.supabase.co',
-    supabasePublishableKey: 'sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6',
+    supabaseUrl: 'https://itasctyjzyewcykozuex.supabase.co',
+    supabasePublishableKey: 'sb_publishable_tP3CMhVAjv6FNtrkYfVEOA_dbF9m8Jb',
     fcm: {
       apiKey: 'AIzaSyBZbLD2hpnrCDy4KJh9FUbwgBbI0m-jdeo', authDomain: 'stagepulse-905be.firebaseapp.com', projectId: 'stagepulse-905be', storageBucket: 'stagepulse-905be.firebasestorage.app', messagingSenderId: '163274034334', appId: '1:163274034334:web:844791f51bef484d33bf8f', measurementId: 'G-4BFSFS0SGM', vapidKey: 'BOPkjOlp10RVFRaJQtDx2l8v2uzLVrBTcv2EgTthRiSNGA3IbOAc6f24mGJJrQuice0FQtG3dxbB6Ae54gQS7tE'
     }
