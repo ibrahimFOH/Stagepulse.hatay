@@ -5,6 +5,7 @@ create table if not exists public.stagepulse_license_admin_config (
   username text not null,
   password_hash text not null,
   token_secret text not null check (length(token_secret) >= 32),
+  owner_user_id uuid references auth.users(id) on delete set null,
   updated_at timestamptz not null default now()
 );
 
