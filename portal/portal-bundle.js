@@ -681,7 +681,7 @@
 /* Stagepulse portal — realtime data + notification sync. */
 (() => {
   if (!window.supabase) return;
-  const client=window.supabase.createClient('https://mtjcqqrogjqaxkagwkti.supabase.co','sb_publishable_yR_HlWlFbYYq22tQmiB9LA_acq6bQi6');let channel=null,refreshTimer=null,refreshPending=false;
+  const client=window.supabase.createClient('https://itasctyjzyewcykozuex.supabase.co','sb_publishable_tP3CMhVAjv6FNtrkYfVEOA_dbF9m8Jb');let channel=null,refreshTimer=null,refreshPending=false;
   const currentView=()=> (location.hash||'#home').slice(1)||'home';const activeEditor=()=>{const el=document.activeElement;return !!el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);};
   const refresh=()=>{refreshTimer=null;const v=currentView();const btn=document.querySelector(`#sideNav button[data-view="${CSS.escape(v)}"]`);if(activeEditor()){refreshPending=true;if(typeof window.toast==='function')window.toast('Yeni değişiklik geldi. Açık formu kaydettikten sonra ekran yenilenecek.',true);return;}refreshPending=false;if(btn)btn.click();};
   const scheduleRefresh=()=>{if(refreshTimer)clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,450);};const notifyLocal=p=>{const n=p?.new||{};if(n.title&&typeof window.toast==='function')window.toast(`${n.title}: ${n.body||''}`.trim(),true);if(currentView()==='notifications')scheduleRefresh();};
