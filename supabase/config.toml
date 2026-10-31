@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.license-admin]
 verify_jwt = false
+
+[functions.org-admin-control]
+verify_jwt = false
