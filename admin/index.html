@@ -49,10 +49,16 @@
       if (window.supabase && typeof window.supabase.createClient === 'function') {
         settled = true;
         clearTimeout(timeoutId);
-        var app = document.createElement('script');
-        app.src = 'admin.js?v=20261015-offline-nav7';
-        app.onerror = function () { showFailure('Supabase SDK yüklendi ancak admin.js yüklenemedi.'); };
-        document.body.appendChild(app);
+        var recovery = document.createElement('script');
+        recovery.src = 'auth-recovery.js?v=20261031-recovery1';
+        recovery.onload = function () {
+          var app = document.createElement('script');
+          app.src = 'admin.js?v=20261015-offline-nav7';
+          app.onerror = function () { showFailure('Supabase SDK yüklendi ancak admin.js yüklenemedi.'); };
+          document.body.appendChild(app);
+        };
+        recovery.onerror = function () { showFailure('Şifre kurtarma modülü yüklenemedi.'); };
+        document.body.appendChild(recovery);
       } else {
         fail('SDK yüklendi fakat createClient bulunamadı');
       }
