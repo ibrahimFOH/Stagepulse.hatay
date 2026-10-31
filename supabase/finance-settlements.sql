@@ -102,7 +102,7 @@ create trigger settlements_finance_normalize
 before insert or update on public.settlements
 for each row execute function public.normalize_settlement_finance();
 
-create or replace view public.owner_financial_summary as
+create or replace view public.owner_financial_summary with (security_invoker = true) as
 select
   coalesce(sum(s.agreed_amount),0)::numeric(14,2) as total_revenue,
   coalesce(sum(case when s.revenue_owner_type = 'shared' then s.expense_amount else 0 end),0)::numeric(14,2) as total_expense,
@@ -119,7 +119,7 @@ grant select on public.owner_financial_summary to authenticated;
 
 create or replace function public.get_owner_financial_summary()
 returns table(total_revenue numeric, total_expense numeric, total_net numeric, owner_revenue numeric, owner_expense numeric, owner_profit numeric, job_count integer)
-language sql stable security definer set search_path=public
+language sql stable security definer set search_path=''
 as $$
   select total_revenue,total_expense,total_net,owner_revenue,owner_expense,owner_profit,job_count
   from public.owner_financial_summary
