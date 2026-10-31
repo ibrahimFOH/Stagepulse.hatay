@@ -506,9 +506,15 @@ async function log(action, type, id, metadata) {
   } catch (_) {}
 }
 function fatal(e) {
-  console.error(e);
-  $('#content').innerHTML = `<div class="notice"><b>Sistem hatası</b><p>${esc(e.message || e)}</p>
-    <p class="muted">Supabase migration / RLS / settlements tablosunu kontrol et.</p></div>`;
+  console.error('[Stagepulse Admin]', e);
+  const message = String(e?.message || e || 'Bilinmeyen hata');
+  const detail = /permission denied|row-level security|policy/i.test(message)
+    ? 'Bu işlem için veritabanı tablo izni veya rol tabanlı erişim kuralı eksik olabilir.'
+    : /jwt|token|session|auth/i.test(message)
+      ? 'Oturum süresi dolmuş olabilir. Güvenli biçimde çıkış yapıp yeniden giriş yapın.'
+      : 'İstek tamamlanamadı. Bağlantı, veritabanı ve sunucu yanıtı kontrol edilmeli.';
+  $('#content').innerHTML = `<div class="notice" role="alert"><b>Sistem hatası</b><p>${esc(message)}</p>
+    <p class="muted">${esc(detail)}</p></div>`;
 }
 function toast(msg, ok = true) {
   let t = $('#adminToast');
