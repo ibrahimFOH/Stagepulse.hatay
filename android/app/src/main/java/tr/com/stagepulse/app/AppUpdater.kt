@@ -23,7 +23,7 @@ import kotlin.concurrent.thread
 
 class AppUpdater(private val activity: MainActivity) {
     companion object {
-        private const val SUPABASE_MANIFEST = "https://mtjcqqrogjqaxkagwkti.supabase.co/rest/v1/app_versions?platform=eq.%s&select=platform,web_version,apk_version,minimum_version,apk_url,apk_sha256,notes&limit=1"
+        private const val SUPABASE_MANIFEST = "https://itasctyjzyewcykozuex.supabase.co/rest/v1/app_versions?platform=eq.%s&select=platform,web_version,apk_version,minimum_version,apk_url,apk_sha256,notes&limit=1"
         private const val PUBLIC_MANIFEST = "https://raw.githubusercontent.com/ibrahimFOH/Stagepulse.hatay/main/latest.json"
         private const val GITHUB_RELEASE_API = "https://api.github.com/repos/ibrahimFOH/Stagepulse.hatay/releases?per_page=20"
         private const val MIME = "application/vnd.android.package-archive"
