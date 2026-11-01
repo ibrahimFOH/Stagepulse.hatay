@@ -5,31 +5,43 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(supabaseUrl, serviceRole, { auth: { persistSession: false } });
 
-const headers = {
-  "Content-Type": "application/json",
-  "Access-Control-Allow-Origin": "https://stagepulse.com.tr",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Cache-Control": "no-store",
+const ALLOWED_ORIGINS = new Set([
+  "https://stagepulse.com.tr",
+  "https://www.stagepulse.com.tr",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
+const corsHeaders = (req: Request) => {
+  const origin = req.headers.get("origin") || "";
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Cache-Control": "no-store",
+    "Vary": "Origin",
+  };
+  if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
 };
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers });
+const json = (req: Request, body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers });
-  if (req.method !== "POST") return json({ error: "Method Not Allowed" }, 405);
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
+  if (req.method !== "POST") return json(req, { error: "Method Not Allowed" }, 405);
 
   try {
     const authorization = req.headers.get("authorization") || "";
-    if (!authorization.toLowerCase().startsWith("bearer ")) return json({ error: "UNAUTHENTICATED" }, 401);
+    if (!authorization.toLowerCase().startsWith("bearer ")) return json(req, { error: "UNAUTHENTICATED" }, 401);
     const accessToken = authorization.slice(7).trim();
     const { data: authData, error: authError } = await admin.auth.getUser(accessToken);
-    if (authError || !authData.user) return json({ error: "UNAUTHENTICATED" }, 401);
+    if (authError || !authData.user) return json(req, { error: "UNAUTHENTICATED" }, 401);
 
     const body = await req.json().catch(() => ({}));
     const token = typeof body.token === "string" ? body.token.trim() : "";
     const requestedVariant = typeof body.app_variant === "string" ? body.app_variant.trim().toLowerCase() : "";
-    if (!["admin", "staff"].includes(requestedVariant)) return json({ error: "INVALID_APP_VARIANT" }, 400);
-    if (!token || token.length < 20 || token.length > 4096) return json({ error: "INVALID_TOKEN" }, 400);
+    if (!["admin", "staff"].includes(requestedVariant)) return json(req, { error: "INVALID_APP_VARIANT" }, 400);
+    if (!token || token.length < 20 || token.length > 4096) return json(req, { error: "INVALID_TOKEN" }, 400);
 
     const { data: membership, error: membershipError } = await admin
       .from("org_memberships")
@@ -40,8 +52,8 @@ Deno.serve(async (req) => {
     if (membershipError) throw membershipError;
     const role = Array.isArray((membership as any)?.role) ? (membership as any).role?.[0] : (membership as any)?.role;
     const isAdmin = membership?.active === true && role?.active !== false && role?.is_admin_role === true;
-    if (requestedVariant === "admin" && !isAdmin) return json({ error: "FORBIDDEN_ADMIN_APP" }, 403);
-    if (requestedVariant === "staff" && (!membership?.active || role?.active === false)) return json({ error: "FORBIDDEN_STAFF_APP" }, 403);
+    if (requestedVariant === "admin" && !isAdmin) return json(req, { error: "FORBIDDEN_ADMIN_APP" }, 403);
+    if (requestedVariant === "staff" && (!membership?.active || role?.active === false)) return json(req, { error: "FORBIDDEN_STAFF_APP" }, 403);
 
     const now = new Date().toISOString();
     const { error: staleError } = await admin
@@ -57,6 +69,7 @@ Deno.serve(async (req) => {
       .from("notification_devices")
       .select("id")
       .eq("user_id", authData.user.id)
+      .eq("token", token)
       .eq("push_type", "fcm")
       .eq("app_variant", requestedVariant)
       .maybeSingle();
@@ -68,7 +81,7 @@ Deno.serve(async (req) => {
         updated_at: now, subscription_updated_at: now,
       }).eq("id", existing.id);
       if (error) throw error;
-      return json({ ok: true, id: existing.id, action: "updated", app_variant: requestedVariant, platform: "android" });
+      return json(req, { ok: true, id: existing.id, action: "updated", app_variant: requestedVariant, platform: "android" });
     }
 
     const { data, error } = await admin.from("notification_devices").insert({
@@ -77,9 +90,9 @@ Deno.serve(async (req) => {
       updated_at: now, subscription_updated_at: now,
     }).select("id").single();
     if (error) throw error;
-    return json({ ok: true, id: data.id, action: "created", app_variant: requestedVariant, platform: "android" });
+    return json(req, { ok: true, id: data.id, action: "created", app_variant: requestedVariant, platform: "android" });
   } catch (error) {
     console.error("[register-android-device]", error);
-    return json({ error: "REGISTER_FAILED" }, 500);
+    return json(req, { error: "REGISTER_FAILED" }, 500);
   }
 });

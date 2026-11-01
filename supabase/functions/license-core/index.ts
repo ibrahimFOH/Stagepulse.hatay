@@ -5,17 +5,29 @@ const URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const db = createClient(URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json; charset=utf-8",
-  "Cache-Control": "no-store",
-  "Pragma": "no-cache",
-};
+const ALLOWED_ORIGINS = new Set([
+  "https://stagepulse.com.tr",
+  "https://www.stagepulse.com.tr",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
 
-function reply(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: cors });
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") ?? "";
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Pragma": "no-cache",
+    "Vary": "Origin",
+  };
+  if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
+}
+
+function reply(req: Request, body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
 }
 function clean(value: unknown, max = 200) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -112,15 +124,15 @@ async function finishActivation(license: any, user: any, app: any, platform: str
   }
   return data;
 }
-async function adminCreate(user: any, body: any) {
-  if (!(await requireOwner(user.id))) return reply({ ok: false, error: "FORBIDDEN_OWNER_ONLY" }, 403);
+async function adminCreate(user: any, body: any, req: Request) {
+  if (!(await requireOwner(user.id))) return reply(req, { ok: false, error: "FORBIDDEN_OWNER_ONLY" }, 403);
   const appId = clean(body.app_id, 80);
   const app = await appFor(appId);
   const customer = clean(body.customer_name, 120);
   const maxDevices = Number(body.max_devices ?? 1);
-  if (!customer) return reply({ ok: false, error: "CUSTOMER_REQUIRED" }, 400);
+  if (!customer) return reply(req, { ok: false, error: "CUSTOMER_REQUIRED" }, 400);
   if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > (appId === "stagepulse" ? 50 : 100)) {
-    return reply({ ok: false, error: "DEVICE_LIMIT_INVALID" }, 400);
+    return reply(req, { ok: false, error: "DEVICE_LIMIT_INVALID" }, 400);
   }
   const rawKey = makeKey(appId);
   const mode = appId.startsWith("ses-merkezi") ? "alnum_upper" : "trim_upper";
@@ -129,7 +141,7 @@ async function adminCreate(user: any, body: any) {
   let expiresAt: string | null = null;
   if (expiresRaw) {
     const parsed = Date.parse(expiresRaw);
-    if (!Number.isFinite(parsed) || parsed <= Date.now()) return reply({ ok: false, error: "EXPIRY_INVALID" }, 400);
+    if (!Number.isFinite(parsed) || parsed <= Date.now()) return reply(req, { ok: false, error: "EXPIRY_INVALID" }, 400);
     expiresAt = new Date(parsed).toISOString();
   }
   const paymentStatus = ["paid", "unpaid", "refunded"].includes(String(body.payment_status))
@@ -158,7 +170,7 @@ async function adminCreate(user: any, body: any) {
     const bundle = clean(body.bundle_code, 80) || "start";
     const plan = ["student", "classroom", "lifetime"].includes(String(body.plan_code)) ? String(body.plan_code) : "student";
     const allowedBundles = ["start","live_sound","rf_wireless","pa_system","studio_post","spl_acoustics","digital_console","full_master","institution"];
-    if (!allowedBundles.includes(bundle)) return reply({ ok: false, error: "BUNDLE_INVALID" }, 400);
+    if (!allowedBundles.includes(bundle)) return reply(req, { ok: false, error: "BUNDLE_INVALID" }, 400);
     const { data, error } = await db.from("sesm_license_keys").insert({
       key_hash: keyHash, label: clean(body.label, 120) || "Lisans",
       plan_code: plan, bundle_code: bundle, max_activations: maxDevices,
@@ -202,25 +214,25 @@ async function adminCreate(user: any, body: any) {
     license_id: licenseId, actor_user_id: user.id, action: "license_created", app_id: appId,
     details: { max_devices: maxDevices, payment_status: paymentStatus },
   });
-  return reply({ ok: true, license: { id: licenseId, product_code: app.product_code, app_id: appId, customer_name: customer, max_devices: maxDevices, expires_at: expiresAt, payment_status: paymentStatus }, license_key: rawKey }, 201);
+  return reply(req, { ok: true, license: { id: licenseId, product_code: app.product_code, app_id: appId, customer_name: customer, max_devices: maxDevices, expires_at: expiresAt, payment_status: paymentStatus }, license_key: rawKey }, 201);
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-  if (req.method !== "POST") return reply({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
-  if (!URL || !SERVICE_KEY) return reply({ ok: false, error: "SERVICE_UNAVAILABLE" }, 503);
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
+  if (req.method !== "POST") return reply(req, { ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
+  if (!URL || !SERVICE_KEY) return reply(req, { ok: false, error: "SERVICE_UNAVAILABLE" }, 503);
   const user = await getUser(req);
-  if (!user) return reply({ ok: false, error: "UNAUTHENTICATED" }, 401);
+  if (!user) return reply(req, { ok: false, error: "UNAUTHENTICATED" }, 401);
   const body = await req.json().catch(() => null);
-  if (!body || typeof body !== "object") return reply({ ok: false, error: "INVALID_REQUEST" }, 400);
+  if (!body || typeof body !== "object") return reply(req, { ok: false, error: "INVALID_REQUEST" }, 400);
   const action = clean(body.action, 40);
   const appId = clean(body.app_id, 80);
 
   try {
-    if (action === "admin_create") return await adminCreate(user, body);
+    if (action === "admin_create") return await adminCreate(user, body, req);
 
     if (action === "admin_list") {
-      if (!(await requireOwner(user.id))) return reply({ ok: false, error: "FORBIDDEN_OWNER_ONLY" }, 403);
+      if (!(await requireOwner(user.id))) return reply(req, { ok: false, error: "FORBIDDEN_OWNER_ONLY" }, 403);
       const { data, error } = await db.from("license_core")
         .select("id,product_code,legacy_system,customer_name,status,plan_code,bundle_code,max_devices,expires_at,payment_status,created_at,owner_user_id")
         .order("created_at", { ascending: false }).limit(500);
@@ -232,15 +244,15 @@ Deno.serve(async (req: Request) => {
         if (countError) throw new Error("LICENSE_DEVICE_COUNT_FAILED");
         licenses.push({ ...item, active_devices: count ?? 0 });
       }
-      return reply({ ok: true, licenses });
+      return reply(req, { ok: true, licenses });
     }
 
     if (action === "admin_revoke") {
-      if (!(await requireOwner(user.id))) return reply({ ok: false, error: "FORBIDDEN_OWNER_ONLY" }, 403);
+      if (!(await requireOwner(user.id))) return reply(req, { ok: false, error: "FORBIDDEN_OWNER_ONLY" }, 403);
       const licenseId = clean(body.license_id, 80);
       const { data: lic, error } = await db.from("license_core")
         .select("id,legacy_system,legacy_license_id").eq("id", licenseId).maybeSingle();
-      if (error || !lic) return reply({ ok: false, error: "LICENSE_NOT_FOUND" }, 404);
+      if (error || !lic) return reply(req, { ok: false, error: "LICENSE_NOT_FOUND" }, 404);
       if (lic.legacy_system === "stagepulse") {
         const { error: updateError } = await db.from("stagepulse_licenses")
           .update({ status: "revoked", revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -261,29 +273,29 @@ Deno.serve(async (req: Request) => {
           .eq("license_id", licenseId);
       }
       await db.from("license_core_audit").insert({ license_id: licenseId, actor_user_id: user.id, action: "license_revoked", app_id: appId || null });
-      return reply({ ok: true });
+      return reply(req, { ok: true });
     }
 
     if (action === "status") {
       const app = await appFor(appId);
       const platform = clean(body.platform, 20);
       const deviceHash = clean(body.device_hash, 256);
-      if (platform !== app.platform || deviceHash.length < 8) return reply({ ok: false, error: "DEVICE_DATA_INVALID" }, 400);
+      if (platform !== app.platform || deviceHash.length < 8) return reply(req, { ok: false, error: "DEVICE_DATA_INVALID" }, 400);
       const { data: device, error } = await db.from("license_core_devices")
         .select("license_id,last_seen_at").eq("user_id", user.id).eq("app_id", appId)
         .eq("device_hash", deviceHash).eq("is_active", true).order("last_seen_at", { ascending: false }).limit(1).maybeSingle();
       if (error) throw new Error("LICENSE_STATUS_LOOKUP_FAILED");
-      if (!device) return reply({ ok: true, licensed: false, reason: "not_activated" });
+      if (!device) return reply(req, { ok: true, licensed: false, reason: "not_activated" });
       const { data: lic, error: licenseError } = await db.from("license_core")
         .select("id,product_code,status,plan_code,bundle_code,max_devices,expires_at,payment_status")
         .eq("id", device.license_id).maybeSingle();
       if (licenseError) throw new Error("LICENSE_STATUS_LOOKUP_FAILED");
       const valid = !!lic && lic.product_code === app.product_code && lic.status === "active"
         && lic.payment_status === "paid" && (!lic.expires_at || Date.parse(lic.expires_at) > Date.now());
-      if (!valid) return reply({ ok: true, licensed: false, reason: "expired_or_disabled" });
+      if (!valid) return reply(req, { ok: true, licensed: false, reason: "expired_or_disabled" });
       await db.from("license_core_devices").update({ last_seen_at: new Date().toISOString() })
         .eq("license_id", lic.id).eq("app_id", appId).eq("device_hash", deviceHash);
-      return reply({ ok: true, licensed: true, license: lic, entitlements: await getEntitlements(lic.id, appId) });
+      return reply(req, { ok: true, licensed: true, license: lic, entitlements: await getEntitlements(lic.id, appId) });
     }
 
     if (action === "activate") {
@@ -291,37 +303,37 @@ Deno.serve(async (req: Request) => {
       const platform = clean(body.platform, 20);
       const deviceHash = clean(body.device_hash, 256);
       const rawKey = clean(body.license_key, 120);
-      if (platform !== app.platform || deviceHash.length < 8 || !rawKey) return reply({ ok: false, error: "ACTIVATION_DATA_INVALID" }, 400);
-      if (await rateLimited("license-core:activate:" + user.id, 20)) return reply({ ok: false, error: "RATE_LIMITED" }, 429);
+      if (platform !== app.platform || deviceHash.length < 8 || !rawKey) return reply(req, { ok: false, error: "ACTIVATION_DATA_INVALID" }, 400);
+      if (await rateLimited("license-core:activate:" + user.id, 20)) return reply(req, { ok: false, error: "RATE_LIMITED" }, 429);
       const lic = await findLicense(rawKey);
       if (!lic || lic.product_code !== app.product_code || lic.status !== "active"
           || lic.payment_status !== "paid" || (lic.expires_at && Date.parse(lic.expires_at) <= Date.now())) {
-        return reply({ ok: false, error: "LICENSE_INVALID_OR_UNPAID" }, 403);
+        return reply(req, { ok: false, error: "LICENSE_INVALID_OR_UNPAID" }, 403);
       }
       if (lic.legacy_system === "stagepulse") {
         const { data: legacyResult, error: legacyError } = await db.rpc("stagepulse_activate_license_device", {
           p_license_id: lic.legacy_license_id, p_device_id: deviceHash,
         });
-        if (legacyError || !legacyResult?.ok) return reply({ ok: false, error: "LICENSE_DEVICE_LIMIT_OR_INVALID" }, 409);
+        if (legacyError || !legacyResult?.ok) return reply(req, { ok: false, error: "LICENSE_DEVICE_LIMIT_OR_INVALID" }, 409);
       } else if (lic.legacy_system === "ses-merkezi") {
-        if (!/^[0-9a-f]{64}$/.test(deviceHash)) return reply({ ok: false, error: "DEVICE_ID_INVALID" }, 400);
+        if (!/^[0-9a-f]{64}$/.test(deviceHash)) return reply(req, { ok: false, error: "DEVICE_ID_INVALID" }, 400);
         const { error: legacyError } = await db.rpc("sesm_activate_license", {
           p_key_hash: lic.key_hash, p_user_id: user.id, p_device_hash: deviceHash,
           p_email: user.email ?? "", p_display_name: clean(user.user_metadata?.display_name ?? user.user_metadata?.full_name, 120),
         });
         if (legacyError) {
           const message = String(legacyError.message ?? "");
-          if (message.includes("LICENSE_ACTIVATION_LIMIT")) return reply({ ok: false, error: "LICENSE_DEVICE_LIMIT" }, 409);
-          if (message.includes("DEVICE_BOUND_TO_OTHER_USER")) return reply({ ok: false, error: "DEVICE_BOUND_TO_OTHER_USER" }, 409);
-          if (message.includes("STUDENT_ALREADY_LINKED")) return reply({ ok: false, error: "STUDENT_ALREADY_LINKED" }, 409);
-          return reply({ ok: false, error: "LICENSE_ACTIVATION_FAILED" }, 403);
+          if (message.includes("LICENSE_ACTIVATION_LIMIT")) return reply(req, { ok: false, error: "LICENSE_DEVICE_LIMIT" }, 409);
+          if (message.includes("DEVICE_BOUND_TO_OTHER_USER")) return reply(req, { ok: false, error: "DEVICE_BOUND_TO_OTHER_USER" }, 409);
+          if (message.includes("STUDENT_ALREADY_LINKED")) return reply(req, { ok: false, error: "STUDENT_ALREADY_LINKED" }, 409);
+          return reply(req, { ok: false, error: "LICENSE_ACTIVATION_FAILED" }, 403);
         }
       }
       const result = await finishActivation(lic, user, app, platform, deviceHash);
-      return reply({ ok: true, licensed: true, activation: result, entitlements: await getEntitlements(lic.id, appId) });
+      return reply(req, { ok: true, licensed: true, activation: result, entitlements: await getEntitlements(lic.id, appId) });
     }
 
-    return reply({ ok: false, error: "UNKNOWN_ACTION" }, 400);
+    return reply(req, { ok: false, error: "UNKNOWN_ACTION" }, 400);
   } catch (error) {
     const message = String((error as Error)?.message ?? "INTERNAL_ERROR");
     const status = message === "LICENSE_APP_NOT_FOUND" ? 404
@@ -329,6 +341,6 @@ Deno.serve(async (req: Request) => {
       : message === "OWNER_ROLE_LOOKUP_FAILED" ? 503
       : 500;
     console.error("[license-core]", message);
-    return reply({ ok: false, error: message }, status);
+    return reply(req, { ok: false, error: message }, status);
   }
 });

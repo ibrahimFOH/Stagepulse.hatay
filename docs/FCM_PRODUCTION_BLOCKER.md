@@ -1,31 +1,26 @@
 # FCM Production Readiness
 
-Status: BACKEND VERIFIED; Android registration is active in production; final notification delivery remains a real-device observation.
+Status: DATABASE READY; sender and Production OS Edge Functions deployed; Android device registration and real-device delivery acceptance remain pending.
 
-Repository and production checks completed:
-- Firebase Web Messaging configuration is tied to the Stagepulse Firebase project.
-- Public VAPID configuration only; no Firebase Admin private key is committed.
-- Dedicated FCM service worker is present for background/terminated web delivery.
-- Single canonical portal FCM registration entrypoint (`fcm-register-v3.js`) is used.
-- Obsolete FCM registration implementations are removed.
-- Authenticated Android device registration is implemented for `admin` and `staff` variants.
-- Android personel flavor now sends the canonical backend value `app_variant=staff`.
-- Android registration no longer continues retrying after a successful registration.
-- The registration Edge Function now rejects unknown variants and verifies the authenticated user's active admin/staff profile before writing a device record.
-- Production `register-android-device` is deployed and active as version 5 with JWT verification enabled.
-- Supabase production logs show version 4 of `register-android-device` returning HTTP 200 for current registration traffic before the version 5 authorization hardening deployment.
-- Production database verification currently shows active Android FCM registrations for both variants: `platform=android`, `push_type=fcm`, `app_variant=staff`, `active=true` and `platform=android`, `push_type=fcm`, `app_variant=admin`, `active=true`.
-- Server-side FCM HTTP v1 send path uses runtime Supabase secrets for Firebase service-account credentials.
-- Stale/unregistered FCM tokens are automatically deactivated after failed sends.
-- Android/TWA notification channel and `POST_NOTIFICATIONS` handling are present.
-- APK CI validates both Firebase Android package registrations and builds separate Personel/Admin APK artifacts.
+## Verified in the live Supabase project
 
-Final runtime verification:
-1. Install the newest Personel APK and Admin APK generated from the current `main` branch.
-2. Grant Android notification permission.
-3. Log into `/portal/` with the staff account and `/admin/` with the admin account.
-4. Confirm the corresponding `notification_devices` row remains active with `platform=android`, `push_type=fcm`, and `app_variant=staff` or `admin`.
-5. From Admin → Bildirimler, send one test notification to the staff account and one to the admin account.
-6. Verify foreground, background, and terminated-app delivery and tap-to-open behavior.
+- `public.notification_devices` exists with `push_type`, `app_variant`, and `subscription_updated_at`.
+- RLS is enabled and self-access policies restrict authenticated users to their own device rows.
+- Device registrations are unique by `(user_id, token, app_variant)`, allowing one user to register multiple devices and both app variants.
+- `public.register_notification_device(text,text,text)` is granted to authenticated only; anon execution is revoked.
+- Notification push queue columns and the bounded retry index are installed.
+- `production-os` Edge Function is active with `verify_jwt=false` and its own authorization checks.
+- `send-fcm-notification` Edge Function is active with `verify_jwt=false`; manual sends require admin authorization and internal dispatch requires the one-time notification dispatch token.
+- The Android registration source now filters an existing row by user, token, push type, and app variant. CORS allows only canonical Stagepulse origins and local development origins; deployment awaits the validated PR.
 
-No Firebase Admin private key or service-account JSON is committed to the repository.
+## Still required before push delivery is production-ready
+
+1. Merge and deploy the corrected `register-android-device` function with JWT verification enabled.
+2. Confirm that the Edge Function secret `FIREBASE_SERVICE_ACCOUNT_JSON` exists, or configure `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, and `FCM_PRIVATE_KEY`. The current connector cannot enumerate Edge Function secret values/names, so their presence is not claimed as verified.
+3. Send one manual test notification to an Admin account and one to a Personel account.
+4. Enable automatic retry/dispatch only after sender credentials and manual delivery are verified. The historical migration contains a retired project URL and must not be applied unchanged.
+5. Install current Admin and Personel Android builds, register both variants, and test foreground, background, terminated-app delivery, stale-token deactivation, and tap-to-open behavior.
+
+## Acceptance boundary
+
+A successful schema migration or APK build does not prove that Firebase delivered a notification to a physical device. Record app version, device model, Android version, account role, and pass/fail results without recording tokens or credentials.

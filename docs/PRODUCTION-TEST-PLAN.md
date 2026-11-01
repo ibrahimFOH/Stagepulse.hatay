@@ -25,6 +25,9 @@ Required credentials, when automated testing is enabled, are supplied only throu
 - Notification visibility by user
 - Activity log insertion
 
+- Admin → Üretim Merkezi: CRM lead, vardiya, ekipman tarama, depo işi, saha kanıtı, olay, bakım, satın alma ve etkinlik hazırlık listeleri yüklenir.
+- Üretim Merkezi tablolarında RLS etkin; yetkisiz kullanıcı başka kullanıcının personel/operasyon kayıtlarını okuyamaz veya değiştiremez.
+
 ## Staff acceptance
 
 - Staff login
