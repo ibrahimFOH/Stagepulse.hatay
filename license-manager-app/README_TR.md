@@ -1,14 +1,31 @@
-# Stagepulse Lisans Yönetimi Uygulamaları
+# Stagepulse Ortak Lisans Yönetimi
 
-Windows EXE ve Android APK kaynakları. Arayüz uygulama içine gömülüdür; lisans işlemleri merkezî `license-admin` API'sine bağlanır, bu nedenle internet gerekir.
+Windows EXE, Android APK ve web yönetim arayüzü aynı Supabase Auth hesabını ve ortak `license-core` API'sini kullanır.
 
-- Canlı sunucuda yapılandırılmış yönetici kullanıcı adı: `stagepulse`
-- Yönetici parolası Supabase Auth hesabı değildir; özel kullanıcı adı/parola doğrulaması `license-admin` Edge Function üzerinde yapılır. Parola PBKDF2-SHA256 ile özetlenir ve uygulama paketine gömülmez.
-- Yönetici parolasını uygulamadaki **Yönetici şifresini değiştir** bölümünden değiştirebilirsin. Şifre boş olamaz ve 1024 karakteri aşamaz. Parola sunucuda PBKDF2-SHA256 ile hash'lenir.
-- Windows: `desktop/BUILD_WINDOWS.bat` çalıştır; EXE `desktop/dist/StagepulseLisansYonetimi.exe` konumuna çıkar.
-- Android: `android` klasörünü Android Studio'da aç ve `assembleDebug` derle. APK `android/app/build/outputs/apk/debug/app-debug.apk` konumundadır.
-- Debug APK test içindir; Play Store için imzalı release gerekir. EXE ve APK arayüzü yerel olarak paketlenir; ortak lisans veritabanı ve giriş doğrulaması için internet gerekir.
-- Yönetici hesabını değiştirmeden, sunucuda 5 dakikayla sınırlı ve tek kullanımlık geçici giriş açılabilir. Bu girişle kalıcı yönetici parolası uygulamanın içinden değiştirilebilir; geçici oturum daha erken sona erer.
-- Service-role anahtarı uygulama içinde bulunmaz. Parola sunucuda PBKDF2-SHA256 hash'iyle saklanır. Normal oturum 30 dakika geçerlidir.
-- API, Windows'un yerel `file://` uygulama kökeni ve Android WebView için CORS yanıtında joker köken kullanır; yönetim işlemlerinin güvenliği yine sunucu tarafındaki imzalı oturumla sağlanır.
-- GitHub Actions derlemesi: https://github.com/ibrahimFOH/Stagepulse.hatay/actions/workflows/build-license-manager.yml
+## Desteklenen uygulamalar
+- Stagepulse
+- Stagepulse Ses Merkezi (Windows)
+- Stagepulse Ses Merkezi (Android)
+- Stagepulse JARVIS (Windows)
+- Stagepulse JARVIS (Android)
+
+## Kimlik ve güvenlik
+- Yönetici girişi Supabase Auth e-posta/şifre oturumudur.
+- Yönetim yetkisi `org_memberships` ve `org_roles` üzerinden sunucuda kontrol edilir.
+- Service-role anahtarı hiçbir istemciye veya EXE/APK içine konulmaz.
+- Lisans anahtarları veritabanında yalnızca SHA-256 özetiyle tutulur.
+- Lisans tabloları istemcilerden doğrudan okunamaz; tüm işlemler JWT doğrulayan Edge Function üzerinden yürür.
+- Cihaz sınırı ortak lisans çekirdeğinde uygulanır. Aynı fiziksel cihaz farklı platform kimliğiyle tekrar sayılmaz.
+- Stagepulse ve Ses Merkezi eski lisans kayıtları silinmez; veritabanı tetikleyicileri ortak sicile eşitler.
+- JARVIS için lisans aktivasyonu isteğe bağlıdır. Lisans eklenmemiş kurulumlarda temel uygulama işlevleri kilitlenmez.
+
+## Derleme
+- Windows: `desktop/BUILD_WINDOWS.bat` çalıştır. EXE `desktop/dist/StagepulseLisansYonetimi.exe` konumuna çıkar.
+- Android: `android` klasörünü Android Studio'da aç ve `assembleDebug` görevini çalıştır.
+- Web: `assets/index.html` ve `assets/app.js` dosyaları aynı ortak API'yi kullanır.
+
+## Canlı altyapı
+- Supabase proje: `itasctyjzyewcykozuex`
+- Ortak Edge Function: `license-core`
+- JWT doğrulaması zorunludur.
+- Yönetici hesabı için Supabase Auth'ta kayıtlı e-posta ve şifre gerekir.
