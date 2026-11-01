@@ -35,14 +35,23 @@ const portalInventory = portalBundle;
 const adminOfferFields = adminBundle;
 const adminCss = read('admin/admin-bundle.css');
 const quoteView = read('teklif-view.html');
-const quoteAclMigration = read('supabase/migrations/20261101062600_revoke_public_quote_rpc_execute.sql');
+const quoteAclMigration = read('supabase/migrations/20261101074347_public_quote_rpc_anon_only_acl.sql');
+const searchPathMigration = read('supabase/migrations/20261101074641_pin_search_path_public_security_definers.sql');
+const fcmRegistryMigration = read('supabase/migrations/20261101074856_stagepulse_fcm_device_registry.sql');
+const registerAndroidFunction = read('supabase/functions/register-android-device/index.ts');
+const productionOsMigration = read('supabase/migrations/20261101075342_stagepulse_production_os_schema.sql');
+const productionOsTimestampMigration = read('supabase/migrations/20261101075503_production_os_created_at_columns.sql');
+const licenseDenyMigration = read('supabase/migrations/20261101075844_explicit_deny_client_license_core_tables.sql');
+const licenseCoreFunction = read('supabase/functions/license-core/index.ts');
+const licenseAdminFunction = read('supabase/functions/license-admin/index.ts');
+const sesMerkeziFunction = read('supabase/functions/ses-merkezi-desktop/index.ts');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
 const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
 const edgeConfig = read('supabase/config.toml');
 const expectedEdgeFunctions = new Map([
-  ['admin-data', true], ['admin-github-media', true], ['admin-login', false],
-  ['admin-offer-runtime', false], ['admin-password-reset', false], ['license-admin', false], ['license-core', true],
+  ['admin-data', true], ['admin-github-media', true], ['admin-login', false], ['license-core', true],
+  ['admin-offer-runtime', false], ['admin-password-reset', false], ['license-admin', false],
   ['offer-pdf', false], ['org-admin-control', true], ['portal-login', false],
   ['production-os', false], ['public-quote', false], ['register-android-device', true],
   ['self-password-change', true], ['send-fcm-notification', false],
@@ -59,6 +68,18 @@ for (const [name, verifyJwt] of expectedEdgeFunctions) {
   requireMatch(read(`supabase/functions/${name}/index.ts`).length > 0, `Canonical Edge Function source is missing: ${name}.`);
 }
 requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
+requireMatch(licenseCoreFunction.includes('const ALLOWED_ORIGINS = new Set([') && licenseCoreFunction.includes('if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;') && !licenseCoreFunction.includes('Access-Control-Allow-Origin": "*"'), 'Unified license Edge Function must use the Stagepulse CORS origin allowlist.');
+requireMatch(!licenseAdminFunction.includes('Access-Control-Allow-Origin": "*"') && licenseAdminFunction.includes('https://www.stagepulse.com.tr'), 'License admin Edge Function must not expose wildcard CORS.');
+requireMatch(!sesMerkeziFunction.includes('Access-Control-Allow-Origin": "*"') && sesMerkeziFunction.includes('const ALLOWED_ORIGINS = new Set(['), 'Ses Merkezi Edge Function must use the Stagepulse CORS origin allowlist.');
+requireMatch(fcmRegistryMigration.includes('notification_devices_user_token_variant_uidx') && fcmRegistryMigration.includes('alter table public.notification_devices enable row level security') && fcmRegistryMigration.includes('grant execute on function public.register_notification_device(text,text,text) to authenticated;'), 'FCM device registry must have scoped RLS and authenticated registration RPC.');
+requireMatch(registerAndroidFunction.includes('.eq("token", token)') && registerAndroidFunction.includes('"https://www.stagepulse.com.tr"') && registerAndroidFunction.includes('if (ALLOWED_ORIGINS.has(origin))'), 'Android device registration must be token-scoped and use an origin allowlist.');
+requireMatch(productionOsMigration.includes('create table if not exists public.sp_event_readiness') && productionOsMigration.includes("'sp_event_readiness'") && productionOsMigration.includes('enable row level security') && productionOsMigration.includes('alter view public.sp_production_readiness set (security_invoker = true)'), 'Production OS schema must include the RLS-protected readiness table and security-invoker view.');
+requireMatch(['sp_equipment_scans','sp_event_readiness','sp_field_proofs'].every(name => productionOsTimestampMigration.includes(`alter table public.${name} add column if not exists created_at`)), 'Production OS list tables must expose the created_at sort column used by the admin UI.');
+const normalizedLicenseDenyMigration = licenseDenyMigration.replaceAll('\n', ' ').replaceAll('  ', ' ').replaceAll('  ', ' ').toLowerCase();
+requireMatch(['license_core','license_core_audit','license_core_devices','license_entitlements','license_product_entitlements','license_products'].every(name => normalizedLicenseDenyMigration.includes(`on public.${name} for all to anon, authenticated using (false) with check (false)`)), 'License core tables must have explicit deny policies for direct anon/authenticated access.');
+for (const signature of ['can_manage_org_member(uuid)', 'check_login_rate_limit(text, integer)', 'enforce_public_quote_rate_limit()', 'is_org_owner()', 'set_offer_public_code()', 'set_quote_defaults()', 'stagepulse_activate_license_device(uuid, text)']) {
+  requireMatch(searchPathMigration.includes(`alter function public.${signature} set search_path = '';`), `SECURITY DEFINER search_path hardening is missing for ${signature}.`);
+}
 
 
 requireMatch(/name=["']phone["']/.test(teklif), 'teklif.html must expose the phone field by name.');
@@ -125,7 +146,7 @@ requireMatch(core.includes("supabase-js@2.112.4") && core.includes(`script.integ
 requireMatch(quoteView.includes('supabase-js@2.112.4') && quoteView.includes(`integrity="${supabaseSri}"`), 'Public quote view must pin the verified Supabase asset and enforce SRI.');
 requireMatch(!core.includes("supabase-js@2\'"), "Public Supabase loader must not use a floating major-version CDN URL.");
 requireMatch(!quoteView.includes('supabase-js@2"'), 'Public quote view must not use a floating major-version CDN URL.');
-requireMatch(quoteAclMigration.includes('revoke execute on function public.get_public_quote(text) from authenticated;') && quoteAclMigration.includes('revoke execute on function public.respond_to_quote(text, text) from authenticated;') && quoteAclMigration.includes('grant execute on function public.get_public_quote(text) to anon;') && quoteAclMigration.includes('grant execute on function public.respond_to_quote(text, text) to anon;'), 'Customer quote RPCs must remain token-accessible to anon but not executable by authenticated users.');
+requireMatch(quoteAclMigration.includes('revoke execute on function public.get_public_quote(text) from public, authenticated;') && quoteAclMigration.includes('revoke execute on function public.respond_to_quote(text, text) from public, authenticated;') && quoteAclMigration.includes('grant execute on function public.get_public_quote(text) to anon;') && quoteAclMigration.includes('grant execute on function public.respond_to_quote(text, text) to anon;'), 'Customer quote RPCs must remain token-accessible to anon but not executable by authenticated users.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(adminRuntime), 'Admin runtime must not add a credential POST fallback.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(portalRuntime), 'Portal runtime must not add a credential POST fallback.');
 
