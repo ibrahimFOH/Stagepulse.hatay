@@ -63,6 +63,16 @@ Bu özel sırlar yoksa ilgili özellikler çalışır kabul edilmez. Özellikle 
 
 Canlı üretim operasyon ekranı için `supabase/migrations/20261101075342_stagepulse_production_os_schema.sql` ve `supabase/migrations/20261101075503_production_os_created_at_columns.sql` migration'ları uygulanmış olmalıdır. Bu şema 19 operasyon tablosu, RLS politikaları ve güvenli `sp_production_readiness` görünümünü kurar. Yeni ortamlarda migration geçmişi doğrulanmadan eski 20260905 üretim migration'larını tek tek çalıştırmayın.
 
+## 3B. Android FCM cihaz kaydı
+
+`supabase/migrations/20261101074856_stagepulse_fcm_device_registry.sql` migration'ı `notification_devices` tablosunu, kullanıcıya özel RLS politikalarını, token/app-variant benzersizliğini ve authenticated-only `register_notification_device` RPC'sini kurar. Android kayıt Edge Function'ı `register-android-device` JWT doğrulamasıyla dağıtılmalıdır.
+
+`send-fcm-notification` manuel gönderim fonksiyonu `verify_jwt=false` kullanır; ancak kendi içinde yönetici yetkisini veya tek kullanımlık dispatch token'ını doğrular. Firebase sırları eklenmeden push teslimi çalışır kabul edilmemelidir. Otomatik pg_net/cron retry tetikleyicisi, eski migration içindeki emekli proje URL'si nedeniyle doğrudan kullanılmamalı; güncel proje URL'siyle ayrı doğrulanmalıdır.
+
+## 3C. Auth parola güvenliği
+
+Canlı Security Advisor'da Leaked Password Protection kapalı görünüyor. Bunu proje sahibinin Supabase Dashboard üzerinden açması gerekir: Authentication → Providers → Email / Auth settings → Password security → Prevent use of leaked passwords. Özellik planınızda destekleniyorsa etkinleştirin. Ayrıntı: https://supabase.com/docs/guides/auth/password-security
+
 ## 4. Personel yetkileri
 
 Admin panel → Personel → **+ Personel ekle**
