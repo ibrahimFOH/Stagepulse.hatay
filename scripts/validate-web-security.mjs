@@ -43,6 +43,8 @@ const productionOsMigration = read('supabase/migrations/20261101075342_stagepuls
 const productionOsTimestampMigration = read('supabase/migrations/20261101075503_production_os_created_at_columns.sql');
 const licenseDenyMigration = read('supabase/migrations/20261101075844_explicit_deny_client_license_core_tables.sql');
 const licenseCoreFunction = read('supabase/functions/license-core/index.ts');
+const licenseAdminFunction = read('supabase/functions/license-admin/index.ts');
+const sesMerkeziFunction = read('supabase/functions/ses-merkezi-desktop/index.ts');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
 const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
@@ -67,6 +69,8 @@ for (const [name, verifyJwt] of expectedEdgeFunctions) {
 }
 requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
 requireMatch(licenseCoreFunction.includes('const ALLOWED_ORIGINS = new Set([') && licenseCoreFunction.includes('if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;') && !licenseCoreFunction.includes('Access-Control-Allow-Origin": "*"'), 'Unified license Edge Function must use the Stagepulse CORS origin allowlist.');
+requireMatch(!licenseAdminFunction.includes('Access-Control-Allow-Origin": "*"') && licenseAdminFunction.includes('https://www.stagepulse.com.tr'), 'License admin Edge Function must not expose wildcard CORS.');
+requireMatch(!sesMerkeziFunction.includes('Access-Control-Allow-Origin": "*"') && sesMerkeziFunction.includes('const ALLOWED_ORIGINS = new Set(['), 'Ses Merkezi Edge Function must use the Stagepulse CORS origin allowlist.');
 requireMatch(fcmRegistryMigration.includes('notification_devices_user_token_variant_uidx') && fcmRegistryMigration.includes('alter table public.notification_devices enable row level security') && fcmRegistryMigration.includes('grant execute on function public.register_notification_device(text,text,text) to authenticated;'), 'FCM device registry must have scoped RLS and authenticated registration RPC.');
 requireMatch(registerAndroidFunction.includes('.eq("token", token)') && registerAndroidFunction.includes('"https://www.stagepulse.com.tr"') && registerAndroidFunction.includes('if (ALLOWED_ORIGINS.has(origin))'), 'Android device registration must be token-scoped and use an origin allowlist.');
 requireMatch(productionOsMigration.includes('create table if not exists public.sp_event_readiness') && productionOsMigration.includes("'sp_event_readiness'") && productionOsMigration.includes('enable row level security') && productionOsMigration.includes('alter view public.sp_production_readiness set (security_invoker = true)'), 'Production OS schema must include the RLS-protected readiness table and security-invoker view.');
