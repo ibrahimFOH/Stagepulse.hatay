@@ -218,7 +218,7 @@ async function adminCreate(user: any, body: any, req: Request) {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
   if (req.method !== "POST") return reply(req, { ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
   if (!URL || !SERVICE_KEY) return reply(req, { ok: false, error: "SERVICE_UNAVAILABLE" }, 503);
   const user = await getUser(req);
