@@ -328,14 +328,31 @@ begin
   insert into public.notifications (
     recipient_user_id, kind, title, body, offer_id
   )
-  select
-    profile.user_id,
+  select distinct
+    membership.user_id,
     'new_quote',
     'Yeni teklif talebi',
     coalesce(new.quote_number, 'Yeni teklif') || ' - ' || coalesce(new.name, ''),
     new.id
-  from public.admin_profiles profile
-  where profile.active = true;
+  from public.org_memberships membership
+  join public.org_roles role
+    on role.id = membership.role_id
+   and role.active = true
+  where membership.active = true
+    and membership.user_id is not null
+    and (
+      role.is_admin_role = true
+      or exists (
+        select 1
+        from public.admin_capability_grants grant_row
+        join public.admin_capabilities capability
+          on capability.key = grant_row.capability_key
+         and capability.active = true
+        where grant_row.user_id = membership.user_id
+          and grant_row.enabled = true
+          and grant_row.capability_key = 'offers.view'
+      )
+    );
 
   return new;
 end;
