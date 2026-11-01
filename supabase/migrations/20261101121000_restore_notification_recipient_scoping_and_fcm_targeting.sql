@@ -38,24 +38,20 @@ drop policy if exists notifications_recipient_select on public.notifications;
 create policy notifications_recipient_select
   on public.notifications
   for select to authenticated
-  using (recipient_user_id = (select auth.uid())
-    and public.staff_has_perm('notifications.view'));
+  using (recipient_user_id = (select auth.uid()));
 
 drop policy if exists notifications_recipient_update on public.notifications;
 create policy notifications_recipient_update
   on public.notifications
   for update to authenticated
-  using (recipient_user_id = (select auth.uid())
-    and public.staff_has_perm('notifications.view'))
-  with check (recipient_user_id = (select auth.uid())
-    and public.staff_has_perm('notifications.view'));
+  using (recipient_user_id = (select auth.uid()))
+  with check (recipient_user_id = (select auth.uid()));
 
 drop policy if exists notifications_recipient_delete on public.notifications;
 create policy notifications_recipient_delete
   on public.notifications
   for delete to authenticated
-  using (recipient_user_id = (select auth.uid())
-    and public.staff_has_perm('notifications.view'));
+  using (recipient_user_id = (select auth.uid()));
 
 -- A quote creates one row for every active administrator and every active
 -- organization member explicitly granted offers.view. Each row has one owner,
