@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     if (!authorization.toLowerCase().startsWith("bearer ")) return json(req, { error: "UNAUTHENTICATED" }, 401);
     const accessToken = authorization.slice(7).trim();
     const { data: authData, error: authError } = await admin.auth.getUser(accessToken);
-    if (authError || !authData.user) return json({ error: "UNAUTHENTICATED" }, 401);
+    if (authError || !authData.user) return json(req, { error: "UNAUTHENTICATED" }, 401);
 
     const body = await req.json().catch(() => ({}));
     const token = typeof body.token === "string" ? body.token.trim() : "";
