@@ -7,18 +7,25 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json; charset=utf-8",
-  "Cache-Control": "no-store",
-  "Vary": "Origin",
-};
-function reply(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: corsHeaders });
+const ALLOWED_ORIGINS = new Set([
+  "https://stagepulse.com.tr",
+  "https://www.stagepulse.com.tr",
+  "https://appassets.androidplatform.net",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") ?? "";
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Vary": "Origin",
+  };
+  if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
 }
-function fail(code: string, status = 400) { return reply({ ok: false, error: code }, status); }
 function normalizeKey(value: unknown) { return String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
 async function sha256Hex(value: string) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -179,7 +186,10 @@ async function requireOwner(userId: string) {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  const responseHeaders = corsHeaders(req);
+  const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: responseHeaders });
+  const fail = (code: string, status = 400) => reply({ ok: false, error: code }, status);
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: responseHeaders });
   if (req.method !== "POST") return fail("METHOD_NOT_ALLOWED", 405);
   try {
     const { user, token } = await requireUser(req);
