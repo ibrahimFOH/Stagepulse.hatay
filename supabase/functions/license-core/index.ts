@@ -307,8 +307,11 @@ Deno.serve(async (req: Request) => {
       if (await rateLimited("license-core:activate:" + user.id, 20)) return reply(req, { ok: false, error: "RATE_LIMITED" }, 429);
       const lic = await findLicense(rawKey);
       if (!lic || lic.product_code !== app.product_code || lic.status !== "active"
-          || lic.payment_status !== "paid" || (lic.expires_at && Date.parse(lic.expires_at) <= Date.now())) {
-        return reply(req, { ok: false, error: "LICENSE_INVALID_OR_UNPAID" }, 403);
+          || (lic.expires_at && Date.parse(lic.expires_at) <= Date.now())) {
+        return reply(req, { ok: false, error: "LICENSE_INVALID_OR_EXPIRED" }, 403);
+      }
+      if (lic.payment_status !== "paid") {
+        return reply(req, { ok: false, error: "LICENSE_PAYMENT_REQUIRED" }, 403);
       }
       if (lic.legacy_system === "stagepulse") {
         const { data: legacyResult, error: legacyError } = await db.rpc("stagepulse_activate_license_device", {
@@ -323,6 +326,8 @@ Deno.serve(async (req: Request) => {
         });
         if (legacyError) {
           const message = String(legacyError.message ?? "");
+          if (message.includes("LICENSE_PAYMENT_REQUIRED")) return reply(req, { ok: false, error: "LICENSE_PAYMENT_REQUIRED" }, 403);
+          if (message.includes("LICENSE_INVALID_OR_EXPIRED")) return reply(req, { ok: false, error: "LICENSE_INVALID_OR_EXPIRED" }, 403);
           if (message.includes("LICENSE_ACTIVATION_LIMIT")) return reply(req, { ok: false, error: "LICENSE_DEVICE_LIMIT" }, 409);
           if (message.includes("DEVICE_BOUND_TO_OTHER_USER")) return reply(req, { ok: false, error: "DEVICE_BOUND_TO_OTHER_USER" }, 409);
           if (message.includes("STUDENT_ALREADY_LINKED")) return reply(req, { ok: false, error: "STUDENT_ALREADY_LINKED" }, 409);
@@ -339,6 +344,9 @@ Deno.serve(async (req: Request) => {
     const status = message === "LICENSE_APP_NOT_FOUND" ? 404
       : message === "UNAUTHENTICATED" ? 401
       : message === "OWNER_ROLE_LOOKUP_FAILED" ? 503
+      : message === "LICENSE_PAYMENT_REQUIRED" || message === "LICENSE_INVALID_OR_EXPIRED" ? 403
+      : message === "LICENSE_DEVICE_LIMIT" || message === "DEVICE_BOUND_TO_OTHER_USER" || message === "STUDENT_ALREADY_LINKED" ? 409
+      : message === "LICENSE_ACTIVATION_FAILED" ? 400
       : 500;
     console.error("[license-core]", message);
     return reply(req, { ok: false, error: message }, status);
