@@ -15,7 +15,7 @@ const corsHeaders = (req: Request) => {
   const origin = req.headers.get("origin") || "";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Cache-Control": "no-store",
     "Vary": "Origin",
