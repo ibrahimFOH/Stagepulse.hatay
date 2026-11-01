@@ -62,7 +62,7 @@ requireMatch(quoteFunction.includes('if(!TURNSTILE_SECRET_KEY)'), 'public-quote 
 requireMatch(quoteFunction.includes(".select('id,quote_number,status')"), 'public-quote success selection must be limited to non-PII fields.');
 requireMatch(!quoteFunction.includes("select('id,quote_number,status,event_date"), 'public-quote must not return the legacy PII-rich quote selection.');
 
-const authenticatedPathsMatch = serviceWorker.match(/const\\s+AUTHENTICATED_PATHS\\s*=\\s*\\[([^\\]]+)\\]/);
+const authenticatedPathsMatch = serviceWorker.match(/const\s+AUTHENTICATED_PATHS\s*=\s*\[([^\]]+)\]/);
 const authenticatedPaths = authenticatedPathsMatch
   ? [...authenticatedPathsMatch[1].matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1])
   : [];
