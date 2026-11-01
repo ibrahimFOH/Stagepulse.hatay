@@ -111,7 +111,7 @@ async function hashKey(value: string) {
 function deviceId(value: unknown) { return clean(value, 160).replace(/[^a-zA-Z0-9._:-]/g, ""); }
 Deno.serve(async (req) => {
   const cors = headers(req);
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: headers(req) });
   if (req.method !== "POST") return reply(req, { error: "Yalnızca POST desteklenir." }, 405);
   if (!SUPABASE_URL || !SERVICE_KEY) return reply(req, { error: "Lisans veri servisi yapılandırılmamış." }, 503);
   const body = await req.json().catch(() => null);
