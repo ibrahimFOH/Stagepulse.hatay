@@ -115,7 +115,7 @@ async function requireOwner(userId: string) {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
   if (req.method !== "POST") return fail(req, "METHOD_NOT_ALLOWED", 405);
   try {
     const { user } = await requireUser(req);
