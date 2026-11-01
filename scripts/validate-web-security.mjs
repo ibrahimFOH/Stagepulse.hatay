@@ -38,6 +38,30 @@ const quoteView = read('teklif-view.html');
 const quoteAclMigration = read('supabase/migrations/20261101062600_revoke_public_quote_rpc_execute.sql');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
+const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
+const edgeConfig = read('supabase/config.toml');
+const expectedEdgeFunctions = new Map([
+  ['admin-data', true], ['admin-github-media', true], ['admin-login', false],
+  ['admin-offer-runtime', false], ['admin-password-reset', false], ['license-admin', false],
+  ['offer-pdf', false], ['org-admin-control', true], ['portal-login', false],
+  ['production-os', false], ['public-quote', false], ['register-android-device', true],
+  ['self-password-change', true], ['send-fcm-notification', false],
+  ['ses-merkezi-desktop', false], ['staff-manage', false],
+]);
+const manifestEntries = Array.isArray(edgeManifest.functions) ? edgeManifest.functions : [];
+const manifestNames = manifestEntries.map(item => item.name);
+requireMatch(manifestEntries.length === expectedEdgeFunctions.size, 'Edge function manifest must contain every canonical function exactly once.');
+requireMatch(new Set(manifestNames).size === manifestNames.length, 'Edge function manifest must not contain duplicate names.');
+for (const [name, verifyJwt] of expectedEdgeFunctions) {
+  const entry = manifestEntries.find(item => item.name === name);
+  requireMatch(!!entry && entry.verifyJwt === verifyJwt, `Function manifest must declare ${name} with verifyJwt=${verifyJwt}.`);
+  const configPattern = new RegExp('\\\\[functions\\\\.' + name + '\\\\]\\\\s*verify_jwt\\\\s*=\\\\s*' + verifyJwt);
+  requireMatch(configPattern.test(edgeConfig), `Supabase config must declare ${name} with verify_jwt=${verifyJwt}.`);
+  requireMatch(read(`supabase/functions/${name}/index.ts`).length > 0, `Canonical Edge Function source is missing: ${name}.`);
+}
+requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
+
+
 requireMatch(/name=["']phone["']/.test(teklif), 'teklif.html must expose the phone field by name.');
 requireMatch(publicScript.includes('/script-controller.js'), 'script.js must load the local public controller.');
 requireMatch(!publicScript.includes('cdn.jsdelivr.net/gh/ibrahimFOH'), 'Public controller must not fall back to a remote repository.');
