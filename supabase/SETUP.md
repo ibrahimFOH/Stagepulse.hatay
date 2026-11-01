@@ -32,6 +32,7 @@ supabase functions deploy admin-github-media
 supabase functions deploy admin-login
 supabase functions deploy admin-offer-runtime
 supabase functions deploy admin-password-reset
+supabase functions deploy license-core
 supabase functions deploy license-admin
 supabase functions deploy offer-pdf
 supabase functions deploy org-admin-control
