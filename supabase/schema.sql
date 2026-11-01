@@ -323,7 +323,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $notify$
 begin
   insert into public.notifications (
     recipient_user_id, kind, title, body, offer_id
@@ -339,7 +339,7 @@ begin
 
   return new;
 end;
-$;
+$notify$;
 revoke all on function public.notify_new_quote() from public,anon,authenticated;
 drop trigger if exists trg_notify_new_quote on public.teklifler;
 create trigger trg_notify_new_quote after insert on public.teklifler
