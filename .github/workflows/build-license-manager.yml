@@ -12,8 +12,8 @@ jobs:
   windows-exe:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d
         with:
           python-version: '3.11'
       - name: Install packaging tools
@@ -24,7 +24,7 @@ jobs:
       - name: Build Windows EXE
         working-directory: license-manager-app/desktop
         run: pyinstaller --noconfirm --clean --onefile --windowed --name StagepulseLisansYonetimi --add-data "..\assets;assets" main.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: Stagepulse-Lisans-Yonetimi-Windows-EXE
           path: license-manager-app/desktop/dist/StagepulseLisansYonetimi.exe
@@ -33,8 +33,8 @@ jobs:
   android-apk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
         with:
           distribution: temurin
           java-version: '17'
@@ -44,13 +44,13 @@ jobs:
           if [ -z "$SDKMANAGER" ]; then echo "sdkmanager not found"; exit 1; fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
         with:
           gradle-version: '8.9'
       - name: Build Android debug APK
         working-directory: license-manager-app/android
         run: gradle --no-daemon assembleDebug
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: Stagepulse-Lisans-Yonetimi-Android-APK
           path: license-manager-app/android/app/build/outputs/apk/debug/app-debug.apk
