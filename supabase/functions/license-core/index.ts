@@ -27,7 +27,7 @@ function corsHeaders(req: Request): Record<string, string> {
 }
 
 function reply(req: Request, body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: corsHeaders(req)Headers(req) });
+  return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
 }
 function clean(value: unknown, max = 200) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
