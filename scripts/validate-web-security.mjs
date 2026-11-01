@@ -35,6 +35,7 @@ const portalInventory = portalBundle;
 const adminOfferFields = adminBundle;
 const adminCss = read('admin/admin-bundle.css');
 const quoteView = read('teklif-view.html');
+const quoteAclMigration = read('supabase/migrations/20261101062600_revoke_public_quote_rpc_execute.sql');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
 requireMatch(/name=["']phone["']/.test(teklif), 'teklif.html must expose the phone field by name.');
@@ -101,6 +102,7 @@ requireMatch(core.includes("supabase-js@2.112.4") && core.includes(`script.integ
 requireMatch(quoteView.includes('supabase-js@2.112.4') && quoteView.includes(`integrity="${supabaseSri}"`), 'Public quote view must pin the verified Supabase asset and enforce SRI.');
 requireMatch(!core.includes("supabase-js@2\'"), "Public Supabase loader must not use a floating major-version CDN URL.");
 requireMatch(!quoteView.includes('supabase-js@2"'), 'Public quote view must not use a floating major-version CDN URL.');
+requireMatch(quoteAclMigration.includes('from authenticated;') && /grant execute on function public\\.get_public_quote\\(text\\) to anon;/.test(quoteAclMigration) && /grant execute on function public\\.respond_to_quote\\(text, text\\) to anon;/.test(quoteAclMigration), 'Customer quote RPCs must remain token-accessible to anon but not executable by authenticated users.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(adminRuntime), 'Admin runtime must not add a credential POST fallback.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(portalRuntime), 'Portal runtime must not add a credential POST fallback.');
 
