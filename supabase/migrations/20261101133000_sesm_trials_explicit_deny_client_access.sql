@@ -5,7 +5,7 @@ begin;
 create table if not exists public.sesm_trials (
   user_id uuid primary key references auth.users(id) on delete cascade,
   device_hash text not null unique check (device_hash ~ '^[0-9a-f]{64}$'),
-  platform text not null default 'windows' check (platform in ('windows', 'android')),
+  platform text not null default 'windows' check (platform in ('windows', 'android', 'unknown')),
   started_at timestamptz not null default now(),
   expires_at timestamptz not null default (now() + interval '7 days'),
   last_seen_at timestamptz not null default now(),
