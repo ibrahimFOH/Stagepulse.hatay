@@ -27,6 +27,10 @@
       "verifyJwt": false
     },
     {
+      "name": "license-core",
+      "verifyJwt": true
+    },
+    {
       "name": "offer-pdf",
       "verifyJwt": false
     },
