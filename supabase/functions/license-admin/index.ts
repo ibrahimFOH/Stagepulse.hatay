@@ -21,7 +21,8 @@ const encoder = new TextEncoder();
 
 function headers(req: Request) {
   return {
-    "Access-Control-Allow-Origin": "*",
+    ...(new Set(["https://stagepulse.com.tr","https://www.stagepulse.com.tr","http://localhost:5173","http://127.0.0.1:5173"]).has(req.headers.get("origin") ?? "") ? { "Access-Control-Allow-Origin": req.headers.get("origin")! } : {}),
+    "Vary": "Origin",
     "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json; charset=utf-8",
