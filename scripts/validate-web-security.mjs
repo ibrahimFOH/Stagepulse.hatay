@@ -48,6 +48,11 @@ const licenseDenyMigration = read('supabase/migrations/20261101075844_explicit_d
 const licenseCoreFunction = read('supabase/functions/license-core/index.ts');
 const licenseAdminFunction = read('supabase/functions/license-admin/index.ts');
 const sesMerkeziFunction = read('supabase/functions/ses-merkezi-desktop/index.ts');
+const licenseAdminOriginMatch = licenseAdminFunction.match(/new Set\(\[([^\]]+)\]\)\.has\(req\.headers\.get\("origin"\)/);
+const licenseAdminOrigins = licenseAdminOriginMatch
+  ? [...licenseAdminOriginMatch[1].matchAll(/"([^"]+)"/g)].map(match => match[1])
+  : [];
+const readinessHandler = productionOsFunction.split("if(body.action==='readiness'){")[1]?.split("  return json({error:'Unsupported action'}")[0] || '';
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
 const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
@@ -72,7 +77,7 @@ for (const [name, verifyJwt] of expectedEdgeFunctions) {
 }
 requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
 requireMatch(licenseCoreFunction.includes('const ALLOWED_ORIGINS = new Set([') && licenseCoreFunction.includes('if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;') && !licenseCoreFunction.includes('Access-Control-Allow-Origin": "*"'), 'Unified license Edge Function must use the Stagepulse CORS origin allowlist.');
-requireMatch(!licenseAdminFunction.includes('Access-Control-Allow-Origin": "*"') && /new Set\\(\\["https:\\/\\/stagepulse\\.com\\.tr","https:\\/\\/www\\.stagepulse\\.com\\.tr","http:\\/\\/localhost:5173","http:\\/\\/127\\.0\\.0\\.1:5173"\\]\\)\\.has\\(req\\.headers\\.get\\("origin"\\)/.test(licenseAdminFunction), 'License admin Edge Function must validate CORS with an exact origin allowlist.');
+requireMatch(!licenseAdminFunction.includes('Access-Control-Allow-Origin": "*"') && JSON.stringify(licenseAdminOrigins) === JSON.stringify(['https://stagepulse.com.tr','https://www.stagepulse.com.tr','http://localhost:5173','http://127.0.0.1:5173']), 'License admin Edge Function must validate CORS with an exact origin allowlist.');
 requireMatch(!sesMerkeziFunction.includes('Access-Control-Allow-Origin": "*"') && sesMerkeziFunction.includes('const ALLOWED_ORIGINS = new Set([') && sesMerkeziFunction.includes('content-type, x-client-info'), 'Ses Merkezi Edge Function must use the Stagepulse CORS origin allowlist.');
 requireMatch(fcmRegistryMigration.includes('notification_devices_user_token_variant_uidx') && fcmRegistryMigration.includes('alter table public.notification_devices enable row level security') && fcmRegistryMigration.includes('grant execute on function public.register_notification_device(text,text,text) to authenticated;'), 'FCM device registry must have scoped RLS and authenticated registration RPC.');
 requireMatch(registerAndroidFunction.includes('.eq("token", token)') && registerAndroidFunction.includes('"https://www.stagepulse.com.tr"') && registerAndroidFunction.includes('if (ALLOWED_ORIGINS.has(origin))') && registerAndroidFunction.includes('content-type, x-client-info'), 'Android device registration must be token-scoped and use an origin allowlist.');
@@ -80,7 +85,7 @@ requireMatch(productionOsMigration.includes('create table if not exists public.s
 requireMatch(productionOsMigration.includes('create policy sp_timesheet_admin_insert') && productionOsMigration.includes('create policy sp_timesheet_admin_update') && productionOsMigration.includes('create policy sp_timesheet_admin_delete') && productionOsMigration.includes('create policy sp_timesheet_select') && !productionOsMigration.includes('create policy sp_timesheet_access on public.sp_staff_timesheets for all'), 'Production OS must prevent staff from inserting or approving their own timesheets.');
 requireMatch(productionOsAccessMigration.includes('create policy sp_timesheet_admin_update') && productionOsAccessMigration.includes('with check (public.is_admin())') && productionOsAccessMigration.includes('using (public.is_admin() or user_id = auth.uid())'), 'Live Production OS access hardening must remove the existing staff-wide timesheet write policy.');
 requireMatch(productionOsFunction.includes('staffActions.has(body.action)') && productionOsFunction.includes("userClient.rpc('is_staff')") && productionOsFunction.includes("userClient.rpc('is_admin')"), 'Production OS service-role writes must require an active staff or admin account.');
-requireMatch(/if\\s*\\(body\\.action===['\"]readiness['\"]\\)\\s*\\{[\\s\\S]*?userClient\\.rpc\\('is_admin'\\)[\\s\\S]*?admin capability required/i.test(productionOsFunction), 'Production readiness reads must require an administrator before using service-role access.');
+requireMatch(readinessHandler.includes("userClient.rpc('is_admin')") && readinessHandler.includes("isAdmin!==true") && readinessHandler.includes('admin capability required'), 'Production readiness reads must require an administrator before using service-role access.');
 requireMatch(fcmDispatchMigration.includes("cron.schedule(") && fcmDispatchMigration.includes("'stagepulse-notification-push-retry'") && fcmDispatchMigration.includes('https://itasctyjzyewcykozuex.supabase.co/functions/v1/send-fcm-notification') && !fcmDispatchMigration.includes('mtjcqqrogjqaxkagwkti'), 'FCM retry migration must schedule delivery to the current Supabase project, not the retired endpoint.');
 requireMatch(['sp_equipment_scans','sp_event_readiness','sp_field_proofs'].every(name => productionOsTimestampMigration.includes(`alter table public.${name} add column if not exists created_at`)), 'Production OS list tables must expose the created_at sort column used by the admin UI.');
 const normalizedLicenseDenyMigration = licenseDenyMigration.replaceAll('\n', ' ').replaceAll('  ', ' ').replaceAll('  ', ' ').toLowerCase();
