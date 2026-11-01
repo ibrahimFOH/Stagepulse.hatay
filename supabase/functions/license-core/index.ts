@@ -149,7 +149,7 @@ async function adminCreate(user: any, body: any) {
     }).select("id").single();
     if (error || !data) throw new Error("LICENSE_CREATE_FAILED");
     const { data: core, error: coreError } = await db.from("license_core")
-      .update({ owner_user_id: user.id, payment_status: paymentStatus })
+      .update({ owner_user_id: user.id, payment_status: paymentStatus, updated_at: new Date().toISOString() })
       .eq("legacy_system", "stagepulse").eq("legacy_license_id", data.id)
       .select("id").single();
     if (coreError || !core) throw new Error("LICENSE_CORE_SYNC_FAILED");
@@ -192,9 +192,11 @@ async function adminCreate(user: any, body: any) {
     licenseId = data.id;
   }
 
+  const { data: defaults, error: defaultsError } = await db.from("license_product_entitlements")
+    .select("capability,enabled,limits").eq("app_id", appId);
+  if (defaultsError) throw new Error("LICENSE_ENTITLEMENTS_LOOKUP_FAILED");
   const { error: entitlementError } = await db.from("license_entitlements")
-    .insert((await db.from("license_product_entitlements").select("capability,enabled,limits").eq("app_id", appId)).data
-      ?.map((item: any) => ({ license_id: licenseId, app_id: appId, ...item })) ?? []);
+    .insert((defaults ?? []).map((item: any) => ({ license_id: licenseId, app_id: appId, ...item })));
   if (entitlementError) throw new Error("LICENSE_ENTITLEMENTS_CREATE_FAILED");
   await db.from("license_core_audit").insert({
     license_id: licenseId, actor_user_id: user.id, action: "license_created", app_id: appId,
