@@ -32,7 +32,14 @@ body{background:#080808;color:#eee;font-family:Inter,system-ui}
 <script>
 const sb = window.supabase.createClient(
   'https://itasctyjzyewcykozuex.supabase.co',
-  'sb_publishable_tP3CMhVAjv6FNtrkYfVEOA_dbF9m8Jb'
+  'sb_publishable_tP3CMhVAjv6FNtrkYfVEOA_dbF9m8Jb',
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    }
+  }
 );
 const token = new URLSearchParams(location.search).get('token');
 
