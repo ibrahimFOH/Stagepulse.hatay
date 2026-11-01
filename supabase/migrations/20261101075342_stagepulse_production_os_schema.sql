@@ -294,7 +294,23 @@ create policy sp_admin_all_revisions on public.sp_quote_revisions for all to aut
 drop policy if exists sp_admin_all_packages on public.sp_quote_packages;
 create policy sp_admin_all_packages on public.sp_quote_packages for all to authenticated using (public.is_admin()) with check (public.is_admin());
 drop policy if exists sp_timesheet_access on public.sp_staff_timesheets;
-create policy sp_timesheet_access on public.sp_staff_timesheets for all to authenticated using (public.is_admin() or user_id=auth.uid()) with check (public.is_admin() or user_id=auth.uid());
+drop policy if exists sp_timesheet_select on public.sp_staff_timesheets;
+drop policy if exists sp_timesheet_admin_insert on public.sp_staff_timesheets;
+drop policy if exists sp_timesheet_admin_update on public.sp_staff_timesheets;
+drop policy if exists sp_timesheet_admin_delete on public.sp_staff_timesheets;
+create policy sp_timesheet_select on public.sp_staff_timesheets
+  for select to authenticated
+  using (public.is_admin() or user_id=auth.uid());
+create policy sp_timesheet_admin_insert on public.sp_staff_timesheets
+  for insert to authenticated
+  with check (public.is_admin());
+create policy sp_timesheet_admin_update on public.sp_staff_timesheets
+  for update to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+create policy sp_timesheet_admin_delete on public.sp_staff_timesheets
+  for delete to authenticated
+  using (public.is_admin());
 drop policy if exists sp_availability_access on public.sp_staff_availability;
 create policy sp_availability_access on public.sp_staff_availability for all to authenticated using (public.is_admin() or user_id=auth.uid()) with check (public.is_admin() or user_id=auth.uid());
 drop policy if exists sp_scan_access on public.sp_equipment_scans;
