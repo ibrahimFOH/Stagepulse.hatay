@@ -37,6 +37,8 @@ const adminCss = read('admin/admin-bundle.css');
 const quoteView = read('teklif-view.html');
 const quoteAclMigration = read('supabase/migrations/20261101074347_public_quote_rpc_anon_only_acl.sql');
 const searchPathMigration = read('supabase/migrations/20261101074641_pin_search_path_public_security_definers.sql');
+const fcmRegistryMigration = read('supabase/migrations/20261101074856_stagepulse_fcm_device_registry.sql');
+const registerAndroidFunction = read('supabase/functions/register-android-device/index.ts');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
 const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
@@ -60,6 +62,8 @@ for (const [name, verifyJwt] of expectedEdgeFunctions) {
   requireMatch(read(`supabase/functions/${name}/index.ts`).length > 0, `Canonical Edge Function source is missing: ${name}.`);
 }
 requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
+requireMatch(fcmRegistryMigration.includes('notification_devices_user_token_variant_uidx') && fcmRegistryMigration.includes('alter table public.notification_devices enable row level security') && fcmRegistryMigration.includes('grant execute on function public.register_notification_device(text,text,text) to authenticated;'), 'FCM device registry must have scoped RLS and authenticated registration RPC.');
+requireMatch(registerAndroidFunction.includes('.eq("token", token)') && registerAndroidFunction.includes('"https://www.stagepulse.com.tr"') && registerAndroidFunction.includes('if (ALLOWED_ORIGINS.has(origin))'), 'Android device registration must be token-scoped and use an origin allowlist.');
 for (const signature of ['can_manage_org_member(uuid)', 'check_login_rate_limit(text, integer)', 'enforce_public_quote_rate_limit()', 'is_org_owner()', 'set_offer_public_code()', 'set_quote_defaults()', 'stagepulse_activate_license_device(uuid, text)']) {
   requireMatch(searchPathMigration.includes(`alter function public.${signature} set search_path = '';`), `SECURITY DEFINER search_path hardening is missing for ${signature}.`);
 }
