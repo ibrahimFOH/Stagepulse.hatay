@@ -35,7 +35,8 @@ const portalInventory = portalBundle;
 const adminOfferFields = adminBundle;
 const adminCss = read('admin/admin-bundle.css');
 const quoteView = read('teklif-view.html');
-const quoteAclMigration = read('supabase/migrations/20261101062600_revoke_public_quote_rpc_execute.sql');
+const quoteAclMigration = read('supabase/migrations/20261101074347_public_quote_rpc_anon_only_acl.sql');
+const searchPathMigration = read('supabase/migrations/20261101074641_pin_search_path_public_security_definers.sql');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
 const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
@@ -59,6 +60,9 @@ for (const [name, verifyJwt] of expectedEdgeFunctions) {
   requireMatch(read(`supabase/functions/${name}/index.ts`).length > 0, `Canonical Edge Function source is missing: ${name}.`);
 }
 requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
+for (const signature of ['can_manage_org_member(uuid)', 'check_login_rate_limit(text, integer)', 'enforce_public_quote_rate_limit()', 'is_org_owner()', 'set_offer_public_code()', 'set_quote_defaults()', 'stagepulse_activate_license_device(uuid, text)']) {
+  requireMatch(searchPathMigration.includes(`alter function public.${signature} set search_path = '';`), `SECURITY DEFINER search_path hardening is missing for ${signature}.`);
+}
 
 
 requireMatch(/name=["']phone["']/.test(teklif), 'teklif.html must expose the phone field by name.');
