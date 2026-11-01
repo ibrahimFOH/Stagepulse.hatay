@@ -26,7 +26,7 @@ function corsHeaders(req: Request): Record<string, string> {
   return headers;
 }
 function reply(req: Request, body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: corsHeaders(req)(req) });
+  return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
 }
 function fail(req: Request, code: string, status = 400) { return reply(req, { ok: false, error: code }, status); }
 function normalizeKey(value: unknown) { return String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
