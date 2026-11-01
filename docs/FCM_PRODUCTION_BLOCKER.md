@@ -1,6 +1,6 @@
 # FCM Production Readiness
 
-Status: DATABASE SCHEMA DEPLOYED; Edge Function deployment and real-device delivery acceptance remain pending.
+Status: DATABASE READY; sender and Production OS Edge Functions deployed; Android device registration and real-device delivery acceptance remain pending.
 
 ## Verified in the live Supabase project
 
@@ -9,14 +9,16 @@ Status: DATABASE SCHEMA DEPLOYED; Edge Function deployment and real-device deliv
 - Device registrations are unique by `(user_id, token, app_variant)`, allowing one user to register multiple devices and both app variants.
 - `public.register_notification_device(text,text,text)` is granted to authenticated only; anon execution is revoked.
 - Notification push queue columns and the bounded retry index are installed.
-- The Android registration Edge Function source now filters an existing row by user, token, push type, and app variant. CORS allows only the canonical Stagepulse origins and local development origins.
+- `production-os` Edge Function is active with `verify_jwt=false` and its own authorization checks.
+- `send-fcm-notification` Edge Function is active with `verify_jwt=false`; manual sends require admin authorization and internal dispatch requires the one-time notification dispatch token.
+- The Android registration source now filters an existing row by user, token, push type, and app variant. CORS allows only canonical Stagepulse origins and local development origins; deployment awaits the validated PR.
 
 ## Still required before push delivery is production-ready
 
-1. Deploy `register-android-device` with JWT verification enabled.
-2. Deploy `send-fcm-notification` with its manifest setting (`verify_jwt=false`); its internal admin authorization and one-time dispatch token checks remain mandatory.
-3. Confirm the Supabase Edge Function secret `FIREBASE_SERVICE_ACCOUNT_JSON` is configured, or configure `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, and `FCM_PRIVATE_KEY`. Do not put these values in GitHub source or client applications.
-4. Enable the automatic retry/dispatch trigger only after the sender function and Firebase secret are verified. The old migration contains a retired project URL and must not be applied unchanged.
+1. Merge and deploy the corrected `register-android-device` function with JWT verification enabled.
+2. Confirm that the Edge Function secret `FIREBASE_SERVICE_ACCOUNT_JSON` exists, or configure `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, and `FCM_PRIVATE_KEY`. The current connector cannot enumerate Edge Function secret values/names, so their presence is not claimed as verified.
+3. Send one manual test notification to an Admin account and one to a Personel account.
+4. Enable automatic retry/dispatch only after sender credentials and manual delivery are verified. The historical migration contains a retired project URL and must not be applied unchanged.
 5. Install current Admin and Personel Android builds, register both variants, and test foreground, background, terminated-app delivery, stale-token deactivation, and tap-to-open behavior.
 
 ## Acceptance boundary
