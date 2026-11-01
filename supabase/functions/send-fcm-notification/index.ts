@@ -62,8 +62,16 @@ Deno.serve(async req=>{
       const {data:n,error:ce}=await admin.from('notifications').update({push_claim_token:claimToken,push_claimed_at:at}).eq('id',id).eq('push_dispatch_token',token).is('push_dispatched_at',null).or(`push_claimed_at.is.null,push_claimed_at.lt.${staleAt}`).select('id,recipient_user_id,title,body,kind,offer_id').maybeSingle();
       if(ce)throw ce;
       if(!n)return out(req,{ok:false,error:'INVALID_USED_OR_CLAIMED_TOKEN'},409);
+      if(!n.recipient_user_id){
+        await admin.from('notifications').update({
+          push_claim_token:null,
+          push_claimed_at:null,
+          push_last_error:'MISSING_NOTIFICATION_RECIPIENT'
+        }).eq('id',id).eq('push_dispatch_token',token).eq('push_claim_token',claimToken).is('push_dispatched_at',null);
+        return out(req,{ok:false,error:'MISSING_NOTIFICATION_RECIPIENT'},409);
+      }
       claimed={id,token,claimToken};
-      ids=n.recipient_user_id?[n.recipient_user_id]:[];
+      ids=[n.recipient_user_id];
       title=n.title||title;
       text=n.body||'';
       kind=n.kind||kind;
@@ -84,15 +92,18 @@ Deno.serve(async req=>{
       ids=ids.filter(id=>permitted.has(id));
     }
     const result=await dispatch(ids,title,text,kind,path);
+    const deliveryPending = result.sent === 0 && result.failed === 0;
     if(claimed){
       const update=result.failed>0
         ?{push_claim_token:null,push_claimed_at:null,push_last_error:JSON.stringify(result.errors).slice(0,2000)}
-        :{push_dispatched_at:new Date().toISOString(),push_claim_token:null,push_claimed_at:null,push_last_error:null};
+        :deliveryPending
+          ?{push_claim_token:null,push_claimed_at:null,push_last_error:result.stale>0?'NO_ACTIVE_FCM_DEVICE_TOKEN':'NO_ACTIVE_FCM_DEVICE'}
+          :{push_dispatched_at:new Date().toISOString(),push_claim_token:null,push_claimed_at:null,push_last_error:null};
       const {error}=await admin.from('notifications').update(update).eq('id',claimed.id).eq('push_dispatch_token',claimed.token).eq('push_claim_token',claimed.claimToken).is('push_dispatched_at',null);
       if(error)throw error;
     }
-    const publicResult={ok:result.ok,sent:result.sent,stale:result.stale,failed:result.failed,total:result.total};
-    return out(req,publicResult,result.failed>0?502:200);
+    const publicResult={ok:result.ok&&!deliveryPending,pending:deliveryPending,sent:result.sent,stale:result.stale,failed:result.failed,total:result.total};
+    return out(req,publicResult,result.failed>0?502:deliveryPending?202:200);
   }catch(e){
     if(claimed){
       await admin.from('notifications').update({push_claim_token:null,push_claimed_at:null,push_last_error:(e instanceof Error?e.message:String(e)).slice(0,2000)}).eq('id',claimed.id).eq('push_dispatch_token',claimed.token).eq('push_claim_token',claimed.claimToken).is('push_dispatched_at',null);
