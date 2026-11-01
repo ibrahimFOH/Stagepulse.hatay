@@ -1,13 +1,17 @@
 # Stagepulse Supabase config
-# JWT doğrulaması kapalı olan fonksiyonlar kendi oturum/yetki kontrolünü yapar.
+# verify_jwt=false yalnızca fonksiyon kendi oturum/token/yetki kontrolünü yaptığı zaman kullanılır.
+# Bu dosya functions-manifest.json ile scripts/validate-web-security.mjs tarafından eşitlenir.
 
-[functions.staff-manage]
-verify_jwt = false
+[functions.admin-data]
+verify_jwt = true
 
-[functions.staff-login]
-verify_jwt = false
+[functions.admin-github-media]
+verify_jwt = true
 
 [functions.admin-login]
+verify_jwt = false
+
+[functions.admin-offer-runtime]
 verify_jwt = false
 
 [functions.admin-password-reset]
@@ -16,13 +20,32 @@ verify_jwt = false
 [functions.license-admin]
 verify_jwt = false
 
+[functions.offer-pdf]
+verify_jwt = false
+
 [functions.org-admin-control]
 verify_jwt = true
 
 [functions.portal-login]
-# E-posta/şifre girişi fonksiyon içinde doğrulanır ve dağıtık rate-limit uygulanır.
+verify_jwt = false
+
+[functions.production-os]
+verify_jwt = false
+
+[functions.public-quote]
+verify_jwt = false
+
+[functions.register-android-device]
+verify_jwt = true
+
+[functions.self-password-change]
+verify_jwt = true
+
+[functions.send-fcm-notification]
 verify_jwt = false
 
 [functions.ses-merkezi-desktop]
-# Supabase JWT veya süreli HMAC lisans-yönetici token'ı fonksiyon içinde doğrulanır.
+verify_jwt = false
+
+[functions.staff-manage]
 verify_jwt = false
