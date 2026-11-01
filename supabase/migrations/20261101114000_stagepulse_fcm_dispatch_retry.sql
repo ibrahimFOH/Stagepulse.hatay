@@ -31,7 +31,7 @@ drop policy if exists notification_push_dead_letters_operator_select
 create policy notification_push_dead_letters_operator_select
   on public.notification_push_dead_letters
   for select to authenticated
-  using (private.is_admin());
+  using (public.is_admin());
 
 create or replace function private.sync_notification_push_dead_letter()
 returns trigger
@@ -204,7 +204,7 @@ declare
   v_replay_count integer;
   v_request_id bigint;
 begin
-  if auth.uid() is null or not private.is_admin() then
+  if auth.uid() is null or not public.is_admin() then
     raise exception 'Yönetici yetkisi gerekli.' using errcode = '42501';
   end if;
 
