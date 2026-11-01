@@ -319,11 +319,25 @@ create trigger trg_quote_insert_enrich before insert on public.teklifler for eac
 
 -- Notification is inserted AFTER the quote row exists, preserving its foreign key.
 create or replace function public.notify_new_quote()
-returns trigger language plpgsql security definer set search_path='' as $
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $
 begin
- insert into public.notifications(kind,title,body,offer_id)
- values('new_quote','Yeni teklif talebi',coalesce(new.quote_number,'Yeni teklif')||' - '||coalesce(new.name,''),new.id);
- return new;
+  insert into public.notifications (
+    recipient_user_id, kind, title, body, offer_id
+  )
+  select
+    profile.user_id,
+    'new_quote',
+    'Yeni teklif talebi',
+    coalesce(new.quote_number, 'Yeni teklif') || ' - ' || coalesce(new.name, ''),
+    new.id
+  from public.admin_profiles profile
+  where profile.active = true;
+
+  return new;
 end;
 $;
 revoke all on function public.notify_new_quote() from public,anon,authenticated;
