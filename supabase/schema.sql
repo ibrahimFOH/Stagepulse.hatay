@@ -220,6 +220,7 @@ create table if not exists public.activity_logs (
 );
 create table if not exists public.notifications (
   id bigint generated always as identity primary key,
+  recipient_user_id uuid references auth.users(id) on delete cascade,
   kind text not null,
   title text not null,
   body text,
@@ -318,13 +319,44 @@ create trigger trg_quote_insert_enrich before insert on public.teklifler for eac
 
 -- Notification is inserted AFTER the quote row exists, preserving its foreign key.
 create or replace function public.notify_new_quote()
-returns trigger language plpgsql security definer set search_path='' as $
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $notify$
 begin
- insert into public.notifications(kind,title,body,offer_id)
- values('new_quote','Yeni teklif talebi',coalesce(new.quote_number,'Yeni teklif')||' - '||coalesce(new.name,''),new.id);
- return new;
+  insert into public.notifications (
+    recipient_user_id, kind, title, body, offer_id
+  )
+  select distinct
+    membership.user_id,
+    'new_quote',
+    'Yeni teklif talebi',
+    coalesce(new.quote_number, 'Yeni teklif') || ' - ' || coalesce(new.name, ''),
+    new.id
+  from public.org_memberships membership
+  join public.org_roles role
+    on role.id = membership.role_id
+   and role.active = true
+  where membership.active = true
+    and membership.user_id is not null
+    and (
+      role.is_admin_role = true
+      or exists (
+        select 1
+        from public.admin_capability_grants grant_row
+        join public.admin_capabilities capability
+          on capability.key = grant_row.capability_key
+         and capability.active = true
+        where grant_row.user_id = membership.user_id
+          and grant_row.enabled = true
+          and grant_row.capability_key = 'offers.view'
+      )
+    );
+
+  return new;
 end;
-$;
+$notify$;
 revoke all on function public.notify_new_quote() from public,anon,authenticated;
 drop trigger if exists trg_notify_new_quote on public.teklifler;
 create trigger trg_notify_new_quote after insert on public.teklifler
@@ -393,6 +425,13 @@ create policy staff_admin on public.staff for all to authenticated using(public.
 create policy job_staff_admin on public.job_staff for all to authenticated using(public.is_admin()) with check(public.is_admin());
 create policy activity_admin on public.activity_logs for all to authenticated using(public.is_admin()) with check(public.is_admin());
 create policy notifications_admin on public.notifications for all to authenticated using(public.is_admin()) with check(public.is_admin());
+create policy notifications_recipient_select on public.notifications for select to authenticated
+  using (recipient_user_id = (select auth.uid()));
+create policy notifications_recipient_update on public.notifications for update to authenticated
+  using (recipient_user_id = (select auth.uid()))
+  with check (recipient_user_id = (select auth.uid()));
+create policy notifications_recipient_delete on public.notifications for delete to authenticated
+  using (recipient_user_id = (select auth.uid()));
 create policy customers_admin on public.customers for all to authenticated using(public.is_admin()) with check(public.is_admin());
 create policy pricing_admin on public.price_rules for all to authenticated using(public.is_admin()) with check(public.is_admin());
 

@@ -1,26 +1,34 @@
-# FCM Production Readiness
+# FCM Üretim Hazırlık Durumu
 
-Status: DATABASE READY; sender and Production OS Edge Functions deployed; Android device registration and real-device delivery acceptance remain pending.
+Durum: FCM kuyruğu ve dakikalık yeniden deneme işi canlıda etkin; bildirim alıcı ilişkisi ve en az ayrıcalıklı erişim bu PR'daki migration ile onarılıyor. Gerçek cihaz teslimatı henüz kabul edilmedi.
 
-## Verified in the live Supabase project
+## Canlıda doğrulanan altyapı
 
-- `public.notification_devices` exists with `push_type`, `app_variant`, and `subscription_updated_at`.
-- RLS is enabled and self-access policies restrict authenticated users to their own device rows.
-- Device registrations are unique by `(user_id, token, app_variant)`, allowing one user to register multiple devices and both app variants.
-- `public.register_notification_device(text,text,text)` is granted to authenticated only; anon execution is revoked.
-- Notification push queue columns and the bounded retry index are installed.
-- `production-os` Edge Function is active with `verify_jwt=false` and its own authorization checks.
-- `send-fcm-notification` Edge Function is active with `verify_jwt=false`; manual sends require admin authorization and internal dispatch requires the one-time notification dispatch token.
-- The Android registration source now filters an existing row by user, token, push type, and app variant. CORS allows only canonical Stagepulse origins and local development origins; deployment awaits the validated PR.
+- `pg_net` 0.20.4 ve `pg_cron` 1.6.4 etkin.
+- `stagepulse-notification-push-retry` cron işi her dakika çalışacak şekilde etkin.
+- Bildirim dispatch ve dead-letter tetikleyicileri kurulu.
+- `register-android-device` Edge Function v2 aktif ve JWT doğrulaması açık.
+- `send-fcm-notification` Edge Function v2 aktif; manuel gönderim yönetici oturumu, iç dispatch tek kullanımlık token gerektiriyor.
+- `production-os` Edge Function v2 aktif ve personel/yönetici rol kontrolleri içeriyor.
+- Canlı tabloda henüz Android FCM cihaz kaydı ve bildirim satırı yok. Bu nedenle gerçek teslimat başarısı iddia edilmiyor.
 
-## Still required before push delivery is production-ready
+## Bu PR ile düzeltilen bildirim akışı
 
-1. Merge and deploy the corrected `register-android-device` function with JWT verification enabled.
-2. Confirm that the Edge Function secret `FIREBASE_SERVICE_ACCOUNT_JSON` exists, or configure `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, and `FCM_PRIVATE_KEY`. The current connector cannot enumerate Edge Function secret values/names, so their presence is not claimed as verified.
-3. Send one manual test notification to an Admin account and one to a Personel account.
-4. Enable automatic retry/dispatch only after sender credentials and manual delivery are verified. The historical migration contains a retired project URL and must not be applied unchanged.
-5. Install current Admin and Personel Android builds, register both variants, and test foreground, background, terminated-app delivery, stale-token deactivation, and tap-to-open behavior.
+- `notifications.recipient_user_id` alanı auth.users kaydına bağlı olacak.
+- Yeni teklif bildirimleri aktif yöneticilere ve `offers.view` yetkili aktif organizasyon üyelerine ayrı satırlar halinde oluşturulacak.
+- Kullanıcı yalnızca kendi bildirimini okuyabilecek ve silebilecek; yalnızca `read_at` alanını güncelleyebilecek.
+- Authenticated istemciler bildirim oluşturamayacak, alıcıyı/payload'u veya FCM dispatch alanlarını değiştiremeyecek.
+- Alıcısı bulunmayan sistem bildirimleri FCM kuyruğuna girmeyecek.
+- Aktif FCM cihazı bulunmayan bildirimler gönderildi işaretlenmeyecek; sınırlı yeniden denemede kalacak ve altı deneme sonunda dead-letter tablosuna taşınacak.
 
-## Acceptance boundary
+## Hâlâ gerekli kabul testleri
 
-A successful schema migration or APK build does not prove that Firebase delivered a notification to a physical device. Record app version, device model, Android version, account role, and pass/fail results without recording tokens or credentials.
+1. Migration'ın canlıya uygulanması ve recipient foreign key, RLS, kolon yetkileri, cron ve trigger kontrollerinin tekrar çalıştırılması.
+2. `FIREBASE_SERVICE_ACCOUNT_JSON` veya `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY` sırlarının Supabase Dashboard üzerinden doğrulanması. Bağlı araç güvenli secret değerlerini listeleyemediğinden burada var oldukları iddia edilmiyor.
+3. En az bir Admin ve bir Personel Android cihazının güncel APK ile kaydolması.
+4. Admin hesabından Personel hesabına ve Admin hesabına gerçek FCM gönderimi yapılması.
+5. Ön plan, arka plan, uygulama kapalı, eski token temizliği ve bildirime dokununca doğru ekrana açılma davranışlarının doğrulanması.
+
+## Kabul sınırı
+
+CI, SQL migration veya Edge Function'ın ACTIVE olması Firebase teslimatını kanıtlamaz. Token ve servis hesabı değerleri rapora kaydedilmemelidir. Fiziksel cihaz testleri kaydedilene kadar FCM üretim kabulü açık kalır.
