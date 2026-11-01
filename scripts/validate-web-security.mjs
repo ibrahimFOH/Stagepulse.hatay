@@ -40,6 +40,7 @@ const searchPathMigration = read('supabase/migrations/20261101074641_pin_search_
 const fcmRegistryMigration = read('supabase/migrations/20261101074856_stagepulse_fcm_device_registry.sql');
 const registerAndroidFunction = read('supabase/functions/register-android-device/index.ts');
 const productionOsMigration = read('supabase/migrations/20261101075342_stagepulse_production_os_schema.sql');
+const productionOsTimestampMigration = read('supabase/migrations/20261101075503_production_os_created_at_columns.sql');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
 const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
@@ -66,6 +67,7 @@ requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('
 requireMatch(fcmRegistryMigration.includes('notification_devices_user_token_variant_uidx') && fcmRegistryMigration.includes('alter table public.notification_devices enable row level security') && fcmRegistryMigration.includes('grant execute on function public.register_notification_device(text,text,text) to authenticated;'), 'FCM device registry must have scoped RLS and authenticated registration RPC.');
 requireMatch(registerAndroidFunction.includes('.eq("token", token)') && registerAndroidFunction.includes('"https://www.stagepulse.com.tr"') && registerAndroidFunction.includes('if (ALLOWED_ORIGINS.has(origin))'), 'Android device registration must be token-scoped and use an origin allowlist.');
 requireMatch(productionOsMigration.includes('create table if not exists public.sp_event_readiness') && productionOsMigration.includes('alter table public.sp_event_readiness enable row level security') && productionOsMigration.includes('alter view public.sp_production_readiness set (security_invoker = true)'), 'Production OS schema must include the RLS-protected readiness table and security-invoker view.');
+requireMatch(['sp_equipment_scans','sp_event_readiness','sp_field_proofs'].every(name => productionOsTimestampMigration.includes(`alter table public.${name} add column if not exists created_at`)), 'Production OS list tables must expose the created_at sort column used by the admin UI.');
 for (const signature of ['can_manage_org_member(uuid)', 'check_login_rate_limit(text, integer)', 'enforce_public_quote_rate_limit()', 'is_org_owner()', 'set_offer_public_code()', 'set_quote_defaults()', 'stagepulse_activate_license_device(uuid, text)']) {
   requireMatch(searchPathMigration.includes(`alter function public.${signature} set search_path = '';`), `SECURITY DEFINER search_path hardening is missing for ${signature}.`);
 }
