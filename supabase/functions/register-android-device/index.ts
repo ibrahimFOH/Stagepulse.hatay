@@ -8,6 +8,7 @@ const admin = createClient(supabaseUrl, serviceRole, { auth: { persistSession: f
 const ALLOWED_ORIGINS = new Set([
   "https://stagepulse.com.tr",
   "https://www.stagepulse.com.tr",
+  "https://appassets.androidplatform.net",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ]);
