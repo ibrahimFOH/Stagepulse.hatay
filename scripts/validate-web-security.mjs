@@ -55,7 +55,7 @@ requireMatch(new Set(manifestNames).size === manifestNames.length, 'Edge functio
 for (const [name, verifyJwt] of expectedEdgeFunctions) {
   const entry = manifestEntries.find(item => item.name === name);
   requireMatch(!!entry && entry.verifyJwt === verifyJwt, `Function manifest must declare ${name} with verifyJwt=${verifyJwt}.`);
-  requireMatch(edgeConfig.includes(`[functions.${name}]\\nverify_jwt = ${verifyJwt}`), `Supabase config must declare ${name} with verify_jwt=${verifyJwt}.`);
+  requireMatch(edgeConfig.includes(`[functions.${name}]\nverify_jwt = ${verifyJwt}`), `Supabase config must declare ${name} with verify_jwt=${verifyJwt}.`);
   requireMatch(read(`supabase/functions/${name}/index.ts`).length > 0, `Canonical Edge Function source is missing: ${name}.`);
 }
 requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
