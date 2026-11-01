@@ -220,6 +220,7 @@ create table if not exists public.activity_logs (
 );
 create table if not exists public.notifications (
   id bigint generated always as identity primary key,
+  recipient_user_id uuid references auth.users(id) on delete cascade,
   kind text not null,
   title text not null,
   body text,
@@ -393,6 +394,13 @@ create policy staff_admin on public.staff for all to authenticated using(public.
 create policy job_staff_admin on public.job_staff for all to authenticated using(public.is_admin()) with check(public.is_admin());
 create policy activity_admin on public.activity_logs for all to authenticated using(public.is_admin()) with check(public.is_admin());
 create policy notifications_admin on public.notifications for all to authenticated using(public.is_admin()) with check(public.is_admin());
+create policy notifications_recipient_select on public.notifications for select to authenticated
+  using (recipient_user_id = (select auth.uid()));
+create policy notifications_recipient_update on public.notifications for update to authenticated
+  using (recipient_user_id = (select auth.uid()))
+  with check (recipient_user_id = (select auth.uid()));
+create policy notifications_recipient_delete on public.notifications for delete to authenticated
+  using (recipient_user_id = (select auth.uid()));
 create policy customers_admin on public.customers for all to authenticated using(public.is_admin()) with check(public.is_admin());
 create policy pricing_admin on public.price_rules for all to authenticated using(public.is_admin()) with check(public.is_admin());
 
