@@ -19,21 +19,45 @@ insert into public.admin_profiles(user_id, username, display_name)
 values ('AUTH-USER-UUID', 'stagepulseadmin', 'Stagepulse Admin');
 ```
 
-## 3. Edge Functions deploy
+## 3. Edge Functions ve gerekli sırlar
 
-Fonksiyonlar `supabase/functions/` altında hazır.
+Dağıtılacak kanonik fonksiyonlar `supabase/functions-manifest.json` ve `supabase/config.toml` içinde aynı listede tutulur. `scripts/validate-web-security.mjs` bu iki kaynağın ad ve JWT ayarlarını CI sırasında karşılaştırır.
+
+Önce veritabanı özelliklerine ait gerekli migration'ları uygulayın; ardından aşağıdaki fonksiyonları dağıtın:
 
 ```bash
 supabase link --project-ref itasctyjzyewcykozuex
-
-supabase functions deploy staff-login
-supabase functions deploy staff-manage
+supabase functions deploy admin-data
+supabase functions deploy admin-github-media
 supabase functions deploy admin-login
+supabase functions deploy admin-offer-runtime
 supabase functions deploy admin-password-reset
+supabase functions deploy license-admin
+supabase functions deploy offer-pdf
+supabase functions deploy org-admin-control
+supabase functions deploy portal-login
+supabase functions deploy production-os
+supabase functions deploy public-quote
+supabase functions deploy register-android-device
+supabase functions deploy self-password-change
+supabase functions deploy send-fcm-notification
+supabase functions deploy ses-merkezi-desktop
+supabase functions deploy staff-manage
 ```
 
-`config.toml` içinde `verify_jwt = false` ayarlı (CORS / preflight sorunu olmasın diye).
-Yetki kontrolü fonksiyon kodunun içinde yapılıyor.
+`staff-login` ve `staff-session` eski uyumluluk uçlarıdır; HTTP 410 döndürürler ve dağıtım listesinde bulunmazlar. Personel girişi için `portal-login` kullanılır.
+
+### Supabase Edge Function sırları
+
+Supabase'in standart `SUPABASE_URL`, `SUPABASE_ANON_KEY` ve `SUPABASE_SERVICE_ROLE_KEY` ortam değişkenleri otomatik sağlanır. Aşağıdaki özel sırlar yalnızca ilgili özellik kullanılacaksa Supabase Dashboard → Edge Functions → Secrets bölümüne eklenmelidir:
+
+- Medya yönetimi: `GITHUB_TOKEN`, `GITHUB_MEDIA_OWNER=ibrahimFOH`, `GITHUB_MEDIA_REPO=Stagepulse.hatay`, `GITHUB_MEDIA_BRANCH=main`.
+- Teklif formu: `TURNSTILE_SECRET_KEY`.
+- Android bildirimleri: `FIREBASE_SERVICE_ACCOUNT_JSON` (tercih edilen) veya `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, `FCM_PRIVATE_KEY`.
+
+Bu özel sırlar yoksa ilgili özellikler çalışır kabul edilmez. Özellikle FCM ve Turnstile işlevlerini sırlar eklenmeden canlıya hazır saymayın. Gizli değerleri GitHub deposuna, HTML/JavaScript'e veya istemci APK'sına yazmayın.
+
+`verify_jwt` ayarları `config.toml` içinde fonksiyon bazında tanımlıdır. `false` yalnızca fonksiyon kendi kimlik/yetki kontrolünü yaptığı veya token'sız doğrulama akışı (Turnstile gibi) sunduğu zaman kullanılır.
 
 ## 4. Personel yetkileri
 

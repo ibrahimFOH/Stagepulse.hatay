@@ -35,7 +35,31 @@ const portalInventory = portalBundle;
 const adminOfferFields = adminBundle;
 const adminCss = read('admin/admin-bundle.css');
 const quoteView = read('teklif-view.html');
+const quoteAclMigration = read('supabase/migrations/20261101062600_revoke_public_quote_rpc_execute.sql');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
+
+const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
+const edgeConfig = read('supabase/config.toml');
+const expectedEdgeFunctions = new Map([
+  ['admin-data', true], ['admin-github-media', true], ['admin-login', false],
+  ['admin-offer-runtime', false], ['admin-password-reset', false], ['license-admin', false],
+  ['offer-pdf', false], ['org-admin-control', true], ['portal-login', false],
+  ['production-os', false], ['public-quote', false], ['register-android-device', true],
+  ['self-password-change', true], ['send-fcm-notification', false],
+  ['ses-merkezi-desktop', false], ['staff-manage', false],
+]);
+const manifestEntries = Array.isArray(edgeManifest.functions) ? edgeManifest.functions : [];
+const manifestNames = manifestEntries.map(item => item.name);
+requireMatch(manifestEntries.length === expectedEdgeFunctions.size, 'Edge function manifest must contain every canonical function exactly once.');
+requireMatch(new Set(manifestNames).size === manifestNames.length, 'Edge function manifest must not contain duplicate names.');
+for (const [name, verifyJwt] of expectedEdgeFunctions) {
+  const entry = manifestEntries.find(item => item.name === name);
+  requireMatch(!!entry && entry.verifyJwt === verifyJwt, `Function manifest must declare ${name} with verifyJwt=${verifyJwt}.`);
+  requireMatch(edgeConfig.includes(`[functions.${name}]\nverify_jwt = ${verifyJwt}`), `Supabase config must declare ${name} with verify_jwt=${verifyJwt}.`);
+  requireMatch(read(`supabase/functions/${name}/index.ts`).length > 0, `Canonical Edge Function source is missing: ${name}.`);
+}
+requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
+
 
 requireMatch(/name=["']phone["']/.test(teklif), 'teklif.html must expose the phone field by name.');
 requireMatch(publicScript.includes('/script-controller.js'), 'script.js must load the local public controller.');
@@ -101,6 +125,7 @@ requireMatch(core.includes("supabase-js@2.112.4") && core.includes(`script.integ
 requireMatch(quoteView.includes('supabase-js@2.112.4') && quoteView.includes(`integrity="${supabaseSri}"`), 'Public quote view must pin the verified Supabase asset and enforce SRI.');
 requireMatch(!core.includes("supabase-js@2\'"), "Public Supabase loader must not use a floating major-version CDN URL.");
 requireMatch(!quoteView.includes('supabase-js@2"'), 'Public quote view must not use a floating major-version CDN URL.');
+requireMatch(quoteAclMigration.includes('revoke execute on function public.get_public_quote(text) from authenticated;') && quoteAclMigration.includes('revoke execute on function public.respond_to_quote(text, text) from authenticated;') && quoteAclMigration.includes('grant execute on function public.get_public_quote(text) to anon;') && quoteAclMigration.includes('grant execute on function public.respond_to_quote(text, text) to anon;'), 'Customer quote RPCs must remain token-accessible to anon but not executable by authenticated users.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(adminRuntime), 'Admin runtime must not add a credential POST fallback.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(portalRuntime), 'Portal runtime must not add a credential POST fallback.');
 

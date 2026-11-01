@@ -2,21 +2,69 @@
   "schemaVersion": 1,
   "projectRefVariable": "SUPABASE_PROJECT_REF",
   "functions": [
-    { "name": "admin-data", "verifyJwt": true },
-    { "name": "admin-github-media", "verifyJwt": true },
-    { "name": "admin-login", "verifyJwt": false },
-    { "name": "admin-offer-runtime", "verifyJwt": false },
-    { "name": "admin-password-reset", "verifyJwt": false },
-    { "name": "license-admin", "verifyJwt": false },
-    { "name": "offer-pdf", "verifyJwt": false },
-    { "name": "org-admin-control", "verifyJwt": false },
-    { "name": "portal-login", "verifyJwt": false },
-    { "name": "production-os", "verifyJwt": false },
-    { "name": "public-quote", "verifyJwt": false },
-    { "name": "register-android-device", "verifyJwt": true },
-    { "name": "self-password-change", "verifyJwt": true },
-    { "name": "send-fcm-notification", "verifyJwt": false },
-    { "name": "staff-login", "verifyJwt": false },
-    { "name": "staff-session", "verifyJwt": false }
+    {
+      "name": "admin-data",
+      "verifyJwt": true
+    },
+    {
+      "name": "admin-github-media",
+      "verifyJwt": true
+    },
+    {
+      "name": "admin-login",
+      "verifyJwt": false
+    },
+    {
+      "name": "admin-offer-runtime",
+      "verifyJwt": false
+    },
+    {
+      "name": "admin-password-reset",
+      "verifyJwt": false
+    },
+    {
+      "name": "license-admin",
+      "verifyJwt": false
+    },
+    {
+      "name": "offer-pdf",
+      "verifyJwt": false
+    },
+    {
+      "name": "org-admin-control",
+      "verifyJwt": true
+    },
+    {
+      "name": "portal-login",
+      "verifyJwt": false
+    },
+    {
+      "name": "production-os",
+      "verifyJwt": false
+    },
+    {
+      "name": "public-quote",
+      "verifyJwt": false
+    },
+    {
+      "name": "register-android-device",
+      "verifyJwt": true
+    },
+    {
+      "name": "self-password-change",
+      "verifyJwt": true
+    },
+    {
+      "name": "send-fcm-notification",
+      "verifyJwt": false
+    },
+    {
+      "name": "ses-merkezi-desktop",
+      "verifyJwt": false
+    },
+    {
+      "name": "staff-manage",
+      "verifyJwt": false
+    }
   ]
 }
