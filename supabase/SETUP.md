@@ -59,6 +59,10 @@ Bu özel sırlar yoksa ilgili özellikler çalışır kabul edilmez. Özellikle 
 
 `verify_jwt` ayarları `config.toml` içinde fonksiyon bazında tanımlıdır. `false` yalnızca fonksiyon kendi kimlik/yetki kontrolünü yaptığı veya token'sız doğrulama akışı (Turnstile gibi) sunduğu zaman kullanılır.
 
+## 3A. Üretim Merkezi
+
+Canlı üretim operasyon ekranı için `supabase/migrations/20261101075342_stagepulse_production_os_schema.sql` ve `supabase/migrations/20261101075503_production_os_created_at_columns.sql` migration'ları uygulanmış olmalıdır. Bu şema 19 operasyon tablosu, RLS politikaları ve güvenli `sp_production_readiness` görünümünü kurar. Yeni ortamlarda migration geçmişi doğrulanmadan eski 20260905 üretim migration'larını tek tek çalıştırmayın.
+
 ## 4. Personel yetkileri
 
 Admin panel → Personel → **+ Personel ekle**
