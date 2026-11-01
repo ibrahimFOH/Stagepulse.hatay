@@ -257,6 +257,8 @@ Deno.serve(async (req: Request) => {
           .update({ status: "revoked", revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
           .eq("id", licenseId);
         if (updateError) throw new Error("LICENSE_REVOKE_FAILED");
+        await db.from("license_core_devices").update({ is_active: false })
+          .eq("license_id", licenseId);
       }
       await db.from("license_core_audit").insert({ license_id: licenseId, actor_user_id: user.id, action: "license_revoked", app_id: appId || null });
       return reply({ ok: true });
