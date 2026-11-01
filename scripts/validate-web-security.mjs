@@ -41,6 +41,7 @@ const fcmRegistryMigration = read('supabase/migrations/20261101074856_stagepulse
 const registerAndroidFunction = read('supabase/functions/register-android-device/index.ts');
 const productionOsMigration = read('supabase/migrations/20261101075342_stagepulse_production_os_schema.sql');
 const productionOsTimestampMigration = read('supabase/migrations/20261101075503_production_os_created_at_columns.sql');
+const licenseDenyMigration = read('supabase/migrations/20261101075844_explicit_deny_client_license_core_tables.sql');
 const supabaseSri = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
 
 const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
@@ -68,6 +69,7 @@ requireMatch(fcmRegistryMigration.includes('notification_devices_user_token_vari
 requireMatch(registerAndroidFunction.includes('.eq("token", token)') && registerAndroidFunction.includes('"https://www.stagepulse.com.tr"') && registerAndroidFunction.includes('if (ALLOWED_ORIGINS.has(origin))'), 'Android device registration must be token-scoped and use an origin allowlist.');
 requireMatch(productionOsMigration.includes('create table if not exists public.sp_event_readiness') && productionOsMigration.includes("'sp_event_readiness'") && productionOsMigration.includes('enable row level security') && productionOsMigration.includes('alter view public.sp_production_readiness set (security_invoker = true)'), 'Production OS schema must include the RLS-protected readiness table and security-invoker view.');
 requireMatch(['sp_equipment_scans','sp_event_readiness','sp_field_proofs'].every(name => productionOsTimestampMigration.includes(`alter table public.${name} add column if not exists created_at`)), 'Production OS list tables must expose the created_at sort column used by the admin UI.');
+requireMatch(['license_core','license_core_audit','license_core_devices','license_entitlements','license_product_entitlements','license_products'].every(name => licenseDenyMigration.includes(`on public.${name} for all to anon, authenticated using (false) with check (false)`)), 'License core tables must have explicit deny policies for direct anon/authenticated access.');
 for (const signature of ['can_manage_org_member(uuid)', 'check_login_rate_limit(text, integer)', 'enforce_public_quote_rate_limit()', 'is_org_owner()', 'set_offer_public_code()', 'set_quote_defaults()', 'stagepulse_activate_license_device(uuid, text)']) {
   requireMatch(searchPathMigration.includes(`alter function public.${signature} set search_path = '';`), `SECURITY DEFINER search_path hardening is missing for ${signature}.`);
 }
