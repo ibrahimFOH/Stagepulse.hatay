@@ -102,7 +102,7 @@ requireMatch(core.includes("supabase-js@2.112.4") && core.includes(`script.integ
 requireMatch(quoteView.includes('supabase-js@2.112.4') && quoteView.includes(`integrity="${supabaseSri}"`), 'Public quote view must pin the verified Supabase asset and enforce SRI.');
 requireMatch(!core.includes("supabase-js@2\'"), "Public Supabase loader must not use a floating major-version CDN URL.");
 requireMatch(!quoteView.includes('supabase-js@2"'), 'Public quote view must not use a floating major-version CDN URL.');
-requireMatch(quoteAclMigration.includes('from authenticated;') && /grant execute on function public\\.get_public_quote\\(text\\) to anon;/.test(quoteAclMigration) && /grant execute on function public\\.respond_to_quote\\(text, text\\) to anon;/.test(quoteAclMigration), 'Customer quote RPCs must remain token-accessible to anon but not executable by authenticated users.');
+requireMatch(quoteAclMigration.includes('revoke execute on function public.get_public_quote(text) from authenticated;') && quoteAclMigration.includes('revoke execute on function public.respond_to_quote(text, text) from authenticated;') && quoteAclMigration.includes('grant execute on function public.get_public_quote(text) to anon;') && quoteAclMigration.includes('grant execute on function public.respond_to_quote(text, text) to anon;'), 'Customer quote RPCs must remain token-accessible to anon but not executable by authenticated users.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(adminRuntime), 'Admin runtime must not add a credential POST fallback.');
 requireMatch(!/loginForm\.(?:method|action)\s*=/.test(portalRuntime), 'Portal runtime must not add a credential POST fallback.');
 
