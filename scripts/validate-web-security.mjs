@@ -42,7 +42,7 @@ const edgeManifest = JSON.parse(read('supabase/functions-manifest.json'));
 const edgeConfig = read('supabase/config.toml');
 const expectedEdgeFunctions = new Map([
   ['admin-data', true], ['admin-github-media', true], ['admin-login', false],
-  ['admin-offer-runtime', false], ['admin-password-reset', false], ['license-admin', false],
+  ['admin-offer-runtime', false], ['admin-password-reset', false], ['license-admin', false], ['license-core', true],
   ['offer-pdf', false], ['org-admin-control', true], ['portal-login', false],
   ['production-os', false], ['public-quote', false], ['register-android-device', true],
   ['self-password-change', true], ['send-fcm-notification', false],
