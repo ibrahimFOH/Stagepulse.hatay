@@ -62,8 +62,11 @@ requireMatch(quoteFunction.includes('if(!TURNSTILE_SECRET_KEY)'), 'public-quote 
 requireMatch(quoteFunction.includes(".select('id,quote_number,status')"), 'public-quote success selection must be limited to non-PII fields.');
 requireMatch(!quoteFunction.includes("select('id,quote_number,status,event_date"), 'public-quote must not return the legacy PII-rich quote selection.');
 
-requireMatch(serviceWorker.includes("AUTHENTICATED_PATHS = ['/admin', '/portal']"), 'Service worker must recognize the admin root as authenticated.');
-requireMatch(serviceWorker.includes("AUTHENTICATED_PATHS = ['/admin', '/portal']"), 'Service worker must recognize the portal root as authenticated.');
+const authenticatedPathsMatch = serviceWorker.match(/const\s+AUTHENTICATED_PATHS\s*=\s*\[([^\]]+)\]/);
+const authenticatedPaths = authenticatedPathsMatch
+  ? [...authenticatedPathsMatch[1].matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1])
+  : [];
+requireMatch(authenticatedPaths.includes('/admin') && authenticatedPaths.includes('/portal'), 'Service worker must recognize both admin and portal roots as authenticated, while allowing additional protected app roots.');
 requireMatch(/function isOfflineShellAsset\(request,url\)\s*\{[\s\S]*?request\.method!=='GET'[\s\S]*?return \['script','style','image','font'\]/.test(serviceWorker), 'Only GET navigation and static app-shell assets may be cached for authenticated screens.');
 requireMatch(/if\s*\(isAuthenticatedPath\(url\.pathname\)\)\s*\{[\s\S]*?if\s*\(isOfflineShellAsset\(request,url\)\)[\s\S]*?else\s*\{\s*event\.respondWith\(fetch\(request,\s*\{\s*cache:\s*'no-store'\s*\}\)\)\s*;\s*\}\s*return;/.test(serviceWorker), 'Authenticated API and data requests must remain network-only; only static shell resources may use offline cache.');
 requireMatch(serviceWorker.includes("'/index.html'") && serviceWorker.includes('Promise.allSettled'), 'Service worker install must build a resilient offline shell.');

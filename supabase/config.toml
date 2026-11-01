@@ -18,3 +18,11 @@ verify_jwt = false
 
 [functions.org-admin-control]
 verify_jwt = true
+
+[functions.portal-login]
+# E-posta/şifre girişi fonksiyon içinde doğrulanır ve dağıtık rate-limit uygulanır.
+verify_jwt = false
+
+[functions.ses-merkezi-desktop]
+# Supabase JWT veya süreli HMAC lisans-yönetici token'ı fonksiyon içinde doğrulanır.
+verify_jwt = false
