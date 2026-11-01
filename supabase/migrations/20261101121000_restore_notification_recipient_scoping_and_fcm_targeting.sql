@@ -188,6 +188,8 @@ $$;
 revoke all on function private.enqueue_notification_push(bigint) from public, anon, authenticated;
 revoke all on function private.retry_notification_pushes() from public, anon, authenticated;
 
+revoke all on function public.notify_new_quote() from public, anon, authenticated;
+
 comment on function public.notify_new_quote() is
   'Creates one recipient-scoped notification per active administrator or offers.view member.';
 comment on function private.enqueue_notification_push(bigint) is
