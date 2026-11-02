@@ -114,12 +114,12 @@ jobs:
           git commit -m "chore(downloads): publish verified Ses Merkezi Windows installer"
           git push origin HEAD:main
 
-      - name: 3.7.1 istemci kimliğiyle güncelleme ve indirmeyi doğrula
+      - name: 3.7.2 istemci kimliğiyle güncelleme ve indirmeyi doğrula
         shell: bash
         run: |
           set -euo pipefail
           source /tmp/ses-merkezi-release.env
-          client_ua="StagepulseSesMerkezi/3.7.1"
+          client_ua="StagepulseSesMerkezi/3.7.2"
           manifest_url="https://stagepulse.com.tr/downloads/ses-merkezi/latest.json"
           manifest_file="$(mktemp)"
           installer_file="$(mktemp)"
@@ -129,7 +129,7 @@ jobs:
             --user-agent "$client_ua" --header 'Accept: application/json' \
             --header 'Cache-Control: no-cache' --output "$manifest_file" --write-out '%{http_code}' "$manifest_url")"
           if [ "$manifest_status" != "200" ]; then
-            echo "3.7.1 istemci kimliğiyle manifest HTTP $manifest_status döndürdü." >&2
+            echo "3.7.2 istemci kimliğiyle manifest HTTP $manifest_status döndürdü." >&2
             exit 1
           fi
           python3 - "$manifest_file" "$VERSION" "$SHA256" <<'PY'
@@ -144,7 +144,7 @@ jobs:
               raise SystemExit("3.7.2 yanlışlıkla kararlı kanal olarak işaretlenmiş.")
           if win.get("sha256") != digest or f"version={version}" not in win.get("url", ""):
               raise SystemExit("Windows adresi veya SHA-256 doğrulaması başarısız.")
-          print("Manifest, 3.7.1 istemci kimliğiyle okundu; test kanalı ve SHA-256 alanları doğru.")
+          print("Manifest, 3.7.2 istemci kimliğiyle okundu; test kanalı ve SHA-256 alanları doğru.")
           PY
 
           download_url="https://stagepulse.com.tr/downloads/ses-merkezi/${FILENAME%.exe}.bin?version=$VERSION"
@@ -152,13 +152,13 @@ jobs:
             --user-agent "$client_ua" --header 'Cache-Control: no-cache' \
             --output "$installer_file" --write-out '%{http_code}' "$download_url")"
           if [ "$download_status" != "200" ]; then
-            echo "3.7.1 istemci kimliğiyle kurulum paketi HTTP $download_status döndürdü." >&2
+            echo "3.7.2 istemci kimliğiyle kurulum paketi HTTP $download_status döndürdü." >&2
             exit 1
           fi
           size="$(stat -c %s "$installer_file")"
           actual="$(sha256sum "$installer_file" | awk '{print $1}')"
           if [ "$size" -lt 1000000 ] || [ "$(head -c 2 "$installer_file")" != "MZ" ] || [ "$actual" != "$SHA256" ]; then
-            echo "3.7.1 istemci indirmesinde boyut, EXE başlığı veya SHA-256 uyuşmadı." >&2
+            echo "3.7.2 istemci indirmesinde boyut, EXE başlığı veya SHA-256 uyuşmadı." >&2
             exit 1
           fi
-          echo "BAŞARILI: 3.7.1 istemci kimliğiyle test manifesti okundu; EXE $size bayt ve SHA-256 doğrulandı."
+          echo "BAŞARILI: 3.7.2 istemci kimliğiyle test manifesti okundu; EXE $size bayt ve SHA-256 doğrulandı."
