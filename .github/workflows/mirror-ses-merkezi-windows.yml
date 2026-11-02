@@ -147,7 +147,7 @@ jobs:
           print("Manifest, 3.7.1 istemci kimliğiyle okundu; test kanalı ve SHA-256 alanları doğru.")
           PY
 
-          download_url="https://stagepulse.com.tr/downloads/ses-merkezi/${FILENAME%.exe}.bin?version=$VERSIONCODE"
+          download_url="https://stagepulse.com.tr/downloads/ses-merkezi/${FILENAME%.exe}.bin?version=$VERSION"
           download_status="$(curl --silent --show-error --location --connect-timeout 20 --max-time 180 \
             --user-agent "$client_ua" --header 'Cache-Control: no-cache' \
             --output "$installer_file" --write-out '%{http_code}' "$download_url")"
