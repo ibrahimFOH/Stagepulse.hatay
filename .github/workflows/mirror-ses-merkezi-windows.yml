@@ -142,7 +142,7 @@ jobs:
               raise SystemExit("Güncelleme manifesti sürüm veya yayın bilgisi geçersiz.")
           if data.get("channel") != "test" or data.get("prerelease") is not True:
               raise SystemExit("3.7.2 yanlışlıkla kararlı kanal olarak işaretlenmiş.")
-          if win.get("sha256") != digest or "version=30702" not in win.get("url", ""):
+          if win.get("sha256") != digest or f"version={version}" not in win.get("url", ""):
               raise SystemExit("Windows adresi veya SHA-256 doğrulaması başarısız.")
           print("Manifest, 3.7.1 istemci kimliğiyle okundu; test kanalı ve SHA-256 alanları doğru.")
           PY
