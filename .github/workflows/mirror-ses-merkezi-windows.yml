@@ -96,8 +96,7 @@ jobs:
           install_tmp="$install_path.tmp"
           mv "$temp_file" "$install_tmp"
           mv "$install_tmp" "$install_path"
-          rm -f "downloads/ses-merkezi/$FILENAME" "downloads/ses-merkezi/$FILENAME.sha256" \\
-            "downloads/ses-merkezi/$FILENAME.bin" "downloads/ses-merkezi/$FILENAME.bin.sha256"
+          rm -f "downloads/ses-merkezi/$FILENAME" "downloads/ses-merkezi/$FILENAME.sha256" "downloads/ses-merkezi/$FILENAME.bin" "downloads/ses-merkezi/$FILENAME.bin.sha256"
           printf '%s  %s\n' "$SHA256" "$install_name" > "$install_path.sha256"
           echo "Windows paketi doğrulandı ve site dosya ağacına yerleştirildi: $size bayt"
 
