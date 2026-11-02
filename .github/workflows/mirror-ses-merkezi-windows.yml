@@ -91,10 +91,11 @@ jobs:
             echo "SHA-256 uyuşmazlığı: beklenen=$SHA256 alınan=$actual" >&2
             exit 1
           fi
-          install_path="downloads/ses-merkezi/$FILENAME"
+          install_path="downloads/ses-merkezi/$FILENAME.bin"
           install_tmp="$install_path.tmp"
           mv "$temp_file" "$install_tmp"
           mv "$install_tmp" "$install_path"
+          rm -f "downloads/ses-merkezi/$FILENAME" "downloads/ses-merkezi/$FILENAME.sha256"
           printf '%s  %s\n' "$SHA256" "$FILENAME" > "$install_path.sha256"
           echo "Windows paketi doğrulandı ve site dosya ağacına yerleştirildi: $size bayt"
 
@@ -102,7 +103,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git add downloads/ses-merkezi/*.exe downloads/ses-merkezi/*.exe.sha256
+          git add -A downloads/ses-merkezi/
           if git diff --cached --quiet; then
             echo "Windows kurulum dosyası zaten güncel."
             exit 0
@@ -117,7 +118,7 @@ jobs:
         run: |
           set -euo pipefail
           source /tmp/ses-merkezi-release.env
-          url="https://stagepulse.com.tr/downloads/ses-merkezi/$FILENAME"
+          url="https://stagepulse.com.tr/downloads/ses-merkezi/$FILENAME.bin"
           verified=0
           for attempt in $(seq 1 18); do
             tmp="$(mktemp)"
