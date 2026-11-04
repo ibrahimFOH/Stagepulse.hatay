@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Validate AI/search discovery assets from the checked-out repository.
-
-This is a deterministic build-time check. Live HTTPS availability is tested by
-production-smoke.sh, so certificate/network failures cannot masquerade as
-missing repository metadata.
-"""
+"""Validate AI/search discovery assets from the checked-out repository."""
 from __future__ import annotations
 
 import json
@@ -22,7 +17,7 @@ def fail(message: str) -> None:
 
 
 def read(path: str) -> str:
-    target = ROOT / path.lstrip("/")
+    target = ROOT / path
     if not target.is_file():
         fail(f"repository asset is missing: {path}")
     return target.read_text(encoding="utf-8")
@@ -30,15 +25,10 @@ def read(path: str) -> str:
 
 llms = read("llms.txt")
 for required in (
-    "Stagepulse FOH Engineer",
-    "Hatay / Antakya",
-    "İbrahim Kavasoğlu",
-    f"{BASE}/",
-    f"{BASE}/ses-sistemi-kiralama.html",
-    f"{BASE}/muhendislik.html",
-    f"{BASE}/ekipman.html",
-    "Ses, Işık, LED",
-    "Elde Bulunan",
+    "Stagepulse FOH Engineer", "Hatay / Antakya", "İbrahim Kavasoğlu",
+    BASE + "/", BASE + "/ses-sistemi-kiralama.html",
+    BASE + "/muhendislik.html", BASE + "/ekipman.html",
+    "Ses, Işık, LED", "Elde Bulunan",
 ):
     if required not in llms:
         fail(f"llms.txt missing: {required}")
@@ -46,13 +36,15 @@ for required in (
 robots = read("robots.txt")
 if f"Sitemap: {BASE}/sitemap.xml" not in robots:
     fail("robots.txt does not expose the canonical sitemap")
+robot_lines = {line.strip().lower() for line in robots.splitlines()}
 for crawler in ("GPTBot", "ClaudeBot"):
-    if re.search(rf"(?mi)^User-agent:\\s*{re.escape(crawler)}\\s*$", robots) is None:
+    if f"user-agent: {crawler.lower()}" not in robot_lines:
         fail(f"robots.txt is missing explicit AI crawler directive for {crawler}")
 
 sitemap = read("sitemap.xml")
-urls = re.findall(r"<loc>(https://stagepulse\\.com\\.tr(?:/[^<]*)?)</loc>", sitemap)
-if not urls or len(urls) != len(set(urls)):
+urls = re.findall(r"<loc>(.*?)</loc>", sitemap, re.I | re.S)
+canonical_urls = [url for url in urls if url.startswith(BASE + "/")]
+if not canonical_urls or len(canonical_urls) != len(set(canonical_urls)):
     fail("sitemap has no valid canonical URLs or contains duplicates")
 
 html = read("index.html")
@@ -62,9 +54,8 @@ if 'name="description"' not in html or "Hatay / Antakya" not in html:
     fail("homepage description is missing regional/service identity")
 
 blocks = re.findall(
-    r"<script[^>]+type=\"application/ld\\+json\"[^>]*>(.*?)</script>",
-    html,
-    re.I | re.S,
+    r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>',
+    html, re.I | re.S,
 )
 if not blocks:
     fail("homepage has no JSON-LD")
@@ -97,4 +88,4 @@ for block in blocks:
 if not found_org:
     fail("homepage Organization JSON-LD was not found")
 
-print(f"PASS: repository AI/search discovery assets validated ({len(urls)} sitemap URLs)")
+print(f"PASS: repository AI/search discovery assets validated ({len(canonical_urls)} sitemap URLs)")
