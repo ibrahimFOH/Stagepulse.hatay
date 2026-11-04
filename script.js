@@ -316,10 +316,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   (async function loadMedia() {
     try {
-      // Cache'i kırmak için timestamp ekle
-      const res = await fetch('media.json?_=' + Date.now());
-      if (!res.ok) return;
-      const data = await res.json();
+      // Önce aynı kaynakta güncel medya indeksini dene; CDN/edge hatasında
+      // GitHub ham kaynağına geç. Hata olursa galeri sessizce boş kalmasın.
+      let data = null;
+      try {
+        const res = await fetch('/media.json?_=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('media.json HTTP ' + res.status);
+        data = await res.json();
+      } catch (primaryError) {
+        const backup = await fetch('https://raw.githubusercontent.com/ibrahimFOH/Stagepulse.hatay/main/media.json', { cache: 'no-store' });
+        if (!backup.ok) throw new Error('Medya indeksi alınamadı: ' + backup.status);
+        data = await backup.json();
+      }
+      const mediaFallbackUrl = path => 'https://media.githubusercontent.com/media/ibrahimFOH/Stagepulse.hatay/main/' +
+        String(path || '').replace(/^\\/+/, '').split('/').map(encodeURIComponent).join('/');
 
       const photos = Array.isArray(data.photos) ? data.photos : [];
 
@@ -333,8 +343,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = safeMediaUrl(src);
             img.src = url;
             img.loading = 'lazy';
+            img.decoding = 'async';
             img.alt = galleryAlts[i % galleryAlts.length];
-            img.addEventListener('click', () => openLightbox(url));
+            img.addEventListener('error', () => {
+              if (img.dataset.spFallbackTried === '1') {
+                img.alt = galleryAlts[i % galleryAlts.length] + ' (görsel yüklenemedi)';
+                img.classList.add('media-load-error');
+                return;
+              }
+              img.dataset.spFallbackTried = '1';
+              img.src = mediaFallbackUrl(src);
+            }, { once: true });
+            img.addEventListener('click', () => openLightbox(img.currentSrc || img.src));
             gallery.appendChild(img);
           });
         }
