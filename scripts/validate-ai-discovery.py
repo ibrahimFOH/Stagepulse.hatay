@@ -62,7 +62,7 @@ if 'name="description"' not in html or "Hatay / Antakya" not in html:
     fail("homepage description is missing regional/service identity")
 
 blocks = re.findall(
-    r'<script[^>]+type=["\\']application/ld\\+json["\\'][^>]*>(.*?)</script>',
+    r"<script[^>]+type=\"application/ld\\+json\"[^>]*>(.*?)</script>",
     html,
     re.I | re.S,
 )
