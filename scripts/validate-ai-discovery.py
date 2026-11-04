@@ -1,72 +1,71 @@
 #!/usr/bin/env python3
-"""Validate the public AI/search discovery signals for Stagepulse."""
+"""Validate AI/search discovery assets from the checked-out repository.
+
+This is a deterministic build-time check. Live HTTPS availability is tested by
+production-smoke.sh, so certificate/network failures cannot masquerade as
+missing repository metadata.
+"""
 from __future__ import annotations
 
 import json
+import pathlib
 import re
 import sys
-import urllib.request
 
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 BASE = "https://stagepulse.com.tr"
-UA = "Stagepulse-AI-Discovery/1.0"
-
-
-def get(path: str) -> str:
-    req = urllib.request.Request(BASE + path, headers={"User-Agent": UA, "Cache-Control": "no-cache"})
-    with urllib.request.urlopen(req, timeout=25) as response:
-        if response.status < 200 or response.status >= 400:
-            raise RuntimeError(f"{path}: HTTP {response.status}")
-        return response.read().decode("utf-8", errors="replace")
 
 
 def fail(message: str) -> None:
-    print(f"FAIL: {message}")
-    sys.exit(1)
+    print(f"FAIL: {message}", file=sys.stderr)
+    raise SystemExit(1)
 
 
-llms = get("/llms.txt")
+def read(path: str) -> str:
+    target = ROOT / path.lstrip("/")
+    if not target.is_file():
+        fail(f"repository asset is missing: {path}")
+    return target.read_text(encoding="utf-8")
+
+
+llms = read("llms.txt")
 for required in (
     "Stagepulse FOH Engineer",
     "Hatay / Antakya",
     "İbrahim Kavasoğlu",
-    "https://stagepulse.com.tr/",
-    "https://stagepulse.com.tr/ses-sistemi-kiralama.html",
-    "https://stagepulse.com.tr/muhendislik.html",
-    "https://stagepulse.com.tr/ekipman.html",
+    f"{BASE}/",
+    f"{BASE}/ses-sistemi-kiralama.html",
+    f"{BASE}/muhendislik.html",
+    f"{BASE}/ekipman.html",
     "Ses, Işık, LED",
     "Elde Bulunan",
 ):
     if required not in llms:
         fail(f"llms.txt missing: {required}")
 
-robots = get("/robots.txt")
-if "Sitemap: https://stagepulse.com.tr/sitemap.xml" not in robots:
+robots = read("robots.txt")
+if f"Sitemap: {BASE}/sitemap.xml" not in robots:
     fail("robots.txt does not expose the canonical sitemap")
 for crawler in ("GPTBot", "ClaudeBot"):
-    if re.search(rf"(?mi)^User-agent:\s*{re.escape(crawler)}\s*$", robots) is None:
-        # GitHub Pages/Cloudflare may briefly serve a stale robots response after deploy.
-        # The repository copy is authoritative for static-site validation.
-        local_robots = None
-        try:
-            with open("robots.txt", "r", encoding="utf-8") as fh:
-                local_robots = fh.read()
-        except OSError:
-            local_robots = ""
-        if re.search(rf"(?mi)^User-agent:\s*{re.escape(crawler)}\s*$", local_robots) is None:
-            fail(f"robots.txt is missing explicit AI crawler directive for {crawler}")
+    if re.search(rf"(?mi)^User-agent:\\s*{re.escape(crawler)}\\s*$", robots) is None:
+        fail(f"robots.txt is missing explicit AI crawler directive for {crawler}")
 
-sitemap = get("/sitemap.xml")
-urls = re.findall(r"<loc>(https://stagepulse\.com\.tr(?:/[^<]*)?)</loc>", sitemap)
+sitemap = read("sitemap.xml")
+urls = re.findall(r"<loc>(https://stagepulse\\.com\\.tr(?:/[^<]*)?)</loc>", sitemap)
 if not urls or len(urls) != len(set(urls)):
-    fail("sitemap has no valid URLs or contains duplicates")
+    fail("sitemap has no valid canonical URLs or contains duplicates")
 
-html = get("/")
+html = read("index.html")
 if "<title>Hatay Ses Sistemi Kiralama & FOH Engineer | Stagepulse</title>" not in html:
     fail("homepage title does not identify Stagepulse and its core service")
 if 'name="description"' not in html or "Hatay / Antakya" not in html:
     fail("homepage description is missing regional/service identity")
 
-blocks = re.findall(r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', html, re.I | re.S)
+blocks = re.findall(
+    r'<script[^>]+type=["\\']application/ld\\+json["\\'][^>]*>(.*?)</script>',
+    html,
+    re.I | re.S,
+)
 if not blocks:
     fail("homepage has no JSON-LD")
 
@@ -75,34 +74,27 @@ for block in blocks:
     try:
         data = json.loads(block.strip())
     except json.JSONDecodeError:
-        continue
-    if isinstance(data, dict):
-        candidates = data.get("@graph") or [data]
-    elif isinstance(data, list):
-        candidates = data
-    else:
-        candidates = []
+        fail("homepage contains invalid JSON-LD")
+    candidates = data.get("@graph", [data]) if isinstance(data, dict) else data if isinstance(data, list) else []
     for item in candidates:
         if not isinstance(item, dict) or item.get("@type") != "Organization":
             continue
         found_org = True
-        if item.get("name") != "Stagepulse":
-            fail("Organization name is not Stagepulse")
-        if item.get("alternateName") != "Stagepulse FOH Engineer":
-            fail("Organization alternateName is missing or inconsistent")
-        if item.get("url") != BASE + "/":
-            fail("Organization URL is not canonical")
-        if "https://www.instagram.com/stagepulse.hatay" not in item.get("sameAs", []):
-            fail("Organization sameAs is missing the official Instagram identity")
-        area = item.get("areaServed", {})
-        if area.get("@type") not in {"Country", "City", "AdministrativeArea"}:
-            fail("Organization areaServed is missing")
-        if item.get("@id") != BASE + "/#stagepulse":
-            fail("Organization @id is missing or inconsistent")
-        if not item.get("serviceType"):
-            fail("Organization serviceType is missing")
+        checks = {
+            "name": item.get("name") == "Stagepulse",
+            "alternateName": item.get("alternateName") == "Stagepulse FOH Engineer",
+            "url": item.get("url") == BASE + "/",
+            "sameAs": "https://www.instagram.com/stagepulse.hatay" in item.get("sameAs", []),
+            "@id": item.get("@id") == BASE + "/#stagepulse",
+            "serviceType": bool(item.get("serviceType")),
+            "areaServed": isinstance(item.get("areaServed"), dict)
+                and item["areaServed"].get("@type") in {"Country", "City", "AdministrativeArea"},
+        }
+        for key, valid in checks.items():
+            if not valid:
+                fail(f"Organization JSON-LD field is missing or invalid: {key}")
 
 if not found_org:
     fail("homepage Organization JSON-LD was not found")
 
-print(f"PASS: AI/search discovery signals validated ({len(urls)} sitemap URLs)")
+print(f"PASS: repository AI/search discovery assets validated ({len(urls)} sitemap URLs)")
