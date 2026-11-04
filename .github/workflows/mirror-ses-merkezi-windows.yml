@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "downloads/ses-merkezi/latest.json"
       - ".github/workflows/mirror-ses-merkezi-windows.yml"
+  schedule:
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -27,7 +28,102 @@ jobs:
           fetch-depth: 1
           lfs: false
 
+      - name: En son kararlı sürüm manifestini yayın deposundan hazırla
+        id: sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, re, urllib.error, urllib.request
+          from pathlib import Path
+          api = "https://api.github.com/repos/ibrahimFOH/Stagepulse-Releases/releases/latest"
+          request = urllib.request.Request(api, headers={
+              "Accept": "application/vnd.github+json",
+              "User-Agent": "Stagepulse-Stable-Manifest-Sync/1.0",
+              "X-GitHub-Api-Version": "2022-11-28",
+          })
+          try:
+              with urllib.request.urlopen(request, timeout=25) as response:
+                  release = json.loads(response.read(2 * 1024 * 1024 + 1))
+          except urllib.error.HTTPError as error:
+              if error.code == 404:
+                  print("Henüz kararlı GitHub Release yok; site manifestine dokunulmadı.")
+                  Path("sync-ready.txt").write_text("false", encoding="ascii")
+                  raise SystemExit(0)
+              raise
+          if release.get("draft") or release.get("prerelease"):
+              raise SystemExit("GitHub latest endpoint kararlı sürüm döndürmedi.")
+          match = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", str(release.get("tag_name", "")))
+          if not match:
+              raise SystemExit("Kararlı sürüm etiketi geçersiz.")
+          version = ".".join(match.groups())
+          version_code = int(match.group(1))*10000 + int(match.group(2))*100 + int(match.group(3))
+          assets = {item.get("name"): item for item in release.get("assets", [])}
+          records = {}
+          for platform, extension in (("Windows", "exe"), ("Android", "apk")):
+              filename = f"Stagepulse-Ses-Merkezi-{platform}-{version}.{extension}"
+              checksum_name = filename + ".sha256"
+              package = assets.get(filename)
+              checksum = assets.get(checksum_name)
+              if not package:
+                  print(f"Kararlı {platform} paketi eksik; site manifestine dokunulmadı.")
+                  Path("sync-ready.txt").write_text("false", encoding="ascii")
+                  raise SystemExit(0)
+              digest = str(package.get("digest") or "")
+              if re.fullmatch(r"sha256:[a-fA-F0-9]{64}", digest):
+                  digest = digest[7:].lower()
+              else:
+                  if not checksum:
+                      raise SystemExit(f"{platform} SHA-256 dosyası eksik.")
+                  checksum_url = checksum.get("browser_download_url", "")
+                  with urllib.request.urlopen(checksum_url, timeout=25) as response:
+                      line = response.read(4096).decode("ascii").strip()
+                  found = re.fullmatch(r"([a-fA-F0-9]{64})\s+\*?(.+)", line)
+                  if not found or found.group(2) != filename:
+                      raise SystemExit(f"{platform} SHA-256 dosyası geçersiz.")
+                  digest = found.group(1).lower()
+              if not re.fullmatch(r"[a-f0-9]{64}", digest):
+                  raise SystemExit(f"{platform} SHA-256 biçimi geçersiz.")
+              url = package.get("browser_download_url", "")
+              expected = f"https://github.com/ibrahimFOH/Stagepulse-Releases/releases/download/v{version}/{filename}"
+              if url != expected:
+                  raise SystemExit(f"{platform} GitHub indirme adresi beklenenden farklı.")
+              records[platform.lower()] = {"url": url, "sha256": digest, "filename": filename}
+          windows_site_url = f"https://stagepulse.com.tr/downloads/ses-merkezi/Stagepulse-Ses-Merkezi-Windows-{version}.bin?version={version}"
+          manifest = {
+              "ok": True,
+              "published": True,
+              "version": version,
+              "versionName": version,
+              "versionCode": version_code,
+              "windows": {
+                  "url": windows_site_url,
+                  "sha256": records["windows"]["sha256"],
+                  "filename": records["windows"]["filename"],
+                  "release_url": records["windows"]["url"],
+              },
+              "android": records["android"],
+              "url": windows_site_url,
+              "sha256": records["windows"]["sha256"],
+              "filename": records["windows"]["filename"],
+              "apkUrl": records["android"]["url"],
+              "apkSha256": records["android"]["sha256"],
+              "notes": str(release.get("body") or "")[:2000],
+              "release_url": f"https://github.com/ibrahimFOH/Stagepulse-Releases/releases/tag/v{version}",
+              "channel": "stable",
+              "prerelease": False,
+          }
+          Path("downloads/ses-merkezi/latest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+          )
+          Path("sync-ready.txt").write_text("true", encoding="ascii")
+          print("STABLE_SITE_MANIFEST_READY", version)
+          PY
+          ready="$(cat sync-ready.txt)"
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+
       - name: Manifesti doğrula ve yayınlanmış Windows dosyasını indir
+        if: steps.sync.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -105,6 +201,7 @@ jobs:
           echo "Windows paketi doğrulandı ve site dosya ağacına yerleştirildi: $size bayt"
 
       - name: Yalnızca doğrulanmış indirme dosyalarını gönder
+        if: steps.sync.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -119,6 +216,7 @@ jobs:
           git push origin HEAD:main
 
       - name: Dağıtım dosyalarını doğrula ve alan adı erişimini raporla
+        if: steps.sync.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -134,8 +232,8 @@ jobs:
           win = data.get("windows") or {}
           if data.get("published") is not True or data.get("version") != version:
               raise SystemExit("Güncelleme bildirimi sürüm/yayın bilgisi geçersiz.")
-          if data.get("channel") != __import__("os").environ.get("CHANNEL") or data.get("prerelease") is not (__import__("os").environ.get("PRERELEASE") == "true"):
-              raise SystemExit("Yayın kanalı manifestle eşleşmiyor.")
+          if data.get("channel") != "stable" or data.get("prerelease") is not False:
+              raise SystemExit("Site güncelleme bildirimi yalnızca kararlı sürüm içermeli.")
           if win.get("sha256") != digest or f"version={version}" not in win.get("url", ""):
               raise SystemExit("Windows adresi veya SHA-256 bildirimi uyuşmuyor.")
           print(f"Manifest doğrulandı: {version} / {channel} kanalı")
