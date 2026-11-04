@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
         data = await backup.json();
       }
       const mediaFallbackUrl = path => 'https://media.githubusercontent.com/media/ibrahimFOH/Stagepulse.hatay/main/' +
-        String(path || '').replace(/^\\/+/, '').split('/').map(encodeURIComponent).join('/');
+        String(path || '').split('/').filter(Boolean).map(encodeURIComponent).join('/');
 
       const photos = Array.isArray(data.photos) ? data.photos : [];
 
