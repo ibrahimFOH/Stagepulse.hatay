@@ -433,6 +433,21 @@ async function offlineJobEditor(id) {
     }
   });
 }
+async function adminBackendReachable() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    // navigator.onLine tek başına güvenilir değildir; Android WebView'de
+    // bağlantı varken false dönebilir. Supabase Auth sağlık yanıtını ölç.
+    await fetch(SUPABASE_URL + '/auth/v1/health', { method: 'GET', cache: 'no-store', signal: controller.signal });
+    return true; // 401/404 bile ağın erişilebilir olduğunu kanıtlar.
+  } catch (_) {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function loadView(v) {
   if (!viewMeta[v]) v = 'dashboard';
   document.querySelectorAll('#sideNav button[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
@@ -447,7 +462,7 @@ async function loadView(v) {
     finance: financeView, personnel: personnelView, analytics: analyticsView, activity: activityView,
     notifications: notificationsView, settings: settingsView
   };
-  if (!navigator.onLine) {
+  if (!navigator.onLine && !(await adminBackendReachable())) {
     if (window.StagepulseOffline) {
       const cacheKey = v === 'calendar' ? adminCacheKey('admin.calendar') : adminCacheKey('admin.view:' + v);
       const cached = await window.StagepulseOffline.getCache(cacheKey).catch(() => null);
