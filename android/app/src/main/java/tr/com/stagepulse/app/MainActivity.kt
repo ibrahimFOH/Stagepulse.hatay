@@ -14,6 +14,9 @@ import android.graphics.Color
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.WebResourceError
+import android.webkit.SslErrorHandler
+import android.webkit.ConsoleMessage
+import android.net.http.SslError
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -54,6 +57,14 @@ class MainActivity : AppCompatActivity() {
     private var fcmToken: String? = null
     private var accessToken: String? = null
     private var bridgeInstalled = false
+    @Volatile private var mainFrameLoadError: String? = null
+    private val mainFrameLoadTimeout = Runnable {
+        if (mainFrameLoadError == null && ::loadingOverlay.isInitialized && loadingOverlay.visibility == View.VISIBLE) {
+            val message = "Stagepulse sayfası zamanında yanıt vermedi. İnternet veya sunucu bağlantısını kontrol edip yeniden dene."
+            mainFrameLoadError = message
+            showLoadError(message)
+        }
+    }
     private val supabaseUrl = "https://itasctyjzyewcykozuex.supabase.co"
     private val portalPath: String get() = BuildConfig.PORTAL_PATH
     private val appVariant: String get() = BuildConfig.APP_VARIANT
@@ -121,6 +132,16 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) webView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
 
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                val detail = "${message.message()} (${message.sourceId()}:${message.lineNumber()})"
+                if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                    Log.e("StagepulseWebView", detail)
+                } else {
+                    Log.d("StagepulseWebView", detail)
+                }
+                return true
+            }
+
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread {
                     val wantsAudio = request.resources?.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE) == true
@@ -155,21 +176,57 @@ class MainActivity : AppCompatActivity() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 if (url != null && AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant)) {
+                    mainFrameLoadError = null
+                    webView.removeCallbacks(mainFrameLoadTimeout)
                     showLoading("Stagepulse yükleniyor…")
+                    webView.postDelayed(mainFrameLoadTimeout, 30_000L)
                 }
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 super.onReceivedError(view, request, error)
-                if (request.isForMainFrame) showLoadError("Bağlantı kurulamadı. İnternet bağlantını kontrol edip tekrar dene.")
+                if (request.isForMainFrame && AndroidUrlPolicy.isTrustedPortalNavigation(request.url.toString(), portalPath, appVariant)) {
+                    val detail = error.description?.toString()?.take(160).orEmpty()
+                    val message = if (detail.isBlank()) {
+                        "Stagepulse bağlantısı kurulamadı. İnternet bağlantını kontrol edip tekrar dene."
+                    } else {
+                        "Stagepulse bağlantısı kurulamadı: $detail"
+                    }
+                    mainFrameLoadError = message
+                    webView.removeCallbacks(mainFrameLoadTimeout)
+                    showLoadError(message)
+                }
             }
 
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: android.webkit.WebResourceResponse) {
                 super.onReceivedHttpError(view, request, errorResponse)
-                if (request.isForMainFrame && errorResponse.statusCode >= 500) {
-                    showLoadError("Stagepulse sunucusu şu anda yanıt vermiyor. Biraz sonra tekrar deneyebilirsin.")
+                if (request.isForMainFrame && errorResponse.statusCode >= 400 &&
+                    AndroidUrlPolicy.isTrustedPortalNavigation(request.url.toString(), portalPath, appVariant)) {
+                    val status = errorResponse.statusCode
+                    val message = when (status) {
+                        403 -> "Stagepulse erişimi sunucu veya güvenlik kuralı tarafından engellendi (HTTP 403)."
+                        526 -> "Cloudflare kaynak sunucunun SSL sertifikasını doğrulayamıyor (HTTP 526)."
+                        525 -> "Cloudflare ile kaynak sunucu arasında SSL el sıkışması başarısız (HTTP 525)."
+                        404 -> "İstenen Stagepulse sayfası bulunamadı (HTTP 404)."
+                        429 -> "Çok fazla istek gönderildi (HTTP 429). Biraz bekleyip tekrar dene."
+                        else -> "Stagepulse sunucusu HTTP $status yanıtı verdi."
+                    }
+                    mainFrameLoadError = message
+                    webView.removeCallbacks(mainFrameLoadTimeout)
+                    showLoadError(message)
+                    Log.e("StagepulseWebView", "$message URL=${request.url}")
                 }
             }
+
+            override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                handler.cancel()
+                val message = "Stagepulse güvenli bağlantısı doğrulanamadı. Sertifika hatası: ${error.primaryError}."
+                mainFrameLoadError = message
+                webView.removeCallbacks(mainFrameLoadTimeout)
+                showLoadError(message)
+                Log.e("StagepulseWebView", "$message URL=${error.url}")
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
                 val url = request.url.toString()
@@ -180,8 +237,34 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 if (!AndroidUrlPolicy.isTrustedPortalNavigation(url, portalPath, appVariant)) return
-                hideLoading()
-                readSupabaseSession()
+                webView.removeCallbacks(mainFrameLoadTimeout)
+                val failure = mainFrameLoadError
+                if (failure != null) {
+                    showLoadError(failure)
+                    return
+                }
+                // Some edge/CDN failures return an HTML 200 page with an empty body.
+                // Wait briefly for the portal scripts, then expose a retry state instead of a blank screen.
+                view.postDelayed({
+                    if (mainFrameLoadError != null) {
+                        showLoadError(mainFrameLoadError!!)
+                        return@postDelayed
+                    }
+                    view.evaluateJavascript(
+                        "(function(){return !!document.body && (document.body.innerText || '').trim().length > 0;})()"
+                    ) { result ->
+                        if (mainFrameLoadError != null) {
+                            showLoadError(mainFrameLoadError!!)
+                        } else if (result != "true") {
+                            val message = "Sayfa açıldı ancak arayüz içeriği yüklenemedi. Bağlantıyı kontrol edip yeniden dene."
+                            mainFrameLoadError = message
+                            showLoadError(message)
+                        } else {
+                            hideLoading()
+                            readSupabaseSession()
+                        }
+                    }
+                }, 1200L)
             }
         }
     }
