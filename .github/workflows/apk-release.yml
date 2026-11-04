@@ -8,14 +8,6 @@ on:
         required: true
         default: preserve
         type: string
-  push:
-    branches: [main]
-    paths:
-      - "android/app/**"
-      - "android/build.gradle.kts"
-      - "android/settings.gradle.kts"
-      - "android/gradle.properties"
-      - ".github/workflows/apk-release.yml"
 
 
 env:
