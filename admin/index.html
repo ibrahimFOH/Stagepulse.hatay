@@ -9,7 +9,7 @@
 <link rel="icon" href="../favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="admin.css?v=20261007-admin-rbac6">
+<link rel="stylesheet" href="admin.css?v=20261104-admin-connectivity1">
 <script>
 (function () {
   var sources = [
@@ -50,10 +50,10 @@
         settled = true;
         clearTimeout(timeoutId);
         var recovery = document.createElement('script');
-        recovery.src = 'auth-recovery.js?v=20261031-recovery1';
+        recovery.src = 'auth-recovery.js?v=20261104-connectivity1';
         recovery.onload = function () {
           var app = document.createElement('script');
-          app.src = 'admin.js?v=20261031-password-recovery1';
+          app.src = 'admin.js?v=20261104-connectivity1';
           app.onerror = function () { showFailure('Supabase SDK yüklendi ancak admin.js yüklenemedi.'); };
           document.body.appendChild(app);
         };
@@ -66,10 +66,8 @@
     script.onerror = function () { fail('ağ, CDN veya SRI doğrulaması başarısız'); };
     document.head.appendChild(script);
   }
-  if (navigator.onLine === false) {
-    window.__stagepulseAdminOfflineBootstrap = true;
-    return;
-  }
+  // navigator.onLine bazı Android WebView sürümlerinde yanlışlıkla false dönebiliyor.
+  // Önce gerçek CDN bağlantısını dene; yalnızca yükleme başarısızsa hata göster.
   load(0, []);
 })();
 </script>
