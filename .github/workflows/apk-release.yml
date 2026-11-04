@@ -47,7 +47,7 @@ jobs:
           test "${#next[@]}" -eq 2
           echo "VERSION_NAME=${next[0]}" >> "$GITHUB_ENV"
           echo "VERSION_CODE=${next[1]}" >> "$GITHUB_ENV"
-          requested="$MINIMUM_VERSION_INPUT"
+          requested="${MINIMUM_VERSION_INPUT:-preserve}"
           for platform in staff admin; do
             old=$(jq -er ".${platform}.minimum_version" latest.json)
             minimum="$old"
