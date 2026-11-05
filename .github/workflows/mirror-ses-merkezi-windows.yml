@@ -116,6 +116,19 @@ jobs:
           Path("downloads/ses-merkezi/latest.json").write_text(
               json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
           )
+          # Keep the legacy Windows updater URL working for every future stable release.
+          redirects_path = Path("_redirects")
+          redirects = redirects_path.read_text(encoding="utf-8").splitlines() if redirects_path.exists() else []
+          redirect = (
+              f"/downloads/ses-merkezi/Stagepulse-Ses-Merkezi-Windows-{version}.bin "
+              f"{records['windows']['url']} 302"
+          )
+          redirects = [
+              line for line in redirects
+              if not re.match(r"^/downloads/ses-merkezi/Stagepulse-Ses-Merkezi-Windows-\\d+\\.\\d+\\.\\d+\\.bin\\s", line)
+          ]
+          redirects.append(redirect)
+          redirects_path.write_text("\\n".join(redirects) + "\\n", encoding="utf-8")
           Path("sync-ready.txt").write_text("true", encoding="ascii")
           print("STABLE_SITE_MANIFEST_READY", version)
           PY
@@ -205,7 +218,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git add -A downloads/ses-merkezi/
+          git add -A downloads/ses-merkezi/ _redirects
           if git diff --cached --quiet; then
             echo "Windows kurulum dosyası zaten güncel."
             exit 0
