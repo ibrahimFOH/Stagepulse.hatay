@@ -1,27 +1,27 @@
 {
   "ok": true,
   "published": true,
-  "version": "3.7.6",
-  "versionName": "3.7.6",
-  "versionCode": 30706,
+  "version": "3.7.8",
+  "versionName": "3.7.8",
+  "versionCode": 30708,
   "windows": {
-    "url": "https://stagepulse.com.tr/downloads/ses-merkezi/Stagepulse-Ses-Merkezi-Windows-3.7.6.bin?version=3.7.6",
-    "sha256": "b75c887278712f4a5004202da5b831ed364acf9fc208d2f1bcbbe46c513c6b74",
-    "filename": "Stagepulse-Ses-Merkezi-Windows-3.7.6.exe",
-    "release_url": "https://github.com/ibrahimFOH/Stagepulse-Releases/releases/download/v3.7.6/Stagepulse-Ses-Merkezi-Windows-3.7.6.exe"
+    "url": "https://stagepulse.com.tr/downloads/ses-merkezi/Stagepulse-Ses-Merkezi-Windows-3.7.8.bin?version=3.7.8",
+    "sha256": "6955fc8bea090f73211f5fe20fd3cbbee1f930544377450dfc7f98d4171c78f8",
+    "filename": "Stagepulse-Ses-Merkezi-Windows-3.7.8.exe",
+    "release_url": "https://github.com/ibrahimFOH/Stagepulse-Releases/releases/download/v3.7.8/Stagepulse-Ses-Merkezi-Windows-3.7.8.exe"
   },
   "android": {
-    "url": "https://github.com/ibrahimFOH/Stagepulse-Releases/releases/download/v3.7.6/Stagepulse-Ses-Merkezi-Android-3.7.6.apk",
-    "sha256": "3ae443ebf685372a56704ffe77055d104c105494ffd942f3047a90389ad55a19",
-    "filename": "Stagepulse-Ses-Merkezi-Android-3.7.6.apk"
+    "url": "https://github.com/ibrahimFOH/Stagepulse-Releases/releases/download/v3.7.8/Stagepulse-Ses-Merkezi-Android-3.7.8.apk",
+    "sha256": "b540f538164d0ed3b96a524f37db89e88e3c0c6b8fbcf3afe61b4694f53d2e86",
+    "filename": "Stagepulse-Ses-Merkezi-Android-3.7.8.apk"
   },
-  "url": "https://stagepulse.com.tr/downloads/ses-merkezi/Stagepulse-Ses-Merkezi-Windows-3.7.6.bin?version=3.7.6",
-  "sha256": "b75c887278712f4a5004202da5b831ed364acf9fc208d2f1bcbbe46c513c6b74",
-  "filename": "Stagepulse-Ses-Merkezi-Windows-3.7.6.exe",
-  "apkUrl": "https://github.com/ibrahimFOH/Stagepulse-Releases/releases/download/v3.7.6/Stagepulse-Ses-Merkezi-Android-3.7.6.apk",
-  "apkSha256": "3ae443ebf685372a56704ffe77055d104c105494ffd942f3047a90389ad55a19",
-  "notes": "Stagepulse Ses Merkezi 3.7.6 kararlı sürümüdür.\n\nWindows kurulum paketi ve kalıcı sertifika ile imzalanmış Android APK birlikte yayımlandı.\nHer dosyanın SHA-256 özeti yanında bulunur. Uygulama içi güncelleme bildirimi Supabase üzerinden sunulur.\n",
-  "release_url": "https://github.com/ibrahimFOH/Stagepulse-Releases/releases/tag/v3.7.6",
+  "url": "https://stagepulse.com.tr/downloads/ses-merkezi/Stagepulse-Ses-Merkezi-Windows-3.7.8.bin?version=3.7.8",
+  "sha256": "6955fc8bea090f73211f5fe20fd3cbbee1f930544377450dfc7f98d4171c78f8",
+  "filename": "Stagepulse-Ses-Merkezi-Windows-3.7.8.exe",
+  "apkUrl": "https://github.com/ibrahimFOH/Stagepulse-Releases/releases/download/v3.7.8/Stagepulse-Ses-Merkezi-Android-3.7.8.apk",
+  "apkSha256": "b540f538164d0ed3b96a524f37db89e88e3c0c6b8fbcf3afe61b4694f53d2e86",
+  "notes": "Stagepulse Ses Merkezi 3.7.8 kararlı sürümüdür.\n\nWindows kurulum paketi ve kalıcı sertifika ile imzalanmış Android APK birlikte yayımlandı.\nHer dosyanın SHA-256 özeti doğrulanmıştır. Güncelleme bildirimi kararlı yayın deposuyla eşitlenmiştir.",
+  "release_url": "https://github.com/ibrahimFOH/Stagepulse-Releases/releases/tag/v3.7.8",
   "channel": "stable",
   "prerelease": false
 }
