@@ -126,7 +126,7 @@ Deno.serve(async(req:Request)=>{
       const id=text(b.id,80),title=text(b.title,180),description=text(b.description,3000),module=text(b.module_id,80)||null;
       const duration=b.duration_minutes===null||b.duration_minutes===""?null:Number(b.duration_minutes),pass=Number(b.pass_percent??70),attempts=Number(b.attempts_allowed??1);
       if(title.length<2||!Number.isFinite(pass)||pass<0||pass>100||!Number.isInteger(attempts)||attempts<1||attempts>20||(duration!==null&&(!Number.isInteger(duration)||duration<1||duration>600)))return bad(req,"EXAM_INPUT_INVALID",400);
-      const payload={title,description,module_id:module,duration_minutes:duration,pass_percent:pass,attempts_allowed:attempts,updated_at:new Date().toISOString()};
+      const payload={title,description,module_id:module,duration_minutes:duration,pass_percent:pass,attempts_allowed:attempts,updated_at:new Date().toISOString(),is_published:false,published_at:null};
       let exam:any;
       if(id){const r=await supabase.from("sesm_exams").update(payload).eq("id",id).eq("created_by",user.id).select().maybeSingle();if(r.error||!r.data)return bad(req,"EXAM_NOT_FOUND",404);exam=r.data;}
       else{const r=await supabase.from("sesm_exams").insert({...payload,created_by:user.id}).select().single();if(r.error||!r.data)throw new Error("EXAM_CREATE_FAILED");exam=r.data;}
