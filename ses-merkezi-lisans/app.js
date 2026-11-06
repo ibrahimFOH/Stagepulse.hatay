@@ -91,7 +91,7 @@ async function educationCall(action,data={}){
  const response=await fetch(SUPABASE_URL+'/functions/v1/sesm-education-admin',{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+token},body:JSON.stringify({action,...data})});
  const result=await response.json().catch(()=>({error:'Sunucudan geçersiz yanıt alındı.'}));
  if(response.status===401){clearSession();throw Error(result.error||'Oturum sona erdi.');}
- if(!response.ok||result.ok!==true)throw Error(result.error||('HTTP '+response.status));
+ if(!response.ok||result.ok!==true){const messages={FORBIDDEN_OWNER_ONLY:'Yönetici yetkisi gerekli.',STUDENT_INPUT_INVALID:'Öğrenci bilgilerini ve parolayı kontrol et.',STUDENT_LICENSE_INVALID:'Öğrenci için ödenmiş ve aktif bir Ses Merkezi lisansı gerekli.',STUDENT_EMAIL_EXISTS:'Bu e-posta ile bir öğrenci hesabı zaten var.',PASSWORD_POLICY_INVALID:'Parola en az 10 karakter, harf ve rakam içermeli.',STUDENT_NOT_FOUND:'Öğrenci hesabı bulunamadı.',EXAM_INPUT_INVALID:'Sınav alanlarını kontrol et.',EXAM_NOT_FOUND:'Sınav bulunamadı.',EXAM_HAS_NO_QUESTIONS:'Yayınlamadan önce sınava en az bir soru ekle.',QUESTION_INPUT_INVALID:'Soru alanlarını kontrol et.',QUESTION_ANSWER_INVALID:'Soru türüne uygun doğru cevap gir.',DOCUMENT_INPUT_INVALID:'PDF bilgilerini ve dosya boyutunu kontrol et.',DOCUMENT_FILE_NOT_FOUND:'Yüklenen PDF depoda bulunamadı.',DOCUMENT_NOT_FOUND:'PDF kaydı bulunamadı.'};throw Error(messages[result.error]||result.error||('HTTP '+response.status));}
  return result;
 }
 function renderStudentLicenses(){
