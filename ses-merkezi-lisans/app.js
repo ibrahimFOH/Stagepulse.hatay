@@ -106,11 +106,11 @@ function renderStudents(){
 function renderExams(){
  const node=$('examList'),select=$('questionExam');if(!node||!select)return;
  select.innerHTML='<option value="">Sınav seç</option>'+exams.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.title)+'</option>').join('');
- node.innerHTML=exams.length?exams.map(x=>'<article class="education-card"><div class="heading"><h3>'+esc(x.title)+'</h3><span class="'+(x.is_published?'status-live':'status-draft')+'">'+(x.is_published?'Yayında':'Taslak')+'</span></div><small>'+esc(x.description||'Açıklama yok')+'</small><div class="education-meta"><span>Geçme: '+Number(x.pass_percent)+'%</span><span>Deneme: '+Number(x.attempts_allowed)+'</span><span>Süre: '+(x.duration_minutes?Number(x.duration_minutes)+' dk':'Sınırsız')+'</span></div><div class="education-actions"><button class="secondary" data-exam="questions" data-id="'+esc(x.id)+'">Sorular</button><button class="secondary" data-exam="attempts" data-id="'+esc(x.id)+'">Sonuçlar</button><button data-exam="publish" data-published="'+(!x.is_published)+'" data-id="'+esc(x.id)+'">'+(x.is_published?'Yayından kaldır':'Yayınla')+'</button><button class="secondary" data-exam="delete" data-id="'+esc(x.id)+'">Sil</button></div></article>').join(''):'<div class="license">Henüz sınav oluşturulmadı.</div>';
+ node.innerHTML=exams.length?exams.map(x=>'<article class="education-card"><div class="heading"><h3>'+esc(x.title)+'</h3><span class="'+(x.is_published?'status-live':'status-draft')+'">'+(x.is_published?'Yayında':'Taslak')+'</span></div><small>'+esc(x.description||'Açıklama yok')+'</small><div class="education-meta"><span>Geçme: '+Number(x.pass_percent)+'%</span><span>Deneme: '+Number(x.attempts_allowed)+'</span><span>Süre: '+(x.duration_minutes?Number(x.duration_minutes)+' dk':'Sınırsız')+'</span></div><div class="education-actions"><button class="secondary" data-exam="edit" data-id="'+esc(x.id)+'">Düzenle</button><button class="secondary" data-exam="questions" data-id="'+esc(x.id)+'">Sorular</button><button class="secondary" data-exam="attempts" data-id="'+esc(x.id)+'">Sonuçlar</button><button data-exam="publish" data-published="'+(!x.is_published)+'" data-id="'+esc(x.id)+'">'+(x.is_published?'Yayından kaldır':'Yayınla')+'</button><button class="secondary" data-exam="delete" data-id="'+esc(x.id)+'">Sil</button></div></article>').join(''):'<div class="license">Henüz sınav oluşturulmadı.</div>';
 }
 function renderQuestions(list){
  const node=$('questionList');if(!node)return;
- node.innerHTML=list.length?list.map((q,i)=>'<article class="education-card"><b>'+(i+1)+'. '+esc(q.question_text)+'</b><small>'+esc(q.question_type)+' · '+Number(q.points)+' puan · Cevap: '+esc(Array.isArray(q.correct_answer)?q.correct_answer.join(', '):String(q.correct_answer))+'</small><button class="secondary" data-question-delete="'+esc(q.id)+'" data-exam-id="'+esc(q.exam_id)+'">Soruyu sil</button></article>').join(''):'<div class="license">Bu sınavda soru yok.</div>';
+ node.innerHTML=list.length?list.map((q,i)=>'<article class="education-card"><b>'+(i+1)+'. '+esc(q.question_text)+'</b><small>'+esc(q.question_type)+' · '+Number(q.points)+' puan · Cevap: '+esc(Array.isArray(q.correct_answer)?q.correct_answer.join(', '):String(q.correct_answer))+'</small><button class="secondary" data-question-edit="'+esc(q.id)+'" data-exam-id="'+esc(q.exam_id)+'">Düzenle</button><button class="secondary" data-question-delete="'+esc(q.id)+'" data-exam-id="'+esc(q.exam_id)+'">Soruyu sil</button></article>').join(''):'<div class="license">Bu sınavda soru yok.</div>';
 }
 function renderAttempts(list){
  const node=$('examAttemptsList');if(!node)return;
@@ -147,7 +147,17 @@ $('examForm').onsubmit=async e=>{
 $('examList').onclick=async e=>{
  const b=e.target.closest('button[data-exam]');if(!b)return;const id=b.dataset.id,x=exams.find(v=>v.id===id);if(!x)return;
  try{b.disabled=true;const action=b.dataset.exam;
- if(action==='questions'){$('questionExam').value=id;const r=await educationCall('questions_list',{exam_id:id});renderQuestions(r.questions||[]);}
+ if(action==='edit'){
+  const title=prompt('Sınav adı:',x.title);if(title===null)return;
+  const description=prompt('Açıklama:',x.description||'');if(description===null)return;
+  const moduleId=prompt('Modül kodu:',x.module_id||'');if(moduleId===null)return;
+  const duration=prompt('Süre (dakika, boş = süresiz):',x.duration_minutes||'');if(duration===null)return;
+  const pass=prompt('Geçme notu (%):',x.pass_percent);if(pass===null)return;
+  const attempts=prompt('Deneme hakkı:',x.attempts_allowed);if(attempts===null)return;
+  await educationCall('exam_save',{id,title,description,module_id:moduleId,duration_minutes:duration?Number(duration):null,pass_percent:Number(pass),attempts_allowed:Number(attempts)});
+  await refreshEducation();message('msg','Sınav bilgileri güncellendi. Yeniden yayınlaman gerekir.','success');
+ }
+ else if(action==='questions'){$('questionExam').value=id;const r=await educationCall('questions_list',{exam_id:id});renderQuestions(r.questions||[]);}
  else if(action==='attempts'){const r=await educationCall('exam_attempts',{exam_id:id});renderAttempts(r.attempts||[]);}
  else if(action==='publish'){await educationCall('exam_publish',{exam_id:id,published:b.dataset.published==='true'});await refreshEducation();}
  else if(action==='delete'){if(!confirm('Sınav, soruları ve sonuçları silinsin mi?'))return;await educationCall('exam_delete',{exam_id:id});await refreshEducation();}}
@@ -162,7 +172,24 @@ $('questionForm').onsubmit=async e=>{
  try{await educationCall('question_save',{exam_id:$('questionExam').value,question_text:$('questionText').value.trim(),question_type:type,options,correct_answer:answer,points:Number($('questionPoints').value),position:$('questionList').children.length,explanation:$('questionExplanation').value.trim()});$('questionText').value='';$('questionOptions').value='';$('questionCorrect').value='';$('questionExplanation').value='';const r=await educationCall('questions_list',{exam_id:$('questionExam').value});renderQuestions(r.questions||[]);await refreshEducation();message('msg','Soru kaydedildi. Değişen sınavı yeniden yayınlamalısın.','success');}
  catch(err){message('msg',err.message,'error');}
 };
-$('questionList').onclick=async e=>{const b=e.target.closest('button[data-question-delete]');if(!b)return;if(!confirm('Soru silinsin mi?'))return;try{await educationCall('question_delete',{question_id:b.dataset.questionDelete,exam_id:$('questionExam').value});const r=await educationCall('questions_list',{exam_id:$('questionExam').value});renderQuestions(r.questions||[]);await refreshEducation();}catch(err){message('msg',err.message,'error');}};
+$('questionList').onclick=async e=>{
+ const edit=e.target.closest('button[data-question-edit]');
+ const del=e.target.closest('button[data-question-delete]');
+ if(edit){
+  const id=edit.dataset.questionEdit,examId=edit.dataset.examId;
+  try{const r=await educationCall('questions_list',{exam_id:examId}),q=(r.questions||[]).find(x=>x.id===id);if(!q)return;
+   const question=prompt('Soru metni:',q.question_text);if(question===null)return;
+   const correctText=prompt('Doğru cevap (çoklu cevap için virgülle ayır):',Array.isArray(q.correct_answer)?q.correct_answer.join(', '):String(q.correct_answer));if(correctText===null)return;
+   const explanation=prompt('Açıklama:',q.explanation||'');if(explanation===null)return;
+   const points=prompt('Puan:',q.points);if(points===null)return;
+   let answer=correctText;if(q.question_type==='true_false'){if(!['true','false'].includes(correctText.toLowerCase()))throw Error('Doğru/yanlış cevabı true veya false olmalı.');answer=correctText.toLowerCase()==='true';}else if(q.question_type==='multiple_choice')answer=correctText.split(',').map(x=>x.trim()).filter(Boolean);
+   await educationCall('question_save',{id,exam_id:examId,question_text:question,question_type:q.question_type,options:q.options||[],correct_answer:answer,explanation,points:Number(points),position:q.position||0});
+   const fresh=await educationCall('questions_list',{exam_id:examId});renderQuestions(fresh.questions||[]);await refreshEducation();message('msg','Soru güncellendi. Sınavı yeniden yayınlamalısın.','success');
+  }catch(err){message('msg',err.message,'error');}return;
+ }
+ if(!del)return;if(!confirm('Soru silinsin mi?'))return;
+ try{await educationCall('question_delete',{question_id:del.dataset.questionDelete,exam_id:del.dataset.examId});const r=await educationCall('questions_list',{exam_id:del.dataset.examId});renderQuestions(r.questions||[]);await refreshEducation();}catch(err){message('msg',err.message,'error');}
+};
 async function uploadPdf(file,path){
  const url=SUPABASE_URL+'/storage/v1/object/sesm-education-pdfs/'+path.split('/').map(encodeURIComponent).join('/');
  const response=await fetch(url,{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+token,'Content-Type':'application/pdf','x-upsert':'false'},body:file});
