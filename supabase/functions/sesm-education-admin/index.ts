@@ -135,7 +135,9 @@ Deno.serve(async(req:Request)=>{
     if(action==="exam_delete"||action==="exam_publish"){
       const id=text(b.exam_id,80);if(!id)return bad(req,"EXAM_NOT_FOUND",404);await ownedExam(id,user.id);
       if(action==="exam_delete"){const r=await supabase.from("sesm_exams").delete().eq("id",id).eq("created_by",user.id);if(r.error)throw new Error("EXAM_DELETE_FAILED");await audit(user.id,"exam_deleted",null,{exam_id:id});return send(req,{ok:true});}
-      const publish=b.published===true;const r=await supabase.from("sesm_exams").update({is_published:publish,published_at:publish?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq("id",id).select().single();
+      const publish=b.published===true;
+      if(publish){const q=await supabase.from("sesm_questions").select("id",{count:"exact",head:true}).eq("exam_id",id);if(q.error)throw q.error;if((q.count??0)<1)return bad(req,"EXAM_HAS_NO_QUESTIONS",409);}
+      const r=await supabase.from("sesm_exams").update({is_published:publish,published_at:publish?new Date().toISOString():null,updated_at:new Date().toISOString()}).eq("id",id).select().single();
       if(r.error)throw new Error("EXAM_PUBLISH_FAILED");await audit(user.id,publish?"exam_published":"exam_unpublished",null,{exam_id:id});return send(req,{ok:true,exam:r.data});
     }
     if(action==="questions_list"){
