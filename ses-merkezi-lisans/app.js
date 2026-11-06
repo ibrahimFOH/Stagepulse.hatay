@@ -114,7 +114,7 @@ function renderQuestions(list){
 }
 function renderAttempts(list){
  const node=$('examAttemptsList');if(!node)return;
- node.innerHTML=list.length?list.map(a=>'<div class="result-row"><span><b>'+esc(a.student?.display_name||a.student?.email||'Öğrenci')+'</b><br>'+Number(a.correct_count||0)+' / '+Number(a.question_count||0)+' doğru · '+(a.passed?'Başarılı':'Başarısız')+' · '+esc(a.status)+'</span><b>'+Number(a.percent||0).toFixed(1)+'%</b></div>').join(''):'Henüz sınav sonucu yok.';
+ node.innerHTML=list.length?list.map(a=>'<div class="result-row"><span><b>'+esc(a.student?.display_name||a.student?.email||'Öğrenci')+'</b><br>'+Number(a.correct_count||0)+' / '+Number(a.question_count||0)+' doğru · '+(a.status==='in_progress'?'Devam ediyor':(a.passed?'Başarılı':'Başarısız'))+' · '+esc(a.status)+'</span><b>'+Number(a.percent||0).toFixed(1)+'%</b></div>').join(''):'Henüz sınav sonucu yok.';
 }
 function renderDocuments(){
  const node=$('documentList');if(!node)return;
