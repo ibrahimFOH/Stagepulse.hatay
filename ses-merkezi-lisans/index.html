@@ -1,8 +1,63 @@
 <!doctype html>
-<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0b0c"><title>Stagepulse Ortak Lisans Yönetimi</title><link rel="stylesheet" href="style.css"></head><body>
-<header class="top"><b>STAGEPULSE <small>ORTAK LİSANS YÖNETİMİ</small></b><span id="conn">Oturum kapalı</span><button id="logout" class="hidden">Çıkış</button></header><main>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0b0c"><title>Stagepulse Eğitim ve Lisans Yönetimi</title><link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><b>STAGEPULSE <small>EĞİTİM VE LİSANS YÖNETİMİ</small></b><span id="conn">Oturum kapalı</span><button id="logout" class="hidden">Çıkış</button></header><main>
 <section id="login" class="login"><div><p>YÖNETİM MERKEZİ</p><h1>Uygulama lisanslarını<br><em>tek merkezden</em> yönet.</h1><span>Stagepulse · Ses Merkezi · JARVIS Windows · JARVIS Android</span></div><form id="loginForm" class="panel"><h2>Ortak hesap girişi</h2><label>E-posta<input id="email" type="email" required autocomplete="username" maxlength="320" placeholder="hesap@ornek.com"></label><label>Şifre<input id="password" type="password" required autocomplete="current-password" maxlength="1024"></label><button id="loginBtn" type="submit">Giriş yap</button><p id="loginMsg"></p><small>Supabase Auth hesabı kullanılır. Yönetim yetkisi sunucu tarafında doğrulanır.</small></form></section>
-<section id="app" class="hidden"><div class="heading"><div><p>YÖNETİM MERKEZİ</p><h1>Lisanslar</h1></div><button id="refresh" class="secondary">Yenile</button></div><p id="msg"></p><div class="stats"><div class="panel">Toplam<strong id="total">0</strong></div><div class="panel">Aktif<strong id="active">0</strong></div><div class="panel">Diğer<strong id="revoked">0</strong></div></div>
+<section id="app" class="hidden"><div class="heading"><div><p>YÖNETİM MERKEZİ</p><h1>Yönetim paneli</h1></div><button id="refresh" class="secondary">Yenile</button></div><p id="msg"></p><div class="stats"><div class="panel">Toplam<strong id="total">0</strong></div><div class="panel">Aktif<strong id="active">0</strong></div><div class="panel">Diğer<strong id="revoked">0</strong></div></div>
 <div class="panel"><h2>Yeni lisans</h2><form id="createForm" class="grid"><label>Müşteri / kullanıcı adı<input id="customer" required maxlength="120"></label><label>Uygulama<select id="product" required><option value="stagepulse">Stagepulse</option><option value="ses-merkezi">Ses Merkezi · Windows</option><option value="ses-merkezi-android">Ses Merkezi · Android</option><option value="jarvis-windows">JARVIS · Windows</option><option value="jarvis-android">JARVIS · Android</option></select></label><label>Cihaz sınırı<input id="devices" type="number" min="1" max="100" value="1" required></label><label>Bitiş tarihi (boş = süresiz)<input id="expiry" type="date"></label><label>Ödeme durumu<select id="payment"><option value="unpaid">Ödenmedi</option><option value="paid">Ödendi</option><option value="refunded">İade edildi</option></select></label><label class="wide">Not<input id="notes" maxlength="1000"></label><button class="wide" type="submit" id="createBtn">Lisans anahtarı üret</button></form><div id="keyResult" class="hidden"><p>YENİ LİSANS ANAHTARI · YALNIZCA BİR KEZ GÖSTERİLİR</p><code id="keyValue"></code><button id="copyKey">Kopyala</button><button id="hideKey" class="secondary">Gizle</button></div></div>
 <div class="panel"><div class="heading"><h2>Kayıtlı lisanslar</h2><button id="export" class="secondary">CSV dışa aktar</button></div><div class="toolbar"><input id="search" placeholder="Müşteri veya lisans ara"><select id="filter"><option value="all">Tümü</option><option value="active">Aktif</option><option value="revoked">Diğer</option></select></div><div id="licenses" class="cards"></div></div>
+
+<nav class="admin-nav" aria-label="Yönetim bölümleri">
+  <a href="#studentPanel">Öğrenciler</a><a href="#examPanel">Sınavlar</a><a href="#documentPanel">Eğitim PDF'leri</a>
+</nav>
+<section id="studentPanel" class="panel education-panel">
+  <div class="section-title"><div><small>HESAP YÖNETİMİ</small><h2>Öğrenci hesapları</h2><p>Ayrı öğrenci girişi oluştur, parola yenile ve hesabı sil.</p></div></div>
+  <form id="studentForm" class="grid">
+    <label>Öğrenci adı<input id="studentName" maxlength="120" required></label>
+    <label>E-posta<input id="studentEmail" type="email" maxlength="320" required></label>
+    <label>İlk parola<input id="studentPassword" type="password" minlength="10" required><small>En az 10 karakter, harf ve rakam.</small></label>
+    <label>Ödenmiş aktif Ses Merkezi lisansı<select id="studentLicense" required><option value="">Lisanslar yükleniyor…</option></select></label>
+    <button class="wide" id="studentCreate" type="submit">Öğrenci hesabı oluştur</button>
+  </form>
+  <div id="studentList" class="cards"><div class="license">Öğrenciler yükleniyor…</div></div>
+</section>
+<section id="examPanel" class="panel education-panel">
+  <div class="section-title"><div><small>ÖLÇME VE DEĞERLENDİRME</small><h2>Sınav ve soru bankası</h2><p>Sınav oluştur, soru ekle, yayınla ve otomatik notlandırma sonuçlarını incele.</p></div></div>
+  <form id="examForm" class="grid">
+    <label class="wide">Sınav adı<input id="examTitle" maxlength="180" required></label>
+    <label class="wide">Açıklama<input id="examDescription" maxlength="3000"></label>
+    <label>Modül kodu<input id="examModule" maxlength="80" placeholder="frequency"></label>
+    <label>Süre (dakika)<input id="examDuration" type="number" min="1" max="600" placeholder="Boş = süresiz"></label>
+    <label>Geçme notu (%)<input id="examPass" type="number" min="0" max="100" value="70" required></label>
+    <label>Deneme hakkı<input id="examAttempts" type="number" min="1" max="20" value="1" required></label>
+    <button class="wide" type="submit">Sınav oluştur</button>
+  </form>
+  <div id="examList" class="cards"></div>
+  <div class="education-subpanel">
+    <h3>Soru bankası</h3>
+    <form id="questionForm" class="grid">
+      <label class="wide">Sınav<select id="questionExam" required><option value="">Sınav seç</option></select></label>
+      <label class="wide">Soru<textarea id="questionText" rows="3" maxlength="4000" required></textarea></label>
+      <label>Soru türü<select id="questionType"><option value="single_choice">Tek seçenekli</option><option value="multiple_choice">Çok seçenekli</option><option value="true_false">Doğru / yanlış</option><option value="short_answer">Kısa cevap</option></select></label>
+      <label>Puan<input id="questionPoints" type="number" min="0.01" max="1000" step="0.01" value="1"></label>
+      <label class="wide">Seçenekler (satır başına bir seçenek)<textarea id="questionOptions" rows="3"></textarea></label>
+      <label class="wide">Doğru cevap<input id="questionCorrect" required placeholder="Çoklu cevapları virgülle ayır"></label>
+      <label class="wide">Açıklama<textarea id="questionExplanation" rows="2" maxlength="2000"></textarea></label>
+      <button class="wide" type="submit">Soruyu kaydet</button>
+    </form>
+    <div id="questionList" class="cards"><div class="license">Önce sınav seç.</div></div>
+  </div>
+  <div class="education-subpanel"><h3>Otomatik notlandırma sonuçları</h3><div id="examAttemptsList" class="results-list">Bir sınavın sonuçlarını aç.</div></div>
+</section>
+<section id="documentPanel" class="panel education-panel">
+  <div class="section-title"><div><small>EĞİTİM İÇERİKLERİ</small><h2>Eğitim PDF kütüphanesi</h2><p>PDF yükle, bilgilerini düzenle, yeni sürüm ekle, yayınla ve kullanım analizlerini gör.</p></div></div>
+  <form id="documentForm" class="grid">
+    <label>Belge başlığı<input id="documentTitle" maxlength="180" required></label>
+    <label>Kategori<input id="documentCategory" maxlength="80" value="genel" required></label>
+    <label class="wide">Açıklama<input id="documentDescription" maxlength="3000"></label>
+    <label class="wide">PDF dosyası (en fazla 50 MB)<input id="documentFile" type="file" accept="application/pdf,.pdf" required></label>
+    <button class="wide" id="documentUpload" type="submit">PDF yükle</button>
+  </form>
+  <div id="documentList" class="cards"></div>
+  <div class="education-subpanel"><h3>PDF kullanım analizleri</h3><div id="documentAnalytics" class="results-list">Analizler yükleniyor…</div></div>
+</section>
 <footer>Stagepulse · Ortak Lisans ve Kimlik Sistemi</footer></section></main><script src="app.js"></script></body></html>
