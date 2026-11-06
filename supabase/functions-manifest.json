@@ -67,6 +67,10 @@
       "verifyJwt": false
     },
     {
+      "name": "sesm-education-admin",
+      "verifyJwt": true
+    },
+    {
       "name": "staff-manage",
       "verifyJwt": false
     }
