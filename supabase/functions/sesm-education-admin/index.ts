@@ -113,6 +113,7 @@ Deno.serve(async(req:Request)=>{
       const {data:s,error}=await supabase.from("sesm_students").select("user_id,email,display_name").eq("user_id",id).eq("teacher_user_id",user.id).maybeSingle();
       if(error||!s)return bad(req,"STUDENT_NOT_FOUND",404);
       await audit(user.id,"student_deleted",null,{student_user_id:id,email:s.email,display_name:s.display_name});
+      await supabase.from("sesm_progress").update({marked_by:null}).eq("marked_by",id);
       const r=await supabase.auth.admin.deleteUser(id);if(r.error)throw new Error("STUDENT_DELETE_FAILED");
       return send(req,{ok:true});
     }
@@ -177,10 +178,11 @@ Deno.serve(async(req:Request)=>{
       if(e.error||!e.data)return bad(req,"EXAM_NOT_AVAILABLE",404);
       const count=await supabase.from("sesm_exam_attempts").select("id",{count:"exact",head:true}).eq("exam_id",id).eq("student_user_id",user.id);
       if(count.error)throw count.error;if((count.count??0)>=e.data.attempts_allowed)return bad(req,"EXAM_ATTEMPTS_EXHAUSTED",409);
+      const q=await supabase.from("sesm_questions").select("id,exam_id,question_text,question_type,options,points,position").eq("exam_id",id).order("position");
+      if(q.error)throw q.error;if(!q.data?.length)return bad(req,"EXAM_HAS_NO_QUESTIONS",409);
       const a=await supabase.from("sesm_exam_attempts").insert({exam_id:id,student_user_id:user.id,status:"in_progress",started_at:new Date().toISOString(),submitted_at:null,answers:{},score:0,max_score:0,percent:0,passed:false,correct_count:0,question_count:0}).select("id,started_at").single();
       if(a.error||!a.data)throw new Error("EXAM_BEGIN_FAILED");
-      const q=await supabase.from("sesm_questions").select("id,exam_id,question_text,question_type,options,points,position").eq("exam_id",id).order("position");
-      if(q.error)throw q.error;return send(req,{ok:true,attempt:a.data,exam:e.data,questions:q.data??[]});
+      return send(req,{ok:true,attempt:a.data,exam:e.data,questions:q.data});
     }
     if(action==="exam_submit"){
       await student(user.id);const id=text(b.attempt_id,80),answers=b.answers&&typeof b.answers==="object"&&!Array.isArray(b.answers)?b.answers:{};
@@ -192,7 +194,7 @@ Deno.serve(async(req:Request)=>{
       if(q.error||!q.data?.length)return bad(req,"EXAM_HAS_NO_QUESTIONS",409);
       let score=0,max=0,correct=0;for(const item of q.data){const pts=Number(item.points)||0;max+=pts;const supplied=answers[item.id];const ok=item.question_type==="true_false"?Boolean(supplied)===Boolean(item.correct_answer):equalAnswer(supplied,item.correct_answer);if(ok){score+=pts;correct++;}}
       const percent=max?Math.round(score/max*10000)/100:0,timed=!!e.data.duration_minutes&&Date.now()-Date.parse(a.data.started_at)>e.data.duration_minutes*60000;
-      const result=await supabase.from("sesm_exam_attempts").update({answers,score,max_score:max,percent,passed:percent>=Number(e.data.pass_percent),correct_count:correct,question_count:q.data.length,submitted_at:new Date().toISOString(),status:timed?"timed_out":"submitted"}).eq("id",id).eq("student_user_id",user.id).eq("status","in_progress").select("id,score,max_score,percent,passed,correct_count,question_count,submitted_at,status").single();
+      const result=await supabase.from("sesm_exam_attempts").update({answers,score,max_score:max,percent,passed:!timed&&percent>=Number(e.data.pass_percent),correct_count:correct,question_count:q.data.length,submitted_at:new Date().toISOString(),status:timed?"timed_out":"submitted"}).eq("id",id).eq("student_user_id",user.id).eq("status","in_progress").select("id,score,max_score,percent,passed,correct_count,question_count,submitted_at,status").single();
       if(result.error)throw new Error("EXAM_SUBMIT_FAILED");return send(req,{ok:true,result:result.data});
     }
 
