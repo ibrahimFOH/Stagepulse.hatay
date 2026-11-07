@@ -66,7 +66,7 @@ const expectedEdgeFunctions = new Map([
   ['offer-pdf', false], ['org-admin-control', true], ['portal-login', false],
   ['production-os', false], ['public-quote', false], ['register-android-device', true],
   ['self-password-change', true], ['send-fcm-notification', false],
-  ['ses-merkezi-desktop', false], ['staff-manage', false],
+  ['ses-merkezi-desktop', false], ['sesm-education-admin', true], ['staff-manage', false],
 ]);
 const manifestEntries = Array.isArray(edgeManifest.functions) ? edgeManifest.functions : [];
 const manifestNames = manifestEntries.map(item => item.name);
