@@ -1,11 +1,11 @@
 {
   "format_version": 1,
-  "established_at": "2026-09-01",
+  "established_at": "2026-11-08",
   "source_environment": "production",
-  "migration_count": 349,
-  "first_version": "20260820012103",
-  "last_version": "20260831195655",
-  "cutoff_version": "20260901003000",
-  "ledger_sha256": "af025607b0b6b1325fa165d4bcaa413fad50d2457fcbf931002f0e0bbfdc4fd1",
-  "archived_repository_migration_count": 211
+  "migration_count": 58,
+  "first_version": "20261031184941",
+  "last_version": "20261107145849",
+  "cutoff_version": "20261107150000",
+  "ledger_sha256": "75ef99d59e20fefa7e58c17bf94d7996a08bdd49bf942b877ed490a0502c4f47",
+  "archived_repository_migration_count": 289
 }
