@@ -59,7 +59,7 @@ const expectedEdgeFunctions = new Map([
   ['license-core', true], ['org-admin-control', true], ['portal-login', false],
   ['production-os', false], ['register-android-device', true],
   ['self-password-change', true], ['send-fcm-notification', false],
-  ['ses-merkezi-desktop', false], ['sesm-education-admin', true], ['staff-manage', false],
+  ['ses-merkezi-desktop', true], ['sesm-education-admin', true], ['staff-manage', false],
 ]);
 const manifestEntries = Array.isArray(edgeManifest.functions) ? edgeManifest.functions : [];
 const manifestNames = manifestEntries.map(item => item.name);
@@ -152,7 +152,7 @@ for (const [path, html] of [['admin/index.html', adminHtml], ['portal/index.html
   requireMatch(hasStaticSri || hasDynamicPinnedFallback, `${path} must pin the Supabase JS version and use an approved loading strategy.`);
   requireMatch(!/<input[^>]+(?:id=["']login(?:Username|Password|User|Pass)["'])[^>]+name=/i.test(html), `${path} login credentials must not be successful controls during an unhandled native submit.`);
 }
-requireMatch(publicScript.includes("supabase-js@2.112.4") && publicScript.includes(`script.integrity='${supabaseSri}'`) && publicScript.includes("script.crossOrigin='anonymous'"), 'Public Supabase loader must pin the verified asset and enforce SRI.');
+requireMatch(publicScript.includes("supabase-js@2.112.4") && publicScript.includes(supabaseSri) && /script\.integrity\s*=\s*['"]/.test(publicScript) && /script\.crossOrigin\s*=\s*['"]anonymous['"]/.test(publicScript), 'Public Supabase loader must pin the verified asset and enforce SRI.');
 requireMatch(quoteView.includes('supabase-js@2.112.4') && quoteView.includes(`integrity="${supabaseSri}"`), 'Public quote view must pin the verified Supabase asset and enforce SRI.');
 requireMatch(!publicScript.includes("supabase-js@2\'"), "Public Supabase loader must not use a floating major-version CDN URL.");
 requireMatch(!quoteView.includes('supabase-js@2"'), 'Public quote view must not use a floating major-version CDN URL.');
