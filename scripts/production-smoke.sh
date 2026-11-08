@@ -12,11 +12,14 @@ fetch() {
   local out="$TMP/$(echo "$path" | tr '/?' '__')"
   local code
 
+  local headers="$out.headers"
   code=$(curl --silent --show-error --location --max-time 20 \
     -H 'Cache-Control: no-cache' \
     -A 'Mozilla/5.0 Stagepulse-Smoke/2.0' \
-    -o "$out" -w '%{http_code}' \
+    -D "$headers" -o "$out" -w '%{http_code}' \
     "$BASE_URL$path" || true)
+  LAST_CODE="$code"
+  LAST_HEADERS="$headers"
 
   if [ "$code" = "403" ]; then
     echo "EDGE-BLOCKED $path -> 403 (Cloudflare/edge policy blocks CI runner; not an application failure)"
@@ -70,13 +73,11 @@ fetch "/llms.txt" "Stagepulse"
 fetch "/manifest.webmanifest" "start_url"
 fetch "/admin/" "STAGEPULSE ADMIN"
 
-admin_code=$(curl --silent --show-error --location --max-time 20 -A 'Mozilla/5.0 Stagepulse-Smoke/2.0' -o /dev/null -w '%{http_code}' "$BASE_URL/admin/" || true)
-if [ "$admin_code" = "403" ]; then
+if [ "$LAST_CODE" = "403" ]; then
   echo "EDGE-BLOCKED /admin/ -> 403 (security-header validation skipped for protected edge response)"
 else
-  admin_headers="$(curl --silent --show-error --location --max-time 20 -I -A 'Mozilla/5.0 Stagepulse-Smoke/2.0' "$BASE_URL/admin/" || true)"
-  grep -Eiq '^x-content-type-options:[[:space:]]*nosniff' <<< "$admin_headers"
-  grep -Eiq '^referrer-policy:' <<< "$admin_headers"
+  grep -Eiq '^x-content-type-options:[[:space:]]*nosniff' "$LAST_HEADERS"
+  grep -Eiq '^referrer-policy:' "$LAST_HEADERS"
 fi
 
 echo "Production public smoke checks passed for $BASE_URL"
