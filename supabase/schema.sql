@@ -456,34 +456,53 @@ grant insert on public.teklifler to anon, authenticated;
 -- SECURITY HARDENING: public quote intake and distributed rate limits.
 create schema if not exists private;
 
-create table if not exists private.rate_limits (
-  key text not null,
-  request_at timestamptz not null default now()
+create table if not exists private.edge_rate_limits (
+  key_hash text primary key,
+  window_started_at timestamptz not null,
+  request_count integer not null,
+  updated_at timestamptz not null default now()
 );
-create index if not exists rate_limits_key_request_at_idx
-  on private.rate_limits(key, request_at desc);
 revoke all on schema private from anon, authenticated;
+revoke all on table private.edge_rate_limits from public, anon, authenticated;
+grant usage on schema private to service_role;
+grant all on table private.edge_rate_limits to service_role;
 
-create or replace function public.check_login_rate_limit(
-  p_key text,
-  p_max integer default 10
-) returns boolean
+create or replace function public.check_login_rate_limit(p_key text, p_max integer default 60)
+returns boolean
 language plpgsql
 security definer
-set search_path=public,private
+set search_path=''
 as $$
-declare c integer;
+declare
+  v_hash text;
+  v_now timestamptz := clock_timestamp();
+  v_count integer;
 begin
-  if p_key is null or length(trim(p_key)) = 0 then return false; end if;
-  delete from private.rate_limits where request_at < now() - interval '10 minutes';
-  select count(*) into c from private.rate_limits
-   where key=p_key and request_at >= now() - interval '1 minute';
-  if c >= greatest(1,p_max) then return false; end if;
-  insert into private.rate_limits(key) values(p_key);
-  return true;
+  if p_key is null or length(p_key) < 1 or length(p_key) > 512
+     or p_max is null or p_max < 1 or p_max > 10000 then
+    return false;
+  end if;
+  v_hash := encode(extensions.digest(convert_to(p_key, 'UTF8'), 'sha256'), 'hex');
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_hash, 0));
+  insert into private.edge_rate_limits(key_hash, window_started_at, request_count, updated_at)
+  values (v_hash, v_now, 1, v_now)
+  on conflict (key_hash) do update
+    set window_started_at = case
+          when private.edge_rate_limits.window_started_at <= v_now - interval '1 minute' then v_now
+          else private.edge_rate_limits.window_started_at end,
+        request_count = case
+          when private.edge_rate_limits.window_started_at <= v_now - interval '1 minute' then 1
+          else private.edge_rate_limits.request_count + 1 end,
+        updated_at = v_now
+  returning request_count into v_count;
+  if random() < 0.01 then
+    delete from private.edge_rate_limits
+    where updated_at < v_now - interval '1 day';
+  end if;
+  return v_count <= p_max;
 end;
 $$;
-revoke all on function public.check_login_rate_limit(text,integer) from public,anon,authenticated;
+revoke all on function public.check_login_rate_limit(text,integer) from public, anon, authenticated;
 grant execute on function public.check_login_rate_limit(text,integer) to service_role;
 
 create or replace function public.enforce_public_quote_input()
