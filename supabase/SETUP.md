@@ -28,17 +28,13 @@ Dağıtılacak kanonik fonksiyonlar `supabase/functions-manifest.json` ve `supab
 ```bash
 supabase link --project-ref itasctyjzyewcykozuex
 supabase functions deploy admin-data
-supabase functions deploy admin-github-media
 supabase functions deploy admin-login
-supabase functions deploy admin-offer-runtime
 supabase functions deploy admin-password-reset
 supabase functions deploy license-core
 supabase functions deploy license-admin
-supabase functions deploy offer-pdf
 supabase functions deploy org-admin-control
 supabase functions deploy portal-login
 supabase functions deploy production-os
-supabase functions deploy public-quote
 supabase functions deploy register-android-device
 supabase functions deploy self-password-change
 supabase functions deploy send-fcm-notification

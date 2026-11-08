@@ -2,10 +2,8 @@
 
 ## Canonical runtime surfaces
 
-Stagepulse is intentionally a multi-surface production system. The canonical boundaries are:
-
 - Public web: root HTML/CSS/JS and `script.js`
-- Admin web: `admin/index.html` + `admin/admin-bundle.js` + focused admin modules
+- Admin web: `admin/index.html` + `admin/admin.js` + `admin/admin.css`
 - Staff portal: `portal/`
 - Android: `android/`
 - Backend: `supabase/functions/`
@@ -15,13 +13,13 @@ Stagepulse is intentionally a multi-surface production system. The canonical bou
 
 ## Admin JavaScript boundary
 
-`admin/admin-bundle.js` is the canonical browser bundle, not a second application. Its responsibility is the shared shell, navigation/view dispatch, and stable fallback renderers. Feature-specific code stays in the focused files loaded after it, such as organization management, Patron Center, media management, notifications, and recovery.
+`admin/index.html` loads `admin/admin.js` as its active application entrypoint. The admin client uses the canonical `stagepulse-admin-auth-v2` storage key and session-scoped browser storage. A file that is not referenced by the active page is not a production runtime dependency.
 
-Do not add new business domains to `admin-bundle.js` unless the code is genuinely shared. New domain features belong in a focused module and must be wired through the canonical admin runtime.
+Keep authentication, data access, and authorization checks in the canonical admin entrypoint and server-side Edge Functions. Do not reintroduce a parallel admin bundle or a browser-side service-role key.
 
 ## Data access rule
 
-Authenticated admin reads and writes must enforce authorization server-side. The `admin-data` Edge Function now applies bounded pagination to list/bootstrap reads. Direct client reads must also use bounded queries and should not request unbounded historical tables.
+Authenticated admin reads and writes must enforce authorization server-side. The `admin-data` Edge Function applies bounded pagination to list/bootstrap reads. Direct client reads must also use bounded queries and should not request unbounded historical tables.
 
 Recommended defaults:
 

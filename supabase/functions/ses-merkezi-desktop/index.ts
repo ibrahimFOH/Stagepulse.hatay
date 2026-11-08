@@ -37,11 +37,6 @@ function issueLicenseKey() {
   const groups = hex.match(/.{1,5}/g) ?? [];
   return "SP-SM-" + groups.join("-");
 }
-function decodeB64Url(value: string) {
-  const base = value.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(base + "=".repeat((4 - base.length % 4) % 4));
-  return Uint8Array.from(binary, c => c.charCodeAt(0));
-}
 async function getOwnerUserId(): Promise<string | null> {
   const { data: memberships, error } = await admin.from("org_memberships")
     .select("user_id, role:org_roles!org_memberships_role_id_fkey(code,is_admin_role,active)")
@@ -54,35 +49,12 @@ async function getOwnerUserId(): Promise<string | null> {
   }).map((member: any) => String(member.user_id)))];
   return ownerIds.length === 1 ? ownerIds[0] : null;
 }
-async function verifyLicenseAdminToken(token: string) {
-  const parts = token.split(".");
-  if (parts.length !== 3) return false;
-  const { data: cfg, error } = await admin.from("stagepulse_license_admin_config")
-    .select("username,token_secret").eq("singleton", true).maybeSingle();
-  if (error || !cfg?.username || !cfg?.token_secret || String(cfg.token_secret).length < 32) return false;
-  try {
-    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(cfg.token_secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
-    const valid = await crypto.subtle.verify("HMAC", key, decodeB64Url(parts[2]), new TextEncoder().encode(parts[0] + "." + parts[1]));
-    if (!valid) return false;
-    const payload = JSON.parse(new TextDecoder().decode(decodeB64Url(parts[1])));
-    return payload.role === "license_admin" && payload.sub === cfg.username && Number(payload.exp) > Math.floor(Date.now() / 1000);
-  } catch { return false; }
-}
 async function requireUser(req: Request) {
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!token) throw new Error("UNAUTHENTICATED");
   const { data, error } = await admin.auth.getUser(token);
-  if (!error && data?.user) return { user: data.user, token };
-  if (await verifyLicenseAdminToken(token)) {
-    const { data: cfg } = await admin.from("stagepulse_license_admin_config")
-      .select("owner_user_id").eq("singleton", true).maybeSingle();
-    const ownerId = String(cfg?.owner_user_id ?? "");
-    if (ownerId) {
-      const { data: owner, error: ownerError } = await admin.auth.admin.getUserById(ownerId);
-      if (!ownerError && owner?.user) return { user: owner.user, token };
-    }
-  }
-  throw new Error("UNAUTHENTICATED");
+  if (error || !data?.user) throw new Error("UNAUTHENTICATED");
+  return { user: data.user, token };
 }
 async function getRole(userId: string) {
   // Tek ve etkin Stagepulse sahibi, veritabanındaki rol kaydından çözülür; belirsizlikte yetki verilmez.
@@ -101,47 +73,155 @@ async function getRole(userId: string) {
 async function audit(actor: string, action: string, subject?: string | null, licenseId?: string | null, details: Record<string, unknown> = {}) {
   await admin.from("sesm_audit_events").insert({ actor_user_id: actor, action, subject_user_id: subject ?? null, license_id: licenseId ?? null, details });
 }
-const DEMO_FEATURES = new Set(["home", "frequency", "calculators", "ear_basic", "docs", "checklists", "curriculum", "account", "settings"]);
-async function trialContext(userId: string, deviceHash: string, platformValue: unknown) {
-  if (!/^[0-9a-f]{64}$/.test(deviceHash)) return { active: false, reason: "device_id_invalid" };
-  const platform = ["windows", "android"].includes(String(platformValue)) ? String(platformValue) : "unknown";
-  const { data: existing, error: lookupError } = await admin.from("sesm_trials").select("user_id,device_hash,platform,started_at,expires_at,last_seen_at,revoked").eq("user_id", userId).maybeSingle();
-  if (lookupError) return { active: false, reason: "trial_service_unavailable" };
+function trialStatus(row: any, now = Date.now()) {
+  if (row.revoked) return { active: false, reason: "trial_revoked", remaining_seconds: 0, started_at: row.started_at, expires_at: row.expires_at };
+  const expires = Date.parse(String(row.expires_at ?? ""));
+  if (!Number.isFinite(expires)) return { active: false, reason: "trial_service_unavailable", remaining_seconds: 0 };
+  if (expires <= now) return { active: false, reason: "trial_expired", remaining_seconds: 0, started_at: row.started_at, expires_at: row.expires_at };
+  return { active: true, reason: null, started_at: row.started_at, expires_at: row.expires_at, remaining_seconds: Math.max(0, Math.ceil((expires - now) / 1000)) };
+}
+
+async function trialContext(userId: string, deviceHash: string, platform: unknown, requestedAppId: string, licensed: any) {
+  if (licensed.active) return { active: false, reason: "paid_license_active", remaining_seconds: 0 };
+  if (!["ses-merkezi", "ses-merkezi-android"].includes(requestedAppId)) return { active: false, reason: "trial_start_failed", remaining_seconds: 0 };
+  if (!/^[0-9a-f]{64}$/.test(deviceHash)) return { active: false, reason: "device_id_invalid", remaining_seconds: 0 };
+  const expectedPlatform = requestedAppId === "ses-merkezi-android" ? "android" : "windows";
+  if (platform !== expectedPlatform) return { active: false, reason: "device_id_invalid", remaining_seconds: 0 };
+
+  const { data: activeDevices, error: devicesError } = await admin.from("license_core_devices")
+    .select("license_id").eq("user_id", userId).eq("app_id", requestedAppId).eq("is_active", true);
+  if (devicesError) return { active: false, reason: "trial_service_unavailable", remaining_seconds: 0 };
+  const assignedIds = [...new Set((activeDevices ?? []).map((item: any) => item.license_id).filter(Boolean))];
+  if (assignedIds.length) {
+    const { data: assignedLicenses, error: assignedError } = await admin.from("license_core")
+      .select("id,product_code,status,payment_status,expires_at").in("id", assignedIds);
+    if (assignedError) return { active: false, reason: "trial_service_unavailable", remaining_seconds: 0 };
+    const hasPaidLicense = (assignedLicenses ?? []).some((item: any) =>
+      item.product_code === "ses-merkezi" && item.status === "active" && item.payment_status === "paid"
+      && (!item.expires_at || Date.parse(item.expires_at) > Date.now()));
+    if (hasPaidLicense) return { active: false, reason: "license_already_assigned", remaining_seconds: 0 };
+  }
+
+  const { data: existing, error: existingError } = await admin.from("sesm_trials")
+    .select("user_id,device_hash,platform,started_at,expires_at,revoked").eq("user_id", userId).maybeSingle();
+  if (existingError) return { active: false, reason: "trial_service_unavailable", remaining_seconds: 0 };
   if (existing) {
-    const expires = Date.parse(existing.expires_at);
-    const sameDevice = existing.device_hash === deviceHash;
-    const active = sameDevice && !existing.revoked && Number.isFinite(expires) && expires > Date.now();
-    if (active) await admin.from("sesm_trials").update({ last_seen_at: new Date().toISOString() }).eq("user_id", userId).eq("device_hash", deviceHash).eq("revoked", false);
-    const reason = active ? null : (!sameDevice ? "trial_device_mismatch" : (existing.revoked ? "trial_revoked" : "trial_expired"));
-    return { active, started_at: existing.started_at, expires_at: existing.expires_at, remaining_seconds: active ? Math.max(0, Math.floor((expires - Date.now()) / 1000)) : 0, reason, platform: existing.platform };
+    if (existing.device_hash !== deviceHash) return { active: false, reason: "trial_device_mismatch", remaining_seconds: 0 };
+    const status = trialStatus(existing);
+    if (status.active) await admin.from("sesm_trials").update({ last_seen_at: new Date().toISOString() }).eq("user_id", userId);
+    return status;
   }
-  const { data: deviceTrial, error: deviceLookupError } = await admin.from("sesm_trials").select("user_id").eq("device_hash", deviceHash).maybeSingle();
-  if (deviceLookupError) return { active: false, reason: "trial_service_unavailable" };
-  if (deviceTrial) return { active: false, reason: "device_trial_already_used" };
-  const { data: created, error: createError } = await admin.from("sesm_trials").insert({ user_id: userId, device_hash: deviceHash, platform }).select("started_at,expires_at,platform").single();
+
+  const { data: usedDevice, error: usedDeviceError } = await admin.from("sesm_trials")
+    .select("user_id").eq("device_hash", deviceHash).maybeSingle();
+  if (usedDeviceError) return { active: false, reason: "trial_service_unavailable", remaining_seconds: 0 };
+  if (usedDevice) return { active: false, reason: "device_trial_already_used", remaining_seconds: 0 };
+
+  const { data: created, error: createError } = await admin.from("sesm_trials")
+    .insert({ user_id: userId, device_hash: deviceHash, platform: expectedPlatform })
+    .select("user_id,device_hash,platform,started_at,expires_at,revoked").single();
   if (createError || !created) {
-    const { data: raced } = await admin.from("sesm_trials").select("user_id,device_hash,platform,started_at,expires_at,revoked").eq("user_id", userId).maybeSingle();
-    if (raced) {
-      const expires = Date.parse(raced.expires_at);
-      const sameDevice = raced.device_hash === deviceHash;
-      const active = sameDevice && !raced.revoked && Number.isFinite(expires) && expires > Date.now();
-      const reason = active ? null : (!sameDevice ? "trial_device_mismatch" : (raced.revoked ? "trial_revoked" : "trial_expired"));
-      return { active, started_at: raced.started_at, expires_at: raced.expires_at, remaining_seconds: active ? Math.max(0, Math.floor((expires - Date.now()) / 1000)) : 0, reason, platform: raced.platform };
+    if (createError?.code === "23505") {
+      const { data: racedUser, error: racedUserError } = await admin.from("sesm_trials")
+        .select("user_id,device_hash,platform,started_at,expires_at,revoked").eq("user_id", userId).maybeSingle();
+      if (racedUserError) return { active: false, reason: "trial_service_unavailable", remaining_seconds: 0 };
+      if (racedUser) return racedUser.device_hash === deviceHash ? trialStatus(racedUser) : { active: false, reason: "trial_device_mismatch", remaining_seconds: 0 };
+      const { data: racedDevice, error: racedDeviceError } = await admin.from("sesm_trials")
+        .select("user_id").eq("device_hash", deviceHash).maybeSingle();
+      if (racedDeviceError) return { active: false, reason: "trial_service_unavailable", remaining_seconds: 0 };
+      if (racedDevice) return { active: false, reason: "device_trial_already_used", remaining_seconds: 0 };
     }
-    const { data: deviceRaced } = await admin.from("sesm_trials").select("user_id").eq("device_hash", deviceHash).maybeSingle();
-    if (deviceRaced) return { active: false, reason: "device_trial_already_used" };
-    return { active: false, reason: "trial_start_failed" };
+    return { active: false, reason: "trial_start_failed", remaining_seconds: 0 };
   }
-  const expires = Date.parse(created.expires_at);
-  return { active: true, started_at: created.started_at, expires_at: created.expires_at, remaining_seconds: Math.max(0, Math.floor((expires - Date.now()) / 1000)), reason: null, platform: created.platform };
+  return trialStatus(created);
 }
 
 async function entitlementContext(userId: string, deviceHash: string, role: string, platform: unknown, requestedAppId = "") {
   const licensed = await licensedContext(userId, deviceHash, role, requestedAppId);
-  const trial = role === "owner" || licensed.active
-    ? { active: false, reason: role === "owner" ? "owner_account" : "paid_license_active", remaining_seconds: 0 }
-    : await trialContext(userId, deviceHash, platform);
+  const trial = role === "owner" ? { active: false, reason: "owner_account", remaining_seconds: 0 }
+    : await trialContext(userId, deviceHash, platform, requestedAppId, licensed);
   return { licensed, trial, paid: role === "owner" || licensed.active };
+}
+
+
+const OFFLINE_PAID_LEASE_MS = 14 * 24 * 60 * 60 * 1000;
+const OFFLINE_TRIAL_LEASE_MS = 7 * 24 * 60 * 60 * 1000;
+let offlineLeaseSigningKey: CryptoKey | null = null;
+
+function base64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  let encoded = btoa(binary).replaceAll("+", "-").replaceAll("/", "_");
+  while (encoded.endsWith("=")) encoded = encoded.slice(0, -1);
+  return encoded;
+}
+
+async function getOfflineLeaseSigningKey(): Promise<CryptoKey | null> {
+  if (offlineLeaseSigningKey) return offlineLeaseSigningKey;
+  const { data, error } = await admin.rpc("sesm_offline_lease_private_key");
+  if (error || typeof data !== "string" || !data.includes("BEGIN PRIVATE KEY")) {
+    console.error("Offline lease signing key unavailable", error?.message ?? "missing");
+    return null;
+  }
+  const encoded = data
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .split("").filter((char) => char.charCodeAt(0) > 32).join("");
+  const binary = atob(encoded);
+  const der = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  offlineLeaseSigningKey = await crypto.subtle.importKey(
+    "pkcs8", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"],
+  );
+  return offlineLeaseSigningKey;
+}
+
+async function createOfflineLease(
+  userId: string,
+  deviceHash: string,
+  platform: unknown,
+  appId: string,
+  entitlement: { licensed: any; trial: any; paid: boolean },
+) {
+  if (!/^[0-9a-f]{64}$/.test(deviceHash)) return null;
+  if (!["ses-merkezi", "ses-merkezi-android"].includes(appId)) return null;
+  const expectedPlatform = appId === "ses-merkezi-android" ? "android" : "windows";
+  if (platform !== expectedPlatform) return null;
+  const isPaid = entitlement.paid === true;
+  const isTrial = !isPaid && entitlement.trial?.active === true;
+  if (!isPaid && !isTrial) return null;
+
+  const issuedAt = Date.now();
+  const licenseExpiry = entitlement.licensed?.expires_at
+    ? Date.parse(String(entitlement.licensed.expires_at)) : null;
+  const trialExpiry = isTrial && entitlement.trial?.expires_at
+    ? Date.parse(String(entitlement.trial.expires_at)) : null;
+  if (isPaid && licenseExpiry !== null && (!Number.isFinite(licenseExpiry) || licenseExpiry <= issuedAt)) return null;
+  if (isTrial && (trialExpiry === null || !Number.isFinite(trialExpiry) || trialExpiry <= issuedAt)) return null;
+  const expiresAt = isPaid
+    ? Math.min(issuedAt + OFFLINE_PAID_LEASE_MS, licenseExpiry ?? Number.POSITIVE_INFINITY)
+    : Math.min(issuedAt + OFFLINE_TRIAL_LEASE_MS, trialExpiry!);
+  if (!Number.isFinite(expiresAt) || expiresAt <= issuedAt) return null;
+
+  const signingKey = await getOfflineLeaseSigningKey();
+  if (!signingKey) return null;
+  const claims = {
+    v: 1,
+    uid: userId,
+    app_id: appId,
+    platform: expectedPlatform,
+    device_hash: deviceHash,
+    entitlement: isPaid ? "paid" : "trial",
+    paid: isPaid,
+    plan_code: isPaid ? (entitlement.licensed?.plan_code ?? "student") : "trial",
+    bundle_code: isPaid ? (entitlement.licensed?.bundle_code ?? "start") : "trial",
+    license_expires_at_ms: Number.isFinite(licenseExpiry) ? licenseExpiry : null,
+    trial_expires_at_ms: Number.isFinite(trialExpiry) ? trialExpiry : null,
+    issued_at_ms: issuedAt,
+    expires_at_ms: expiresAt,
+  };
+  const payloadBytes = new TextEncoder().encode(JSON.stringify(claims));
+  const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", signingKey, payloadBytes));
+  return { v: 1, alg: "RS256", payload: base64Url(payloadBytes), signature: base64Url(signature) };
 }
 
 async function licensedContext(userId: string, deviceHash: string, role: string, requestedAppId = "") {
@@ -193,25 +273,99 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return fail("METHOD_NOT_ALLOWED", 405);
   try {
     const { user, token } = await requireUser(req);
-    const body = await req.json().catch(() => ({}));
+    // Kullanıcı ve IP birlikte sınırlandırılır; ortak NAT kullanan hesaplar birbirini kilitlemez.
+    const forwarded = req.headers.get("cf-connecting-ip")
+      ?? req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+      ?? "unknown";
+    const { data: withinRateLimit, error: rateLimitError } = await admin.rpc("check_login_rate_limit", {
+      p_key: "ses-merkezi-desktop:" + user.id + ":" + forwarded,
+      p_max: 60,
+    });
+    if (rateLimitError) return fail("RATE_LIMIT_SERVICE_UNAVAILABLE", 503);
+    if (withinRateLimit !== true) return fail("RATE_LIMITED", 429);
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).byteLength > 256 * 1024) return fail("PAYLOAD_TOO_LARGE", 413);
+    let body: any;
+    try { body = rawBody ? JSON.parse(rawBody) : {}; }
+    catch { return fail("INVALID_JSON", 400); }
+    if (!body || typeof body !== "object" || Array.isArray(body)) return fail("INVALID_REQUEST", 400);
     const action = typeof body?.action === "string" ? body.action : "";
     const role = await getRole(user.id);
+    if (action === "store_get") {
+      const { data, error } = await admin.from("sesm_store_settings").select("product_code,product_name,price,currency,bank_name,account_holder,iban,payment_instructions,contact_phone").eq("id", true).single();
+      if (error || !data) return fail("STORE_SETTINGS_UNAVAILABLE",503);
+      return reply({ok:true,settings:data});
+    }
+    if (action === "store_update") {
+      await requireOwner(user.id);
+      const price=Number(body.price), bankName=String(body.bank_name??"").trim().slice(0,120), accountHolder=String(body.account_holder??"").trim().slice(0,120);
+      const iban=String(body.iban??"").replace(/\s+/g,"").toUpperCase().slice(0,34), paymentInstructions=String(body.payment_instructions??"").trim().slice(0,1000), contactPhone=String(body.contact_phone??"").trim().slice(0,40);
+      if (!Number.isFinite(price) || price < 0 || price > 2500) return fail("FULL_PACKAGE_PRICE_LIMIT", 400);
+      if(iban&&!/^TR[0-9]{24}$/.test(iban))return fail("STORE_IBAN_INVALID",400);
+      const {data,error}=await admin.from("sesm_store_settings").update({price,currency:"TRY",product_code:"full_package",product_name:"FULL PAKET",bank_name:bankName,account_holder:accountHolder,iban,payment_instructions:paymentInstructions,contact_phone:contactPhone,updated_at:new Date().toISOString(),updated_by:user.id}).eq("id",true).select("product_code,product_name,price,currency,bank_name,account_holder,iban,payment_instructions,contact_phone").single();
+      if(error||!data)return fail("STORE_SETTINGS_SAVE_FAILED",500);
+      await audit(user.id,"full_package_store_updated",null,null,{price,bank_name:bankName,iban_configured:!!iban});
+      return reply({ok:true,settings:data});
+    }
+    if (action === "purchase_submit") {
+      const {data:settings,error:settingsError}=await admin.from("sesm_store_settings").select("price,account_holder,iban").eq("id",true).single();
+      if(settingsError||!settings)return fail("STORE_SETTINGS_UNAVAILABLE",503);
+      if(!settings.iban||!settings.account_holder)return fail("BANK_DETAILS_NOT_CONFIGURED",409);
+      const customerName=String(body.customer_name??user.user_metadata?.display_name??user.user_metadata?.full_name??"").trim().slice(0,120);
+      const customerEmail=String(user.email??"").trim().toLowerCase().slice(0,320), customerPhone=String(body.customer_phone??"").trim().slice(0,40);
+      const transferReference=String(body.transfer_reference??"").trim().slice(0,120), customerNote=String(body.customer_note??"").trim().slice(0,500);
+      if(customerName.length<2||!customerEmail.includes("@")||transferReference.length<3)return fail("PURCHASE_DETAILS_INVALID",400);
+      const {data:existing,error:lookupError}=await admin.from("sesm_purchase_requests").select("id,status").eq("user_id",user.id).in("status",["pending","approved"]).maybeSingle();
+      if(lookupError)return fail("PURCHASE_LOOKUP_FAILED",500);
+      if(existing?.status==="approved")return fail("PURCHASE_ALREADY_APPROVED",409);
+      if(existing?.status==="pending")return fail("PURCHASE_ALREADY_PENDING",409);
+      const {data:purchase,error}=await admin.from("sesm_purchase_requests").insert({user_id:user.id,product_code:"full_package",product_name:"FULL PAKET",amount:settings.price,currency:"TRY",customer_name:customerName,customer_email:customerEmail,customer_phone:customerPhone,transfer_reference:transferReference,customer_note:customerNote}).select("id,product_name,amount,currency,status,created_at").single();
+      if(error?.code==="23505")return fail("PURCHASE_ALREADY_PENDING",409);
+      if(error||!purchase)return fail("PURCHASE_SUBMIT_FAILED",500);
+      await audit(user.id,"full_package_purchase_submitted",user.id,null,{purchase_id:purchase.id,amount:purchase.amount});
+      return reply({ok:true,purchase});
+    }
+    if (action === "purchase_list") {
+      await requireOwner(user.id);
+      const {data,error}=await admin.from("sesm_purchase_requests").select("id,user_id,product_name,amount,currency,customer_name,customer_email,customer_phone,transfer_reference,customer_note,status,admin_note,reviewed_at,license_id,created_at").order("created_at",{ascending:false}).limit(300);
+      if(error)return fail("PURCHASE_LIST_FAILED",500); return reply({ok:true,purchases:data??[]});
+    }
+    if (action === "purchase_review") {
+      await requireOwner(user.id);
+      const purchaseId=String(body.purchase_id??"").trim(), decision=String(body.decision??""), adminNote=String(body.admin_note??"").trim().slice(0,500);
+      if(!purchaseId||!["approved","rejected"].includes(decision))return fail("PURCHASE_REVIEW_INVALID",400);
+      if(decision==="rejected"){
+        const {data,error}=await admin.from("sesm_purchase_requests").update({status:"rejected",admin_note:adminNote,reviewed_by:user.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",purchaseId).eq("status","pending").select("id,status").maybeSingle();
+        if(error)return fail("PURCHASE_REVIEW_FAILED",500); if(!data)return fail("PURCHASE_NOT_PENDING",409);
+        await audit(user.id,"full_package_purchase_rejected",null,null,{purchase_id:purchaseId}); return reply({ok:true,purchase:data});
+      }
+      const rawKey=issueLicenseKey(), keyHash=await sha256Hex(normalizeKey(rawKey));
+      const {data:approved,error}=await admin.rpc("sesm_review_full_package_purchase",{p_purchase_id:purchaseId,p_owner_user_id:user.id,p_key_hash:keyHash});
+      if(error||!approved){console.error("Full package purchase approval failed",error?.message);return fail(error?.code==="P0002"?"PURCHASE_NOT_FOUND":"PURCHASE_REVIEW_FAILED",error?.code==="P0002"?404:500);}
+      if(adminNote)await admin.from("sesm_purchase_requests").update({admin_note:adminNote}).eq("id",purchaseId);
+      return reply({ok:true,purchase:approved,key:rawKey});
+    }
     if (action === "context") {
       const deviceHash = String(body.device_hash ?? "");
-      const entitlement = await entitlementContext(user.id, deviceHash, role, body.platform, String(body.app_id ?? ""));
+      const requestedAppId = String(body.app_id ?? "");
+      const entitlement = await entitlementContext(user.id, deviceHash, role, body.platform, requestedAppId);
+      const offlineLease = await createOfflineLease(user.id, deviceHash, body.platform, requestedAppId, entitlement);
       const { data: ownStudent } = await admin.from("sesm_students").select("display_name, email, teacher_user_id")
         .eq("user_id", user.id).eq("is_active", true).maybeSingle();
-      return reply({ ok: true, user: { id: user.id, email: user.email, name: user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? "" }, role, licensed: entitlement.licensed, trial: entitlement.trial, entitlements: { paid: entitlement.paid, demo: entitlement.trial.active, demo_days: 7 }, student: ownStudent ?? null, app: "Stagepulse Ses Mühendisliği Merkezi" });
+      return reply({ ok: true, user: { id: user.id, email: user.email, name: user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? "" }, role, licensed: entitlement.licensed, trial: entitlement.trial, offline_lease: offlineLease, entitlements: { paid: entitlement.paid, demo: entitlement.trial.active === true }, student: ownStudent ?? null, app: "Stagepulse Ses Mühendisliği Merkezi" });
     }
     if (action === "license_status") {
-      const entitlement = await entitlementContext(user.id, String(body.device_hash ?? ""), role, body.platform, String(body.app_id ?? ""));
-      return reply({ ok: true, licensed: entitlement.licensed, trial: entitlement.trial, entitlements: { paid: entitlement.paid, demo: entitlement.trial.active, demo_days: 7 }, role });
+      const deviceHash = String(body.device_hash ?? "");
+      const requestedAppId = String(body.app_id ?? "");
+      const entitlement = await entitlementContext(user.id, deviceHash, role, body.platform, requestedAppId);
+      const offlineLease = await createOfflineLease(user.id, deviceHash, body.platform, requestedAppId, entitlement);
+      return reply({ ok: true, licensed: entitlement.licensed, trial: entitlement.trial, offline_lease: offlineLease, entitlements: { paid: entitlement.paid, demo: entitlement.trial.active === true }, role });
     }
     if (action === "feature_access" || action === "pdf_access") {
       const entitlement = await entitlementContext(user.id, String(body.device_hash ?? ""), role, body.platform, String(body.app_id ?? ""));
       const feature = action === "pdf_access" ? "pdf_library" : String(body.feature ?? "");
-      const allowed = entitlement.paid || (entitlement.trial.active && DEMO_FEATURES.has(feature));
-      return reply({ ok: true, feature, allowed, paid: entitlement.paid, trial: entitlement.trial, reason: allowed ? null : (!entitlement.trial.active ? "trial_required_or_expired" : "license_required") });
+      const allowed = entitlement.paid || entitlement.trial.active === true;
+      return reply({ ok: true, feature, allowed, paid: entitlement.paid, trial: entitlement.trial, reason: allowed ? null : (entitlement.trial.reason || "license_required") });
     }
     if (action === "license_list") {
       await requireOwner(user.id);
@@ -259,10 +413,11 @@ Deno.serve(async (req: Request) => {
       const { data: ownedLicense, error: ownedError } = await admin.from("sesm_license_keys")
         .select("id").eq("id", licenseId).eq("created_by", user.id).maybeSingle();
       if (ownedError || !ownedLicense) return fail("LICENSE_NOT_FOUND", 404);
-      const { data: activation, error } = await admin.from("sesm_activations")
-        .update({ is_active: false }).eq("id", activationId).eq("license_id", licenseId)
-        .select("id,device_hash").maybeSingle();
-      if (error || !activation) return fail("ACTIVATION_REVOKE_FAILED", 500);
+      const { data: activation, error } = await admin.rpc("sesm_revoke_activation", {
+        p_license_id: licenseId,
+        p_activation_id: activationId,
+      });
+      if (error || !activation?.ok) return fail("ACTIVATION_REVOKE_FAILED", 500);
       await audit(user.id, "activation_revoked", null, licenseId, { device_hint: String(activation.device_hash ?? "").slice(0, 8).toUpperCase() });
       return reply({ ok: true });
     }
@@ -298,22 +453,21 @@ Deno.serve(async (req: Request) => {
       await requireOwner(user.id);
       const rawKey = issueLicenseKey();
       const hash = await sha256Hex(normalizeKey(rawKey));
-      const label = String(body.label ?? "Öğrenci lisansı").trim().slice(0, 120) || "Öğrenci lisansı";
-      const plan = ["student", "classroom", "lifetime"].includes(String(body.plan_code)) ? String(body.plan_code) : "student";
-      const allowedBundles = ["start", "live_sound", "rf_wireless", "pa_system", "studio_post", "spl_acoustics", "digital_console", "full_master", "institution"];
-      const bundle = allowedBundles.includes(String(body.bundle_code)) ? String(body.bundle_code) : "start";
+      const label = "FULL PAKET";
+      const plan = "student";
+      const bundle = "full_master";
       const maxActivations = Math.max(1, Math.min(100, Math.trunc(Number(body.max_activations) || 1)));
       const days = Math.max(0, Math.min(3650, Math.trunc(Number(body.expires_days) || 0)));
       const expiresAt = days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : null;
       const customerName = String(body.customer_name ?? "").trim().slice(0, 120);
       const customerEmail = String(body.customer_email ?? "").trim().toLowerCase().slice(0, 320);
-      const paymentMethod = ["cash", "bank_transfer", "card", "other"].includes(String(body.payment_method)) ? String(body.payment_method) : "cash";
+      const paymentMethod = ["cash", "bank_transfer"].includes(String(body.payment_method)) ? String(body.payment_method) : "bank_transfer";
       const paymentStatus = ["paid", "unpaid"].includes(String(body.payment_status)) ? String(body.payment_status) : "unpaid";
       const amount = Number(body.amount ?? 0);
       const currency = String(body.currency ?? "TRY").trim().toUpperCase();
       const paymentReference = String(body.payment_reference ?? "").trim().slice(0, 120);
       if (customerEmail && (!customerEmail.includes("@") || customerEmail.length > 320)) return fail("LICENSE_CUSTOMER_EMAIL_INVALID", 400);
-      if (!Number.isFinite(amount) || amount < 0 || amount > 999999999 || !/^[A-Z]{3}$/.test(currency)) return fail("LICENSE_PAYMENT_DATA_INVALID", 400);
+      if (!Number.isFinite(amount) || amount < 0 || amount > 2500 || currency !== "TRY") return fail("LICENSE_PAYMENT_DATA_INVALID", 400);
       const { data: lic, error } = await admin.from("sesm_license_keys").insert({
         key_hash: hash, label, plan_code: plan, bundle_code: bundle, max_activations: maxActivations, expires_at: expiresAt,
         created_by: user.id, notes: String(body.notes ?? "").slice(0, 500), customer_name: customerName,
@@ -330,14 +484,16 @@ Deno.serve(async (req: Request) => {
       const licenseId = String(body.license_id ?? "").trim();
       const paymentStatus = String(body.payment_status ?? "");
       if (!licenseId || !["paid", "unpaid", "refunded"].includes(paymentStatus)) return fail("LICENSE_PAYMENT_DATA_INVALID", 400);
-      const { data: lic, error } = await admin.from("sesm_license_keys")
-        .update({ payment_status: paymentStatus }).eq("id", licenseId).eq("created_by", user.id)
-        .select("id,payment_status,customer_name").maybeSingle();
-      if (error || !lic) return fail("LICENSE_NOT_FOUND", 404);
-      if (paymentStatus !== "paid") {
-        await admin.from("sesm_activations").update({ is_active: false }).eq("license_id", licenseId);
-        await admin.from("sesm_students").update({ is_active: false }).eq("license_id", licenseId).eq("teacher_user_id", user.id);
+      const { data: lic, error } = await admin.rpc("sesm_set_license_payment_status", {
+        p_license_id: licenseId,
+        p_owner_user_id: user.id,
+        p_payment_status: paymentStatus,
+      });
+      if (error) {
+        console.error("Atomic license payment update failed", error.message);
+        return fail(error.code === "P0002" ? "LICENSE_NOT_FOUND" : "LICENSE_PAYMENT_SYNC_FAILED", error.code === "P0002" ? 404 : 500);
       }
+      if (!lic) return fail("LICENSE_NOT_FOUND", 404);
       await audit(user.id, "license_payment_updated", null, licenseId, { payment_status: paymentStatus });
       return reply({ ok: true, license: lic });
     }
@@ -426,11 +582,17 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "license_revoke") {
       await requireOwner(user.id);
-      const licenseId = String(body.license_id ?? "");
-      const { data, error } = await admin.from("sesm_license_keys").update({ is_active: false }).eq("id", licenseId).eq("created_by", user.id).select("id").maybeSingle();
-      if (error || !data) return fail("LICENSE_NOT_FOUND", 404);
-      await admin.from("sesm_activations").update({ is_active: false }).eq("license_id", licenseId);
-      await admin.from("sesm_students").update({ is_active: false }).eq("license_id", licenseId).eq("teacher_user_id", user.id);
+      const licenseId = String(body.license_id ?? "").trim();
+      if (!licenseId) return fail("LICENSE_NOT_FOUND", 404);
+      const { data, error } = await admin.rpc("sesm_revoke_license_atomic", {
+        p_license_id: licenseId,
+        p_owner_user_id: user.id,
+      });
+      if (error) {
+        console.error("Atomic license revoke failed", error.message);
+        return fail(error.code === "P0002" ? "LICENSE_NOT_FOUND" : "LICENSE_REVOKE_FAILED", error.code === "P0002" ? 404 : 500);
+      }
+      if (!data) return fail("LICENSE_NOT_FOUND", 404);
       await audit(user.id, "license_revoked", null, licenseId);
       return reply({ ok: true });
     }

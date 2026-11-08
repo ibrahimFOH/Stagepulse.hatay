@@ -68,7 +68,7 @@ fetch "/robots.txt" "Sitemap"
 fetch "/sitemap.xml" "stagepulse.com.tr"
 fetch "/llms.txt" "Stagepulse"
 fetch "/manifest.webmanifest" "start_url"
-fetch "/admin/" "STAGEPULSE YÖNETİM"
+fetch "/admin/" "STAGEPULSE ADMIN"
 
 admin_code=$(curl --silent --show-error --location --max-time 20 -A 'Mozilla/5.0 Stagepulse-Smoke/2.0' -o /dev/null -w '%{http_code}' "$BASE_URL/admin/" || true)
 if [ "$admin_code" = "403" ]; then

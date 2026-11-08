@@ -236,6 +236,7 @@ Deno.serve(async (req: Request) => {
       if (!(await requireOwner(user.id))) return reply(req, { ok: false, error: "FORBIDDEN_OWNER_ONLY" }, 403);
       const { data, error } = await db.from("license_core")
         .select("id,product_code,legacy_system,customer_name,status,plan_code,bundle_code,max_devices,expires_at,payment_status,created_at,owner_user_id")
+        .eq("owner_user_id", user.id)
         .order("created_at", { ascending: false }).limit(500);
       if (error) throw new Error("LICENSE_LIST_FAILED");
       const licenses = [];
@@ -252,7 +253,7 @@ Deno.serve(async (req: Request) => {
       if (!(await requireOwner(user.id))) return reply(req, { ok: false, error: "FORBIDDEN_OWNER_ONLY" }, 403);
       const licenseId = clean(body.license_id, 80);
       const { data: lic, error } = await db.from("license_core")
-        .select("id,legacy_system,legacy_license_id").eq("id", licenseId).maybeSingle();
+        .select("id,legacy_system,legacy_license_id").eq("id", licenseId).eq("owner_user_id", user.id).maybeSingle();
       if (error || !lic) return reply(req, { ok: false, error: "LICENSE_NOT_FOUND" }, 404);
       if (lic.legacy_system === "stagepulse") {
         const { error: updateError } = await db.from("stagepulse_licenses")

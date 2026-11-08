@@ -13,7 +13,6 @@ REQUIRED = (
     "supabase/functions/admin-data/index.ts",
     "supabase/functions/staff-login/index.ts",
     "supabase/functions/portal-login/index.ts",
-    "supabase/functions/public-quote/index.ts",
     "supabase/functions/org-admin-control/index.ts",
     "supabase/functions/production-os/index.ts",
     "script.js",

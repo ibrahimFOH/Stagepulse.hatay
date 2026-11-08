@@ -23,14 +23,5 @@
 
   bindMobileNavigation();
 
-  if (document.querySelector('script[data-stagepulse-core]') ||
-      document.documentElement.dataset.stagepulseCoreReady === '1') return;
-  const script = document.createElement('script');
-  script.src = '/core.js?v=20260904-nav5';
-  script.async = false;
-  script.dataset.stagepulseCore = '1';
-  script.onerror = () => {
-    console.error('[Stagepulse] Public form controller could not be loaded.');
-  };
-  document.head.appendChild(script);
+  // Public form submission is owned by script.js; the retired duplicate core.js is not loaded.
 })();

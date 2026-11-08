@@ -2,56 +2,42 @@
 
 ## Rule
 
-The repository `main` branch is the canonical source of truth. Historical ZIPs are reference/archive artifacts and must not be treated as parallel source trees.
-
-For each operation, keep one authoritative runtime entrypoint. Supporting styles, schemas and tests may remain separate when they serve a different responsibility.
+The `main` branch is the canonical source of truth. Historical ZIPs and unreferenced bundles are not parallel runtime surfaces.
 
 ## Current canonical operations
 
 | Operation | Canonical entrypoint |
 |---|---|
-| Admin bootstrap / runtime | `admin/admin-runtime.js` |
-| Admin management navigation | `admin/admin-management-nav.js` |
-| Patron executive center | `admin/patron-center.js` |
+| Public website | Root HTML/CSS/JS + `script.js` |
+| Admin web application | `admin/index.html` + `admin/admin.js` + `admin/admin.css` |
+| Staff portal | `portal/` |
 | Admin authentication | `supabase/functions/admin-login/index.ts` |
 | Admin data API | `supabase/functions/admin-data/index.ts` |
-| Organization / RBAC control API | `supabase/functions/org-admin-control/index.ts` |
-| Staff authentication | `supabase/functions/staff-login/index.ts` + `supabase/functions/portal-login/index.ts` |
-| Public quote intake | `supabase/functions/public-quote/index.ts` |
-| Media administration | `supabase/functions/admin-github-media/index.ts` |
-| Media normalization / index | `scripts/process_media.py` + `.github/workflows/media-index.yml` |
-| Web application runtime | `script.js` / existing page controllers |
-| Android application entry | `android/app/src/main/java/tr/com/stagepulse/app/MainActivity.kt` |
+| Organization / RBAC control | `supabase/functions/org-admin-control/index.ts` |
+| Staff portal login | `supabase/functions/portal-login/index.ts` |
+| Public quote intake | `script.js` → `public.teklifler` |
+| Customer quote view / decision | `get_public_quote(token)` and `respond_to_quote(token, action)` RPCs |
+| Public media catalog | `media.json` + `scripts/process_media.py` + media-index workflow |
+| License core | `Stagepulse-Ses-Merkezi/windows/supabase/functions/license-core/index.ts`, mirrored in this repository |
+| Ses Merkezi desktop API | `Stagepulse-Ses-Merkezi/windows/supabase/functions/ses-merkezi-desktop/index.ts`, mirrored in this repository |
+| Ses Merkezi update endpoint | `Stagepulse-Ses-Merkezi/windows/supabase/functions/ses-merkezi-updates/index.ts` deployed by `Stagepulse-Releases` |
+| Android application | `android/app/src/main/java/tr/com/stagepulse/app/MainActivity.kt` |
 | Android update engine | `android/app/src/main/java/tr/com/stagepulse/app/AppUpdater.kt` |
-| CI / web / security gate | `.github/workflows/stagepulse-ci.yml` |
+| Web / security CI | `.github/workflows/stagepulse-ci.yml` |
 | Regional SEO gate | `.github/workflows/regional-seo.yml` |
 | Signed APK release | `.github/workflows/apk-release.yml` |
 
-`supabase/functions/staff-session/index.ts` is deprecated compatibility code and is not a canonical runtime dependency.
+## Supabase boundary
 
-## Media model
+- `supabase/functions-manifest.json` lists the 14 Edge Functions managed by this repository.
+- `ses-merkezi-updates` is managed separately by the Ses Merkezi release repository.
+- Public quote intake uses the current project's `teklifler` table. Customer-facing quote retrieval and acceptance/rejection remain token-scoped SQL RPCs.
+- Education document storage and education administration remain in the separate SESM flow. Do not remove its tables or storage bucket based only on low recent activity.
 
-- Admin media writes use `admin-github-media`; browser code never receives a GitHub token.
-- Direct repo uploads are normalized by the Media Index workflow.
-- Supported raster photos are converted to WebP, including HEIC/HEIF.
-- `media.json` is the generated canonical index.
-- An empty index when source media exists is a workflow error.
+## Migration rule
 
-## ZIP policy
+Never edit an applied migration to change production state. Before applying or deleting database objects, the repository migration ledger and the live Supabase migration history must be reconciled and validated.
 
-- Do not restore an older ZIP wholesale over `main`.
-- When a historical ZIP contains a useful change, port only the required change into the canonical operation file and validate it.
-- APK/debug ZIPs are release/build artifacts, not alternative application source trees.
+## Release rule
 
-## RBAC authority
-
-- Patron / Owner is the unconditional top-level admin authority.
-- Super Admin is automatically resolved to the full active capability catalog; other delegated users remain capability-based.
-- CEO and other delegated users are capability-based.
-- `public.is_admin()` is an authenticated-only compatibility wrapper around `private.is_admin()`.
-- `private.is_admin()` delegates to the canonical organization-owner check.
-- High-level command RPCs are authenticated-only and retain internal owner/capability checks.
-
-## Production requirements
-
-Every change must pass the repository's static/security gate, JavaScript/Edge checks, migration integrity, public navigation/SEO checks and Android debug validation before being considered complete. Production smoke checks remain available through the CI workflow.
+Android APK/EXE releases are build artifacts, not alternative application source trees. Do not overwrite a stable release while auditing unrelated repository code.

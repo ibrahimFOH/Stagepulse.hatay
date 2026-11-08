@@ -7,15 +7,7 @@
       "verifyJwt": true
     },
     {
-      "name": "admin-github-media",
-      "verifyJwt": true
-    },
-    {
       "name": "admin-login",
-      "verifyJwt": false
-    },
-    {
-      "name": "admin-offer-runtime",
       "verifyJwt": false
     },
     {
@@ -31,10 +23,6 @@
       "verifyJwt": true
     },
     {
-      "name": "offer-pdf",
-      "verifyJwt": false
-    },
-    {
       "name": "org-admin-control",
       "verifyJwt": true
     },
@@ -44,10 +32,6 @@
     },
     {
       "name": "production-os",
-      "verifyJwt": false
-    },
-    {
-      "name": "public-quote",
       "verifyJwt": false
     },
     {
@@ -64,7 +48,7 @@
     },
     {
       "name": "ses-merkezi-desktop",
-      "verifyJwt": false
+      "verifyJwt": true
     },
     {
       "name": "sesm-education-admin",
