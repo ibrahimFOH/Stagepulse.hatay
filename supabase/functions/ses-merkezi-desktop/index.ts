@@ -147,6 +147,7 @@ async function entitlementContext(userId: string, deviceHash: string, role: stri
 const OFFLINE_PAID_LEASE_MS = 14 * 24 * 60 * 60 * 1000;
 const OFFLINE_TRIAL_LEASE_MS = 7 * 24 * 60 * 60 * 1000;
 let offlineLeaseSigningKey: CryptoKey | null = null;
+let offlineLeasePublicKeyPem: string | null = null;
 
 function base64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -169,10 +170,32 @@ async function getOfflineLeaseSigningKey(): Promise<CryptoKey | null> {
     .split("").filter((char) => char.charCodeAt(0) > 32).join("");
   const binary = atob(encoded);
   const der = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  offlineLeaseSigningKey = await crypto.subtle.importKey(
-    "pkcs8", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"],
+  const algorithm = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" } as const;
+
+  // Derive only the public JWK members, then re-import the signing key as non-exportable.
+  const derivationKey = await crypto.subtle.importKey("pkcs8", der, algorithm, true, ["sign"]);
+  const privateJwk = await crypto.subtle.exportKey("jwk", derivationKey);
+  if (!privateJwk.n || !privateJwk.e) throw new Error("Offline lease RSA public parameters unavailable.");
+  const publicKey = await crypto.subtle.importKey(
+    "jwk",
+    { kty: "RSA", n: privateJwk.n, e: privateJwk.e, alg: "RS256", ext: true, key_ops: ["verify"] },
+    algorithm,
+    true,
+    ["verify"],
   );
+  const publicDer = new Uint8Array(await crypto.subtle.exportKey("spki", publicKey));
+  let publicBinary = "";
+  for (const byte of publicDer) publicBinary += String.fromCharCode(byte);
+  const publicBase64 = btoa(publicBinary).match(/.{1,64}/g)?.join("\n") ?? "";
+  offlineLeasePublicKeyPem = "-----BEGIN PUBLIC KEY-----\n" + publicBase64 + "\n-----END PUBLIC KEY-----";
+
+  offlineLeaseSigningKey = await crypto.subtle.importKey("pkcs8", der, algorithm, false, ["sign"]);
   return offlineLeaseSigningKey;
+}
+
+async function getOfflineLeasePublicKeyPem(): Promise<string | null> {
+  const signingKey = await getOfflineLeaseSigningKey();
+  return signingKey ? offlineLeasePublicKeyPem : null;
 }
 
 async function createOfflineLease(
@@ -272,6 +295,44 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: responseHeaders });
   if (req.method !== "POST") return fail("METHOD_NOT_ALLOWED", 405);
   try {
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).byteLength > 256 * 1024) return fail("PAYLOAD_TOO_LARGE", 413);
+    let body: any;
+    try { body = rawBody ? JSON.parse(rawBody) : {}; }
+    catch { return fail("INVALID_JSON", 400); }
+    if (!body || typeof body !== "object" || Array.isArray(body)) return fail("INVALID_REQUEST", 400);
+    const action = typeof body?.action === "string" ? body.action : "";
+    if (action === "student_signup") {
+      const digits = String(body.phone ?? "").replace(/\D/g, "");
+      let normalizedDigits = "";
+      if (digits.length === 10 && digits.startsWith("5")) normalizedDigits = "90" + digits;
+      else if (digits.length === 11 && digits.startsWith("05")) normalizedDigits = "90" + digits.slice(1);
+      else if (digits.length === 12 && digits.startsWith("905")) normalizedDigits = digits;
+      else return fail("STUDENT_PHONE_INVALID", 400);
+      const normalizedPhone = "+" + normalizedDigits;
+      const password = String(body.password ?? "");
+      const displayName = String(body.display_name ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
+      if (password.length < 8 || password.length > 256 || displayName.length < 2) return fail("STUDENT_SIGNUP_DATA_INVALID", 400);
+      const forwarded = req.headers.get("cf-connecting-ip")?.trim() || "unknown";
+      const ipHash = await sha256Hex(forwarded || "unknown");
+      const { data: withinRateLimit, error: rateLimitError } = await admin.rpc("check_login_rate_limit", {
+        p_key: "student-signup:" + ipHash,
+        p_max: 5,
+      });
+      if (rateLimitError) return fail("RATE_LIMIT_SERVICE_UNAVAILABLE", 503);
+      if (withinRateLimit !== true) return fail("RATE_LIMITED", 429);
+      const aliasEmail = normalizedPhone.slice(1) + "@students.stagepulse.invalid";
+      const { data, error } = await admin.auth.admin.createUser({
+        email: aliasEmail,
+        password,
+        email_confirm: true,
+        user_metadata: { display_name: displayName, phone: normalizedPhone, account_type: "student" },
+      });
+      if (error || !data?.user) {
+        return fail("STUDENT_SIGNUP_UNAVAILABLE", 503);
+      }
+      return reply({ ok: true, user_id: data.user.id });
+    }
     const { user, token } = await requireUser(req);
     // Kullanıcı ve IP birlikte sınırlandırılır; ortak NAT kullanan hesaplar birbirini kilitlemez.
     const forwarded = req.headers.get("cf-connecting-ip")
@@ -283,16 +344,9 @@ Deno.serve(async (req: Request) => {
     });
     if (rateLimitError) return fail("RATE_LIMIT_SERVICE_UNAVAILABLE", 503);
     if (withinRateLimit !== true) return fail("RATE_LIMITED", 429);
-    const rawBody = await req.text();
-    if (new TextEncoder().encode(rawBody).byteLength > 256 * 1024) return fail("PAYLOAD_TOO_LARGE", 413);
-    let body: any;
-    try { body = rawBody ? JSON.parse(rawBody) : {}; }
-    catch { return fail("INVALID_JSON", 400); }
-    if (!body || typeof body !== "object" || Array.isArray(body)) return fail("INVALID_REQUEST", 400);
-    const action = typeof body?.action === "string" ? body.action : "";
     const role = await getRole(user.id);
     if (action === "store_get") {
-      const { data, error } = await admin.from("sesm_store_settings").select("product_code,product_name,price,currency,bank_name,account_holder,iban,payment_instructions,contact_phone").eq("id", true).single();
+      const { data, error } = await admin.from("sesm_store_settings").select("product_code,product_name,price,currency,bank_name,account_holder,iban,payment_instructions,contact_phone,measurement_settings").eq("id", true).single();
       if (error || !data) return fail("STORE_SETTINGS_UNAVAILABLE",503);
       return reply({ok:true,settings:data});
     }
@@ -302,9 +356,21 @@ Deno.serve(async (req: Request) => {
       const iban=String(body.iban??"").replace(/\s+/g,"").toUpperCase().slice(0,34), paymentInstructions=String(body.payment_instructions??"").trim().slice(0,1000), contactPhone=String(body.contact_phone??"").trim().slice(0,40);
       if (!Number.isFinite(price) || price < 0 || price > 2500) return fail("FULL_PACKAGE_PRICE_LIMIT", 400);
       if(iban&&!/^TR[0-9]{24}$/.test(iban))return fail("STORE_IBAN_INVALID",400);
-      const {data,error}=await admin.from("sesm_store_settings").update({price,currency:"TRY",product_code:"full_package",product_name:"FULL PAKET",bank_name:bankName,account_holder:accountHolder,iban,payment_instructions:paymentInstructions,contact_phone:contactPhone,updated_at:new Date().toISOString(),updated_by:user.id}).eq("id",true).select("product_code,product_name,price,currency,bank_name,account_holder,iban,payment_instructions,contact_phone").single();
+      const {data:currentSettings,error:currentSettingsError}=await admin.from("sesm_store_settings").select("measurement_settings").eq("id",true).single();
+      if(currentSettingsError||!currentSettings)return fail("STORE_SETTINGS_UNAVAILABLE",503);
+      const currentMeasurement=currentSettings.measurement_settings||{advanced_rta_enabled:true,microphone_correction_enabled:true};
+      let measurementSettings=currentMeasurement;
+      if(body.measurement_settings!==undefined){
+        const incoming=body.measurement_settings;
+        if(!incoming||typeof incoming!=="object"||Array.isArray(incoming))return fail("MEASUREMENT_SETTINGS_INVALID",400);
+        const advanced=incoming.advanced_rta_enabled===undefined?currentMeasurement.advanced_rta_enabled:incoming.advanced_rta_enabled;
+        const correction=incoming.microphone_correction_enabled===undefined?currentMeasurement.microphone_correction_enabled:incoming.microphone_correction_enabled;
+        if(typeof advanced!=="boolean"||typeof correction!=="boolean")return fail("MEASUREMENT_SETTINGS_INVALID",400);
+        measurementSettings={advanced_rta_enabled:advanced,microphone_correction_enabled:correction};
+      }
+      const {data,error}=await admin.from("sesm_store_settings").update({price,currency:"TRY",product_code:"full_package",product_name:"FULL PAKET",bank_name:bankName,account_holder:accountHolder,iban,payment_instructions:paymentInstructions,contact_phone:contactPhone,measurement_settings:measurementSettings,updated_at:new Date().toISOString(),updated_by:user.id}).eq("id",true).select("product_code,product_name,price,currency,bank_name,account_holder,iban,payment_instructions,contact_phone,measurement_settings").single();
       if(error||!data)return fail("STORE_SETTINGS_SAVE_FAILED",500);
-      await audit(user.id,"full_package_store_updated",null,null,{price,bank_name:bankName,iban_configured:!!iban});
+      await audit(user.id,"full_package_store_updated",null,null,{price,bank_name:bankName,iban_configured:!!iban,measurement_settings:measurementSettings});
       return reply({ok:true,settings:data});
     }
     if (action === "purchase_submit") {
@@ -350,16 +416,18 @@ Deno.serve(async (req: Request) => {
       const requestedAppId = String(body.app_id ?? "");
       const entitlement = await entitlementContext(user.id, deviceHash, role, body.platform, requestedAppId);
       const offlineLease = await createOfflineLease(user.id, deviceHash, body.platform, requestedAppId, entitlement);
+      const offlineLeasePublicKey = offlineLease ? await getOfflineLeasePublicKeyPem() : null;
       const { data: ownStudent } = await admin.from("sesm_students").select("display_name, email, teacher_user_id")
         .eq("user_id", user.id).eq("is_active", true).maybeSingle();
-      return reply({ ok: true, user: { id: user.id, email: user.email, name: user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? "" }, role, licensed: entitlement.licensed, trial: entitlement.trial, offline_lease: offlineLease, entitlements: { paid: entitlement.paid, demo: entitlement.trial.active === true }, student: ownStudent ?? null, app: "Stagepulse Ses Mühendisliği Merkezi" });
+      return reply({ ok: true, user: { id: user.id, email: user.email?.endsWith("@students.stagepulse.invalid") ? null : (user.email ?? null), phone: user.user_metadata?.phone ?? user.phone ?? null, name: user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? "" }, role, licensed: entitlement.licensed, trial: entitlement.trial, offline_lease: offlineLease, offline_lease_public_key: offlineLeasePublicKey, entitlements: { paid: entitlement.paid, demo: entitlement.trial.active === true }, student: ownStudent ?? null, app: "Stagepulse Ses Mühendisliği Merkezi" });
     }
     if (action === "license_status") {
       const deviceHash = String(body.device_hash ?? "");
       const requestedAppId = String(body.app_id ?? "");
       const entitlement = await entitlementContext(user.id, deviceHash, role, body.platform, requestedAppId);
       const offlineLease = await createOfflineLease(user.id, deviceHash, body.platform, requestedAppId, entitlement);
-      return reply({ ok: true, licensed: entitlement.licensed, trial: entitlement.trial, offline_lease: offlineLease, entitlements: { paid: entitlement.paid, demo: entitlement.trial.active === true }, role });
+      const offlineLeasePublicKey = offlineLease ? await getOfflineLeasePublicKeyPem() : null;
+      return reply({ ok: true, licensed: entitlement.licensed, trial: entitlement.trial, offline_lease: offlineLease, offline_lease_public_key: offlineLeasePublicKey, entitlements: { paid: entitlement.paid, demo: entitlement.trial.active === true }, role });
     }
     if (action === "feature_access" || action === "pdf_access") {
       const entitlement = await entitlementContext(user.id, String(body.device_hash ?? ""), role, body.platform, String(body.app_id ?? ""));
@@ -451,33 +519,55 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "license_create") {
       await requireOwner(user.id);
-      const rawKey = issueLicenseKey();
-      const hash = await sha256Hex(normalizeKey(rawKey));
-      const label = "FULL PAKET";
-      const plan = "student";
-      const bundle = "full_master";
-      const maxActivations = Math.max(1, Math.min(100, Math.trunc(Number(body.max_activations) || 1)));
-      const days = Math.max(0, Math.min(3650, Math.trunc(Number(body.expires_days) || 0)));
-      const expiresAt = days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : null;
       const customerName = String(body.customer_name ?? "").trim().slice(0, 120);
       const customerEmail = String(body.customer_email ?? "").trim().toLowerCase().slice(0, 320);
-      const paymentMethod = ["cash", "bank_transfer"].includes(String(body.payment_method)) ? String(body.payment_method) : "bank_transfer";
-      const paymentStatus = ["paid", "unpaid"].includes(String(body.payment_status)) ? String(body.payment_status) : "unpaid";
-      const amount = Number(body.amount ?? 0);
-      const currency = String(body.currency ?? "TRY").trim().toUpperCase();
+      const paymentMethod = String(body.payment_method ?? "");
+      const paymentStatus = String(body.payment_status ?? "unpaid");
       const paymentReference = String(body.payment_reference ?? "").trim().slice(0, 120);
-      if (customerEmail && (!customerEmail.includes("@") || customerEmail.length > 320)) return fail("LICENSE_CUSTOMER_EMAIL_INVALID", 400);
-      if (!Number.isFinite(amount) || amount < 0 || amount > 2500 || currency !== "TRY") return fail("LICENSE_PAYMENT_DATA_INVALID", 400);
-      const { data: lic, error } = await admin.from("sesm_license_keys").insert({
-        key_hash: hash, label, plan_code: plan, bundle_code: bundle, max_activations: maxActivations, expires_at: expiresAt,
-        created_by: user.id, notes: String(body.notes ?? "").slice(0, 500), customer_name: customerName,
-        customer_email: customerEmail, payment_method: paymentMethod, payment_status: paymentStatus,
-        amount, currency, payment_reference: paymentReference,
-      }).select("id,label,plan_code,bundle_code,max_activations,expires_at,created_at,customer_name,customer_email,payment_method,payment_status,amount,currency,payment_reference").single();
-      if (error || !lic) return fail("LICENSE_CREATE_FAILED", 500);
-      await audit(user.id, "license_created", null, lic.id, { label, customer_name: customerName, plan_code: plan, bundle_code: bundle, max_activations: maxActivations, expires_at: expiresAt, payment_status: paymentStatus, payment_method: paymentMethod, amount, currency, payment_reference: paymentReference });
-      // Raw key is returned once. Only SHA-256 hash is stored in the database.
-      return reply({ ok: true, license: lic, key: rawKey });
+      const notes = String(body.notes ?? "").trim().slice(0, 500);
+      const amount = Number(body.amount);
+      const maxDevices = Number(body.max_activations ?? 3);
+      if (customerName.length < 2 || (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail))
+        || !["cash", "bank_transfer"].includes(paymentMethod)
+        || !["paid", "unpaid"].includes(paymentStatus)
+        || !Number.isFinite(amount) || amount < 0 || amount > 2500
+        || ![1, 2, 3, 5].includes(maxDevices)) return fail("LICENSE_CREATE_DATA_INVALID", 400);
+      if (paymentStatus === "paid" && paymentMethod === "bank_transfer" && paymentReference.length < 3) {
+        return fail("PAYMENT_REFERENCE_REQUIRED", 400);
+      }
+      const rawKey = issueLicenseKey();
+      const keyHash = await sha256Hex(normalizeKey(rawKey));
+      const { data, error } = await admin.rpc("sesm_create_manual_full_package_license", {
+        p_owner_user_id: user.id,
+        p_key_hash: keyHash,
+        p_customer_name: customerName,
+        p_customer_email: customerEmail,
+        p_payment_method: paymentMethod,
+        p_payment_status: paymentStatus,
+        p_amount: amount,
+        p_payment_reference: paymentReference,
+        p_admin_note: notes,
+        p_max_devices: maxDevices,
+      });
+      if (error || !data?.license_id) {
+        console.error("Manual FULL PAKET license creation failed", error?.message ?? "missing license id");
+        return fail(error?.code === "42501" ? "FORBIDDEN_OWNER_ONLY" : "LICENSE_CREATE_FAILED", error?.code === "42501" ? 403 : 500);
+      }
+      return reply({
+        ok: true,
+        key: rawKey,
+        license: {
+          id: data.license_id,
+          label: "FULL PAKET",
+          plan_code: "student",
+          bundle_code: "full_master",
+          max_activations: maxDevices,
+          expires_at: null,
+          payment_status: paymentStatus,
+          amount,
+          currency: "TRY",
+        },
+      }, 201);
     }
     if (action === "license_payment_update") {
       await requireOwner(user.id);
