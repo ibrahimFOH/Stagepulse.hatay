@@ -239,10 +239,9 @@ create policy jobs_staff_select on public.jobs
   for select to authenticated
   using (public.staff_has_perm('jobs'));
 
-create policy jobs_staff_update on public.jobs
-  for update to authenticated
-  using (public.staff_has_perm('jobs') and public.staff_has_perm('update_job_status'))
-  with check (public.staff_has_perm('jobs') and public.staff_has_perm('update_job_status'));
+-- Personel güncellemeleri doğrudan tabloya yazılmaz.
+-- Durum ve not değişiklikleri atama kontrolü yapan staff_update_job_status / staff_update_job_notes RPC'lerinden geçer.
+-- jobs_admin politikası yönetici doğrudan düzenlemelerini korur.
 
 -- equipment ve teklifler için personele artık doğrudan bir SELECT policy
 -- verilmiyor: erişim yalnızca yukarıdaki view'lar (equipment_staff,
@@ -251,7 +250,25 @@ create policy jobs_staff_update on public.jobs
 
 create policy job_staff_staff_select on public.job_staff
   for select to authenticated
-  using (public.is_staff());
+  using (
+    public.staff_has_perm('jobs')
+    and exists (
+      select 1
+      from public.staff s
+      join public.staff_profiles sp
+        on sp.user_id = (select auth.uid())
+       and sp.active = true
+       and lower(sp.display_name) = lower(s.name)
+       and (
+         sp.phone is null
+         or s.phone is null
+         or regexp_replace(sp.phone, '[^0-9]', '', 'g')
+            = regexp_replace(s.phone, '[^0-9]', '', 'g')
+       )
+      where s.id = job_staff.staff_id
+        and s.active = true
+    )
+  );
 
 create policy staff_staff_select on public.staff
   for select to authenticated
@@ -336,8 +353,18 @@ select
 from public.jobs j
 join public.job_staff js on js.job_id = j.id
 join public.staff s on s.id = js.staff_id
-join public.staff_profiles sp on sp.user_id = auth.uid() and sp.active = true and lower(sp.display_name)=lower(s.name)
-where public.staff_has_perm('jobs');
+join public.staff_profiles sp
+  on sp.user_id = (select auth.uid())
+ and sp.active = true
+ and lower(sp.display_name) = lower(s.name)
+ and (
+   sp.phone is null
+   or s.phone is null
+   or regexp_replace(sp.phone, '[^0-9]', '', 'g')
+      = regexp_replace(s.phone, '[^0-9]', '', 'g')
+ )
+where s.active = true
+  and public.staff_has_perm('jobs');
 
 grant select on public.my_jobs_staff to authenticated;
 
