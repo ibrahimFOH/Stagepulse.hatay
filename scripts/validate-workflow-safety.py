@@ -11,7 +11,6 @@ known_action_commits = {
         "11d5960a326750d5838078e36cf38b85af677262",
         "fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
         "3d3c42e5aac5ba805825da76410c181273ba90b1",
-        "3d3c42e5aac5ba805825da76410c181273ba90b1",
     },
     "actions/setup-node": {"49933ea5288caeca8642d1e84afbd3f7d6820020"},
     "actions/setup-java": {"cf277c60eb25467037889841efdb72551f06f6c3"},
