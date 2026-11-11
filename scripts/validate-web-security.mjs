@@ -73,6 +73,11 @@ for (const [name, verifyJwt] of expectedEdgeFunctions) {
 }
 requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
 requireMatch(licenseCoreFunction.includes('const ALLOWED_ORIGINS = new Set([') && licenseCoreFunction.includes('if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;') && !licenseCoreFunction.includes('Access-Control-Allow-Origin": "*"'), 'Unified license Edge Function must use the Stagepulse CORS origin allowlist.');
+const sesmAdminCreateGuard = licenseCoreFunction.indexOf('if (appId === "ses-merkezi" || appId === "ses-merkezi-android")');
+const sesmAdminCreateCore = licenseCoreFunction.indexOf('const app = await appFor(appId);', sesmAdminCreateGuard);
+requireMatch(sesmAdminCreateGuard >= 0 && sesmAdminCreateCore > sesmAdminCreateGuard
+  && licenseCoreFunction.includes('BANK_TRANSFER_APPROVAL_REQUIRED'),
+  'Ses Merkezi licenses must only be created through the owner-approved purchase review flow.');
 requireMatch(!licenseAdminFunction.includes('Access-Control-Allow-Origin": "*"') && JSON.stringify(licenseAdminOrigins) === JSON.stringify(['https://stagepulse.com.tr','https://www.stagepulse.com.tr','https://appassets.androidplatform.net','http://localhost:5173','http://127.0.0.1:5173']), 'License admin Edge Function must validate CORS with an exact origin allowlist.');
 requireMatch(!sesMerkeziFunction.includes('Access-Control-Allow-Origin": "*"') && sesMerkeziFunction.includes('const ALLOWED_ORIGINS = new Set([') && sesMerkeziFunction.includes('content-type, x-client-info') && sesMerkeziFunction.includes('https://appassets.androidplatform.net'), 'Ses Merkezi Edge Function must use the Stagepulse CORS origin allowlist.');
 const publicSignupStart = sesMerkeziFunction.indexOf('if (action === "student_signup")');
