@@ -2,6 +2,10 @@
 # verify_jwt=false yalnızca fonksiyon kendi oturum/token/yetki kontrolünü yaptığı zaman kullanılır.
 # Bu dosya functions-manifest.json ile scripts/validate-web-security.mjs tarafından eşitlenir.
 
+[api]
+enabled = true
+schemas = ["public", "graphql_public"]
+
 [functions.admin-data]
 verify_jwt = true
 
