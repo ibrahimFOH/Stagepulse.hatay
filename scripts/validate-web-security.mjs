@@ -59,7 +59,7 @@ const expectedEdgeFunctions = new Map([
   ['license-core', true], ['org-admin-control', true], ['portal-login', false],
   ['production-os', false], ['register-android-device', true],
   ['self-password-change', true], ['send-fcm-notification', false],
-  ['ses-merkezi-desktop', true], ['sesm-education-admin', true], ['staff-manage', false],
+  ['ses-merkezi-desktop', false], ['sesm-education-admin', true], ['staff-manage', false],
 ]);
 const manifestEntries = Array.isArray(edgeManifest.functions) ? edgeManifest.functions : [];
 const manifestNames = manifestEntries.map(item => item.name);
@@ -75,6 +75,14 @@ requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('
 requireMatch(licenseCoreFunction.includes('const ALLOWED_ORIGINS = new Set([') && licenseCoreFunction.includes('if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;') && !licenseCoreFunction.includes('Access-Control-Allow-Origin": "*"'), 'Unified license Edge Function must use the Stagepulse CORS origin allowlist.');
 requireMatch(!licenseAdminFunction.includes('Access-Control-Allow-Origin": "*"') && JSON.stringify(licenseAdminOrigins) === JSON.stringify(['https://stagepulse.com.tr','https://www.stagepulse.com.tr','https://appassets.androidplatform.net','http://localhost:5173','http://127.0.0.1:5173']), 'License admin Edge Function must validate CORS with an exact origin allowlist.');
 requireMatch(!sesMerkeziFunction.includes('Access-Control-Allow-Origin": "*"') && sesMerkeziFunction.includes('const ALLOWED_ORIGINS = new Set([') && sesMerkeziFunction.includes('content-type, x-client-info') && sesMerkeziFunction.includes('https://appassets.androidplatform.net'), 'Ses Merkezi Edge Function must use the Stagepulse CORS origin allowlist.');
+const publicSignupStart = sesMerkeziFunction.indexOf('if (action === "student_signup")');
+const authenticatedActionGate = sesMerkeziFunction.indexOf('const { user, token } = await requireUser(req);');
+requireMatch(publicSignupStart >= 0 && authenticatedActionGate > publicSignupStart
+  && sesMerkeziFunction.includes('p_max: 5')
+  && sesMerkeziFunction.includes('admin.auth.admin.createUser')
+  && sesMerkeziFunction.includes('password.length < 8')
+  && sesMerkeziFunction.includes('if (!token) throw new Error("UNAUTHENTICATED");'),
+  'Public student signup must be IP-rate-limited, validate input, and authenticate all later actions manually.');
 requireMatch(fcmRegistryMigration.includes('notification_devices_user_token_variant_uidx') && fcmRegistryMigration.includes('alter table public.notification_devices enable row level security') && fcmRegistryMigration.includes('grant execute on function public.register_notification_device(text,text,text) to authenticated;'), 'FCM device registry must have scoped RLS and authenticated registration RPC.');
 requireMatch(registerAndroidFunction.includes('.eq("token", token)') && registerAndroidFunction.includes('"https://www.stagepulse.com.tr"') && registerAndroidFunction.includes('"https://appassets.androidplatform.net"') && registerAndroidFunction.includes('if (ALLOWED_ORIGINS.has(origin))') && registerAndroidFunction.includes('content-type, x-client-info'), 'Android device registration must be token-scoped and use an origin allowlist.');
 requireMatch(productionOsMigration.includes('create table if not exists public.sp_event_readiness') && productionOsMigration.includes("'sp_event_readiness'") && productionOsMigration.includes('enable row level security') && productionOsMigration.includes('alter view public.sp_production_readiness set (security_invoker = true)'), 'Production OS schema must include the RLS-protected readiness table and security-invoker view.');
