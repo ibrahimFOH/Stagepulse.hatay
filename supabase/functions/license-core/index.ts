@@ -128,6 +128,12 @@ async function finishActivation(license: any, user: any, app: any, platform: str
 async function adminCreate(user: any, body: any, req: Request) {
   if (!(await requireOwner(user.id))) return reply(req, { ok: false, error: "FORBIDDEN_OWNER_ONLY" }, 403);
   const appId = clean(body.app_id, 80);
+  // Ses Merkezi lisansları yalnızca banka transferi bildirimi ve owner onayı
+  // sonrasında ses-merkezi-desktop purchase_review akışından üretilir.
+  // Diğer Stagepulse ürünlerinin yönetici lisans akışına dokunulmaz.
+  if (appId === "ses-merkezi" || appId === "ses-merkezi-android") {
+    return reply(req, { ok: false, error: "BANK_TRANSFER_APPROVAL_REQUIRED" }, 403);
+  }
   const app = await appFor(appId);
   const customer = clean(body.customer_name, 120);
   const maxDevices = Number(body.max_devices ?? 1);
