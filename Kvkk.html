@@ -111,6 +111,29 @@
     <h2>Saklama Süresi</h2>
     <p>Teklif süreçleriyle ilgili veriler, talep tarihinden itibaren makul süre boyunca veya yasal zorunluluk varsa o süre kadar saklanır.</p>
 
+    <h2>Stagepulse Ses Mühendisliği Merkezi Masaüstü Uygulaması</h2>
+    <p>Stagepulse Ses Mühendisliği Merkezi Windows masaüstü uygulamasını kullandığınızda, uygulamanın lisanslama, satın alma talebi, teknik destek ve isteğe bağlı yapay zekâ özelliklerinin çalıştırılması için aşağıdaki veriler işlenebilir.</p>
+
+    <h3>İşlenen Veriler ve Amaçları</h3>
+    <ul>
+      <li><strong>Hesap ve iletişim bilgileri:</strong> Lisans işlemleriyle bağlantılı e-posta adresi, kullanıcı kimliği ve varsa görünen ad; kullanıcı hesabının ve lisans sahipliğinin eşleştirilmesi ve destek süreçleri için.</li>
+      <li><strong>Lisans ve cihaz doğrulama verileri:</strong> Lisans anahtarının doğrulama amacıyla kullanılan SHA-256 özeti, uygulama kimliği, işletim sistemi/platform bilgisi, aktivasyon zamanı ve uygulama kurulumuna ait rastgele kimlikten üretilen SHA-256 cihaz özeti; lisansın etkinleştirilmesi, cihaz sınırlarının uygulanması, güvenlik ve kötüye kullanımın önlenmesi için. Bu cihaz özeti donanım seri numarası veya doğrudan donanım parmak izi değildir. Lisans anahtarı doğrulama sırasında güvenli bağlantı üzerinden sunucuya iletilir; veritabanında anahtarın kendisi yerine özeti saklanır.</li>
+      <li><strong>Satın alma ve eğitim talebi bilgileri:</strong> Talep kapsamında girilen ad, e-posta, telefon, ürün/hizmet bilgisi, tutar, para birimi, ödeme/transfer referansı ve kullanıcı notu; talebin değerlendirilmesi, ödeme eşleştirmesi, lisans tanımlanması ve eğitim süreçlerinin yürütülmesi için.</li>
+      <li><strong>Teknik kayıtlar:</strong> İşlem zamanı, uygulama/platform bilgisi, hata ve denetim kayıtları ile lisans durumuna ilişkin olaylar; uygulamanın güvenli ve çalışır tutulması, hata giderme ve destek için.</li>
+    </ul>
+
+    <h3>Mikrofon, Ölçüm ve Ses Dosyaları</h3>
+    <p>RTA (Real-Time Analyzer / Gerçek Zamanlı Analizör) özelliği kullanıldığında mikrofon sinyali ve ölçüm verileri, analiz amacıyla kullanıcının cihazında yerel olarak işlenir. Uygulamanın bu ölçüm için aldığı ham mikrofon sesini veya yerel WAV analiz dosyalarını lisans sunucusuna yüklediğine dair bir işlev bulunmamaktadır. Kullanıcı ayrıca bir dışa aktarma veya paylaşma işlemi yaparsa ilgili dosya, kullanıcının seçtiği hedefe göre işlenir.</p>
+
+    <h3>Yapay Zekâ Özellikleri ve Üçüncü Taraf Hizmetler</h3>
+    <p>Uygulamanın yapay zekâ yardımcısında Ollama sağlayıcısı seçildiğinde model işlemleri kullanıcının cihazında yerel olarak gerçekleştirilir. Groq sağlayıcısı seçildiğinde, yapay zekâ yanıtı oluşturulabilmesi için kullanıcının yazdığı metin istemleri ve konuşma bağlamı Groq hizmetine gönderilir. Mikrofonun ham ses akışı bu metin istemi aktarımının parçası değildir. Groq kullanılırken istemlere kişisel, gizli veya hassas bilgi yazılmaması önerilir. Groq'un verileri işleme koşulları kendi gizlilik ve hizmet şartlarına tabidir.</p>
+
+    <h3>Veri Alıcıları ve Yurt Dışına Aktarım</h3>
+    <p>Lisans doğrulama, hesap eşleştirme, satın alma talepleri ve ilgili teknik kayıtlar için Supabase altyapısı kullanılmaktadır. İlgili veriler, uygulamanın lisans ve talep işlevlerinin yerine getirilmesi amacıyla Supabase hizmetlerine aktarılabilir ve proje veritabanı Avrupa Birliği'ndeki eu-west-3 (Paris) bölgesinde barındırılır. Groq seçildiğinde metin istemleri Groq'un altyapısına aktarılır. Bu hizmet sağlayıcıların altyapı konumları ve alt işleyenleri nedeniyle yurt dışına veri aktarımı söz konusu olabilir. Aktarımlar, yürürlükteki KVKK hükümleri ve uygulanabilir aktarım mekanizmaları çerçevesinde gerçekleştirilir.</p>
+
+    <h3>Saklama ve Güvenlik</h3>
+    <p>Lisans, aktivasyon, satın alma talebi ve teknik kayıtlar; ilgili hizmetin sunulması, güvenliğin sağlanması, olası uyuşmazlıkların çözümlenmesi ve yasal yükümlülüklerin yerine getirilmesi için gerekli süre boyunca saklanır. Süre sonunda veriler, mevzuata uygun şekilde silinir, yok edilir veya anonim hâle getirilir. Lisans doğrulama iletişimi HTTPS üzerinden gerçekleştirilir; veritabanında lisans anahtarının kendisi yerine kriptografik özeti tutulur.</p>
+
     <h2>İlgili Kişinin Hakları</h2>
     <p>KVKK kapsamında erişim, düzeltme, silme, işlemeyi kısıtlama ve itiraz haklarına sahipsiniz. Taleplerinizi yukarıdaki iletişim kanallarından iletebilirsiniz.</p>
 
