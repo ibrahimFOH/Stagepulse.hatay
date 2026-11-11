@@ -98,7 +98,7 @@ jobs:
 
           for migration in Path("supabase/migrations").glob("*.sql"):
               sql = migration.read_text(encoding="utf-8")
-              if re.search(r"GRANT\\s+USAGE\\s+ON\\s+SCHEMA\\s+private\\s+TO\\s+[^;]*\\bPUBLIC\\b", sql, re.IGNORECASE):
+              if re.search(r"GRANT\s+USAGE\s+ON\s+SCHEMA\s+private\s+TO\s+[^;]*\bPUBLIC\b", sql, re.IGNORECASE):
                   raise SystemExit(f"PUBLIC must never receive private-schema USAGE: {migration}")
 
           print("Private schema is excluded from Data API; PUBLIC has no private-schema USAGE grant.")
