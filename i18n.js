@@ -80,7 +80,7 @@ const translations = {
     btn_pack: "Paket Teklifi Al",
 
     s4_title: "Neden Stagepulse?",
-    s4_desc: "Hatay / Antakya merkezli ses mühendisliği hizmeti kapsamında, her projede sadece ses seviyesini değil, mekânın akustik karakterini, seyirci dağılımını ve sanatçının ihtiyaçlarını birlikte düşünüyoruz. Amacımız “yüksek ses” değil, salonun her noktasında net, dengeli ve yorulmayan bir dinleme deneyimi yaratmak. Stagepulse'a FOH mühendisi İbrahim Kavasoğlu liderlik etmektedir. 2019'dan bu yana konser, festival ve kurumsal etkinliklerde front of house miks ve sistem mühendisliği yapıyorum. Midas M32, Behringer X32, Yamaha CL5, Allen & Heath Avantis ve Soundcraft Si Impact konsollarıyla çalışıyor, Dante tabanlı ağ altyapıları kuruyoruz. Her işe ölçüm ve planlama ile başlıyoruz. Hedefimiz, sahne sesinin salon boyunca tutarlı ve anlaşılır duyulmasıdır.",
+    s4_desc: "Hatay / Antakya merkezli ses mühendisliği hizmeti kapsamında, her projede sadece ses seviyesini değil, mekânın akustik karakterini, seyirci dağılımını ve sanatçının ihtiyaçlarını birlikte değerlendiriyorum. Amacımız “yüksek ses” değil, salonun her noktasında net, dengeli ve yorulmayan bir dinleme deneyimi yaratmak. Stagepulse, FOH mühendisi İbrahim Kavasoğlu tarafından yürütülmektedir. 2019'dan bu yana konser, festival ve kurumsal etkinliklerde front of house miks ve sistem mühendisliği yapıyorum. Midas M32, Behringer X32, Yamaha CL5, Allen & Heath Avantis ve Soundcraft Si Impact konsollarıyla çalışıyor, Dante tabanlı ağ altyapıları kuruyoruz. Her işe ölçüm ve planlama ile başlıyoruz. Hedefimiz, sahne sesinin salon boyunca tutarlı ve anlaşılır duyulmasıdır.",
     c8_t: "Uçtan Uca Yönetim",
     c8_d: "Planlamadan kuruluma, miksten söküme kadar tüm süreci yönetiyoruz.",
     c9_t: "Çalışılan Sistemler",
@@ -274,7 +274,7 @@ const translations = {
     c10_d: "Technical support before and during the event.",
 
     s5_title: "Get a quote for your project",
-    s5_desc: "Share your event details. Get a free technical pre-assessment + Stage Plot / system proposal. Whether you need consulting only or a full rental + operations package, you get a practical solution.",
+    s5_desc: "Share your event details to request a technical pre-assessment and Stage Plot / system proposal. The scope and any applicable fee will be stated in the written quote.",
     btn_cta: "Request a Technical Pre-Assessment",
 
     h_title: "Services",
