@@ -637,8 +637,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showFormError(t('form_err_email', 'Lütfen geçerli bir e-posta adresi girin.'), emailEl);
         return;
       }
-      if (!phone) {
-        showFormError(t('form_err_phone', 'Lütfen Telefon numaranızı girin.'), phoneEl);
+      if (!phone && !email) {
+        showFormError(t('form_err_contact', 'Size ulaşabilmemiz için telefon veya e-posta alanlarından en az birini doldurun.'), phoneEl);
         return;
       }
       if (!eventType) {
@@ -657,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showFormError(t('form_err_people', 'Lütfen geçerli bir Tahmini Katılımcı Sayısı girin (1 - 100.000 arası).'), peopleEl);
         return;
       }
-      if (!/^[0-9+\s()\-]{7,20}$/.test(phone)) {
+      if (phone && !/^[0-9+\s()\-]{7,20}$/.test(phone)) {
         showFormError(t('form_err_phone_invalid', 'Lütfen geçerli bir Telefon numarası girin.'), phoneEl);
         return;
       }
@@ -710,7 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (supabase) {
           const { error } = await supabase.from('teklifler').insert([{
             name: name,
-            phone: phone,
+            phone: phone || null,
             company: company || null,
             email: email || null,
             type: type,
@@ -774,7 +774,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const waText =
         'Yeni Teklif Talebi%0A%0A' +
         'Ad: ' + encodeURIComponent(name) +
-        '%0ATelefon: ' + encodeURIComponent(phone) +
+        '%0ATelefon: ' + encodeURIComponent(phone || '-') +
+        '%0AE-posta: ' + encodeURIComponent(email || '-') +
         '%0AHizmet: ' + encodeURIComponent(type) +
         '%0ALokasyon: ' + encodeURIComponent(location || '-') +
         '%0AKişi: ' + encodeURIComponent(people || '-') +
