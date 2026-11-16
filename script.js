@@ -167,8 +167,29 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('has-sticky-cta');
   }
 
-  // Cookie + GA
+  // Cookie tercihleri tek kaynak: consent.js
   initCookieConsent();
+
+  // Hukuki sayfalara tüm alt sayfalardan erişim
+  const legalLinks = [
+    ['Kvkk.html', 'KVKK'],
+    ['gizlilik.html', 'Gizlilik'],
+    ['cerezler.html', 'Çerezler'],
+    ['kullanim-kosullari.html', 'Kullanım Koşulları'],
+    ['mesafeli-satis.html', 'Mesafeli Satış'],
+    ['on-bilgilendirme.html', 'Ön Bilgilendirme'],
+    ['iade-iptal.html', 'İade / İptal'],
+    ['veri-talebi.html', 'Veri Başvurusu']
+  ];
+  document.querySelectorAll('.footer-links').forEach((nav) => {
+    legalLinks.forEach(([href, label]) => {
+      if (nav.querySelector('a[href="' + href + '"]')) return;
+      const link = document.createElement('a');
+      link.href = '/' + href;
+      link.textContent = label;
+      nav.appendChild(link);
+    });
+  });
 
   // Supabase'i arka planda yükle (form varsa)
   if (document.getElementById('offerForm')) {
