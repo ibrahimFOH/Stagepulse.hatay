@@ -208,22 +208,10 @@
   </div>
 
   <form id="offerForm" novalidate>
-    <!-- Honeypot -->
-    <div class="hp-field" aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
-      <label for="website">Website</label>
-      <input type="text" id="website" name="website" value="" tabindex="-1" autocomplete="off">
-    </div>
-
     <!-- Ad Soyad / Firma -->
     <div class="form-group">
       <label for="name" class="form-label">Ad Soyad / Firma <span class="required">*</span></label>
       <input type="text" id="name" name="name" placeholder="Ad Soyad veya Firma Ünvanı" data-i18n-placeholder="ph_name" required aria-required="true" autocomplete="name">
-    </div>
-
-    <!-- Firma -->
-    <div class="form-group">
-      <label for="company" class="form-label">Firma</label>
-      <input type="text" id="company" name="company" placeholder="Firma / Organizasyon (Opsiyonel)" autocomplete="organization">
     </div>
 
     <!-- E-posta -->
@@ -293,21 +281,16 @@
       <textarea id="message" name="message" rows="4" placeholder="Etkinlik detayları, teknik talepler..." data-i18n-placeholder="ph_message" required aria-required="true"></textarea>
     </div>
 
-    <!-- Cloudflare Turnstile -->
-    <div class="form-group turnstile-wrap" id="turnstileWrap">
-      <div class="cf-turnstile" id="cfTurnstile" data-theme="dark" data-size="normal"></div>
-    </div>
-
     <!-- KVKK aydınlatması: rıza şartı gibi sunulmaz -->
     <div class="kvkk-consent" role="note" aria-label="Kişisel veriler hakkında bilgilendirme">
-      <p class="kvkk-notice">Teklif talebinizi yanıtlamak için formda paylaştığınız bilgiler, <a href="/Kvkk.html" target="_blank" rel="noopener">KVKK Aydınlatma Metni</a> ve <a href="/gizlilik.html" target="_blank" rel="noopener">Gizlilik Politikası</a> kapsamında işlenir. Bu bilgilendirme bir açık rıza talebi değildir.</p>
+      <p class="kvkk-notice">Bu form bilgilerinizi Stagepulse sunucusuna otomatik göndermez veya kaydetmez. Gönder düğmesi, doldurduğunuz bilgileri WhatsApp mesaj taslağına aktarır. Mesajı kontrol edip WhatsApp içinde ayrıca Gönder düğmesine basmadıkça talebiniz Stagepulse’a ulaşmaz. WhatsApp/Meta’nın veri işleme koşulları geçerlidir. Ayrıntılar: <a href="/Kvkk.html" target="_blank" rel="noopener">KVKK Aydınlatma Metni</a> ve <a href="/gizlilik.html" target="_blank" rel="noopener">Gizlilik Politikası</a>.</p>
     </div>
 
     <button type="submit" class="btn btn-whatsapp btn-submit">
-      <i class="fa-brands fa-whatsapp"></i> <span data-i18n="t_submit">Teklif Al</span>
+      <i class="fa-brands fa-whatsapp"></i> <span data-i18n="t_submit">WhatsApp Mesajı Hazırla</span>
     </button>
 
-    <div id="formSuccess" class="form-success" data-i18n="form_success">Talebiniz WhatsApp üzerinden yönlendirildi. Teşekkürler!</div>
+    <div id="formSuccess" class="form-success" data-i18n="form_success">WhatsApp mesaj taslağı hazır. Bilgileri kontrol edip Gönder düğmesine basın.</div>
   </form>
 </main>
 
@@ -343,7 +326,6 @@
   </div>
 </footer>
 
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 <script src="i18n.js"></script>
 <script src="script.js?v=3"></script>
 <script src="conversion.js?v=3" defer></script>
