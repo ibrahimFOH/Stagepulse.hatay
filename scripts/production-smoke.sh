@@ -51,6 +51,9 @@ if [ -n "$EXPECTED_SHA" ]; then
 fi
 
 fetch "/" "STAGEPULSE"
+fetch "/" "2019’dan bu yana"
+fetch "/" "İş Deneyimi"
+fetch "/i18n.js" "2019'dan bu yana"
 fetch "/hizmetler.html" "Hizmetler"
 fetch "/muhendislik.html" "Mühendislik"
 fetch "/galeri.html" "Galeri"
@@ -98,5 +101,15 @@ else
     echo "PASS Runtime security headers"
   fi
 fi
+
+homepage="$TMP/homepage-check.html"
+translations="$TMP/translations-check.js"
+curl --silent --show-error --location --max-time 20 -H 'Cache-Control: no-cache' -A 'Mozilla/5.0 Stagepulse-Smoke/2.0' -o "$homepage" "$BASE_URL/"
+curl --silent --show-error --location --max-time 20 -H 'Cache-Control: no-cache' -A 'Mozilla/5.0 Stagepulse-Smoke/2.0' -o "$translations" "$BASE_URL/i18n.js"
+if grep -Eiq '8 yılı aşkın|100\+|1000\+|Meyer Sound|DiGiCo|Shure|Çalışılan Sanatçılar|Sahneler &amp; Örnek Çalışmalar' "$homepage" "$translations"; then
+  echo "FAIL outdated or unsupported marketing claims are still served"
+  exit 1
+fi
+echo "PASS homepage and translations contain no retired claims"
 
 echo "Production public smoke checks passed for $BASE_URL"
