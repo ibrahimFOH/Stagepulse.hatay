@@ -1,112 +1,139 @@
-/* Stagepulse consent + recovery router */
-(function () {
-  'use strict';
-  try {
-    const hash = window.location.hash || '';
-    const type = new URLSearchParams(hash.replace(/^#/, '')).get('type');
-    if (type === 'recovery') {
-      window.location.replace('/jarvis/admin/' + window.location.search + hash);
-      return;
-    }
-  } catch (_) {}
-})(function (global) {
+/* Stagepulse tekil çerez tercih yöneticisi v2 */
+(function (global) {
   'use strict';
   const KEY = 'sp_consent';
-  const GA = 'G-4BFSFS0SGM';
-  let state = null;
+  const GA_ID = 'G-4BFSFS0SGM';
+  const CONSENT_VERSION = '2';
+  let current = null;
+
   global.dataLayer = global.dataLayer || [];
   global.gtag = global.gtag || function () { global.dataLayer.push(arguments); };
-  global.gtag('consent', 'default', {analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',wait_for_update:500});
+  global.gtag('consent', 'default', {
+    analytics_storage: 'denied',
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    wait_for_update: 500
+  });
 
-  function analytics() {
-    global.gtag('consent', 'update',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
+  function readChoice() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw === 'accepted') return { version: '1', analytics: true };
+      if (raw === 'rejected') return { version: '1', analytics: false };
+      const parsed = JSON.parse(raw || 'null');
+      return parsed && parsed.version === CONSENT_VERSION ? parsed : null;
+    } catch (_) { return null; }
+  }
+
+  function updateConsent(enabled) {
+    global.gtag('consent', 'update', {
+      analytics_storage: enabled ? 'granted' : 'denied',
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    });
+    if (!enabled) {
+      const analyticsScript = document.getElementById('sp-google-analytics');
+      if (analyticsScript) analyticsScript.remove();
+      return;
+    }
     if (document.getElementById('sp-google-analytics')) return;
-    global.gtag('js',new Date());
-    global.gtag('config',GA,{anonymize_ip:true});
-    const script=document.createElement('script');
-    script.id='sp-google-analytics';
-    script.async=true;
-    script.src='https://www.googletagmanager.com/gtag/js?id='+encodeURIComponent(GA);
+    global.gtag('js', new Date());
+    global.gtag('config', GA_ID, { anonymize_ip: true });
+    const script = document.createElement('script');
+    script.id = 'sp-google-analytics';
+    script.async = true;
+    script.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA_ID);
     document.head.appendChild(script);
   }
 
-  function deny() {
-    global.gtag('consent', 'update',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
-  }
-
-  function removeBanner() {
-    const banner=document.getElementById('cookie-banner');
-    if (banner) banner.remove();
+  function closeBanner() {
+    const node = document.getElementById('cookie-banner');
+    if (node) node.remove();
     document.body.classList.remove('has-cookie-banner');
   }
 
-  function apply(value) {
-    state=value;
-    try { localStorage.setItem(KEY,value); } catch (_) {}
-    removeBanner();
-    if (value==='accepted') analytics(); else deny();
+  function saveChoice(analytics) {
+    current = { version: CONSENT_VERSION, necessary: true, analytics: !!analytics, updatedAt: new Date().toISOString() };
+    try { localStorage.setItem(KEY, JSON.stringify(current)); } catch (_) {}
+    updateConsent(!!analytics);
+    closeBanner();
   }
 
-  function banner() {
+  function showPreferences() {
+    if (document.getElementById('sp-cookie-preferences')) return;
+    const panel = document.createElement('div');
+    panel.id = 'sp-cookie-preferences';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-labelledby', 'sp-cookie-title');
+    panel.innerHTML = '<div class="sp-cookie-panel"><h2 id="sp-cookie-title">Çerez tercihleri</h2>' +
+      '<p>Zorunlu depolama site ve tercihlerin çalışması için kullanılır. Analitik çerezleri yalnızca izin verirseniz etkinleştirilir.</p>' +
+      '<label class="sp-cookie-option"><input type="checkbox" checked disabled> Zorunlu depolama <span>Her zaman etkin</span></label>' +
+      '<label class="sp-cookie-option"><input id="sp-analytics-choice" type="checkbox"> Analitik çerezleri <span>İsteğe bağlı</span></label>' +
+      '<div class="sp-cookie-actions"><button type="button" id="sp-cookie-cancel" class="btn btn-outline">Vazgeç</button>' +
+      '<button type="button" id="sp-cookie-save" class="btn btn-primary">Tercihlerimi kaydet</button></div></div>';
+    document.body.appendChild(panel);
+    const choice = document.getElementById('sp-analytics-choice');
+    if (choice) choice.checked = !!(current && current.analytics);
+    document.getElementById('sp-cookie-cancel').addEventListener('click', () => panel.remove());
+    document.getElementById('sp-cookie-save').addEventListener('click', () => {
+      saveChoice(!!(choice && choice.checked));
+      panel.remove();
+    });
+  }
+
+  function showBanner() {
     if (document.getElementById('cookie-banner')) return;
-    const banner=document.createElement('div');
-    banner.id='cookie-banner';
-    banner.setAttribute('role','dialog');
-    banner.setAttribute('aria-label','Çerez tercihleri');
-    banner.innerHTML='<div class="cookie-inner"><div><strong>Çerez tercihleri</strong><p>İsteğe bağlı analitik çerezleri yalnızca izninizle kullanıyoruz. <a href="/Kvkk.html" target="_blank" rel="noopener">KVKK Aydınlatma Metni</a></p></div><div class="cookie-actions"><button type="button" id="cookie-reject" class="btn btn-outline" data-cookie-action="reject">Reddet</button><button type="button" id="cookie-accept" class="btn btn-primary" data-cookie-action="accept">Kabul Et</button></div></div>';
-    document.body.appendChild(banner);
+    const node = document.createElement('section');
+    node.id = 'cookie-banner';
+    node.setAttribute('role', 'region');
+    node.setAttribute('aria-label', 'Çerez tercihleri');
+    node.innerHTML = '<div class="cookie-inner"><div><strong>Gizlilik tercihleriniz</strong>' +
+      '<p>Zorunlu depolama site işlevleri için kullanılır. Analitik çerezleri yalnızca izninizle etkinleştirilir. ' +
+      '<a href="/cerezler.html">Çerez Politikası</a> · <a href="/gizlilik.html">Gizlilik Politikası</a></p></div>' +
+      '<div class="cookie-actions"><button type="button" id="cookie-reject" class="btn btn-outline">Tümünü reddet</button>' +
+      '<button type="button" id="cookie-manage" class="btn btn-outline">Tercihleri yönet</button>' +
+      '<button type="button" id="cookie-accept" class="btn btn-primary">Analitiği kabul et</button></div></div>';
+    document.body.appendChild(node);
     document.body.classList.add('has-cookie-banner');
-    const accept=document.getElementById('cookie-accept');
-    const reject=document.getElementById('cookie-reject');
-    if (accept) accept.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();apply('accepted');},{once:true});
-    if (reject) reject.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();apply('rejected');},{once:true});
+    document.getElementById('cookie-reject').addEventListener('click', () => saveChoice(false));
+    document.getElementById('cookie-accept').addEventListener('click', () => saveChoice(true));
+    document.getElementById('cookie-manage').addEventListener('click', showPreferences);
   }
 
   function addResetControl() {
-    if (document.getElementById('cookie-preferences-reset') || location.pathname.startsWith('/admin/') || location.pathname.startsWith('/portal/')) return;
-    const button=document.createElement('button');
-    button.id='cookie-preferences-reset';
-    button.type='button';
-    button.textContent='Çerez tercihleri';
-    button.setAttribute('aria-label','Çerez tercihlerini değiştir');
-    button.style.cssText='position:fixed;left:14px;bottom:14px;z-index:9998;border:1px solid #555;background:#111;color:#fff;border-radius:8px;padding:8px 11px;font-size:12px;cursor:pointer';
-    button.addEventListener('click',function(){global.StagepulseConsent.reset();});
+    if (document.getElementById('cookie-preferences-reset') || /^\/(admin|portal)\//.test(location.pathname)) return;
+    const button = document.createElement('button');
+    button.id = 'cookie-preferences-reset';
+    button.type = 'button';
+    button.textContent = 'Gizlilik tercihleri';
+    button.setAttribute('aria-label', 'Çerez tercihlerini değiştir');
+    button.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:9998;border:1px solid #555;background:#111;color:#fff;border-radius:8px;padding:8px 11px;font-size:12px;cursor:pointer';
+    button.addEventListener('click', showPreferences);
     document.body.appendChild(button);
   }
 
-  function loadJarvis() {
-    const path=location.pathname||'/';
-    if (/^\/admin\//.test(path) || /^\/portal\//.test(path) || path==='/Kvkk.html') return;
-    if (!document.getElementById('sp-site-ai-js')) {
-      const siteAi=document.createElement('script');
-      siteAi.id='sp-site-ai-js';
-      siteAi.src='/site-ai.js?v=20261007-1';
-      siteAi.async=true;
-      document.head.appendChild(siteAi);
-    }
-    if (!document.getElementById('sp-stagepulse-jarvis')) {
-      const jarvis=document.createElement('script');
-      jarvis.id='sp-stagepulse-jarvis';
-      jarvis.src='/jarvis/public/site-jarvis.js?v=20261007-1';
-      jarvis.defer=true;
-      document.head.appendChild(jarvis);
-    }
-  }
-
   function init() {
-    try { state=localStorage.getItem(KEY); } catch (_) { state=null; }
-    if(state==='accepted')analytics();
-    else if (state!=='rejected') banner();
+    current = readChoice();
+    if (current) updateConsent(!!current.analytics);
+    else showBanner();
     addResetControl();
-    loadJarvis();
   }
 
-  global.StagepulseConsent={
-    init:init,
-    reset:function(){try{localStorage.removeItem(KEY);}catch(_){}state=null;deny();banner();},
-    hasAnalyticsConsent:function(){return state==='accepted';}
+  global.StagepulseConsent = {
+    init,
+    reset: function () {
+      try { localStorage.removeItem(KEY); } catch (_) {}
+      current = null;
+      updateConsent(false);
+      showBanner();
+    },
+    hasAnalyticsConsent: function () { return !!(current && current.analytics); },
+    getPreferences: function () { return current ? { necessary: true, analytics: !!current.analytics } : null; }
   };
 
-  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true});
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 })(window);
