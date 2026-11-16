@@ -579,7 +579,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // WhatsApp yalnızca kullanıcının açık form gönderme eylemiyle açılır.
       const waWindow = (() => {
         try {
-          return window.open('about:blank', '_blank', 'noopener,noreferrer');
+          const opened = window.open('about:blank', '_blank');
+          if (opened) opened.opener = null;
+          return opened;
         } catch (_) {
           return null;
         }
