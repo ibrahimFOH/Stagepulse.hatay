@@ -51,7 +51,7 @@ if [ -n "$EXPECTED_SHA" ]; then
 fi
 
 fetch "/" "STAGEPULSE"
-fetch "/" "2019’dan bu yana"
+fetch "/" "2019'dan bu yana"
 fetch "/" "İş Deneyimi"
 fetch "/i18n.js" "2019'dan bu yana"
 fetch "/hizmetler.html" "Hizmetler"
