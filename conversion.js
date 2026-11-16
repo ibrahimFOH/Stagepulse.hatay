@@ -22,7 +22,7 @@
     if (!hero) return;
 
     const required = $('#offerForm .required-note');
-    const groups = $$('.form-group', form).filter(g => !g.closest('#turnstileWrap'));
+    const groups = $('.form-group', form);
 
     const byId = id => document.getElementById(id);
     const groupFor = id => {
@@ -133,13 +133,12 @@
       });
     });
 
-    // Honeypot, Turnstile, KVKK, submit ve feedback FORM İÇİNDE kalmalı
+    // KVKK bilgilendirme notu, submit ve feedback form içinde kalmalı
     // (dışarı alınırsa alt WP / Teklif Al butonu çalışmaz)
     const footer = document.createElement('div');
     footer.className = 'sp-offer-submit-area';
 
     const kvkk = $('.kvkk-consent', form);
-    const turnstile = $('#turnstileWrap');
     const submit = $('button[type="submit"]', form);
     const success = $('#formSuccess');
     const error = $('#formError');
