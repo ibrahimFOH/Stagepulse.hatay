@@ -1089,3 +1089,14 @@ footer {
     min-height:44px!important;
   }
 }
+
+/* Hukuki bilgilendirme ve tercih paneli */
+.kvkk-notice{margin:0;color:#b8b8b8;font-size:13px;line-height:1.65}
+.kvkk-notice a{color:#ffb000;text-decoration:underline}
+#sp-cookie-preferences{position:fixed;inset:0;z-index:10010;background:rgba(0,0,0,.78);display:grid;place-items:center;padding:18px}
+.sp-cookie-panel{width:min(100%,520px);background:#111;border:1px solid #3a3018;border-radius:16px;padding:24px;color:#eee;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+.sp-cookie-panel h2{font-size:21px;margin:0 0 12px}.sp-cookie-panel p{color:#aaa;line-height:1.6;font-size:14px}
+.sp-cookie-option{display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid #292929;color:#ddd;font-size:14px}
+.sp-cookie-option span{margin-left:auto;color:#888;font-size:12px}.sp-cookie-option input{accent-color:#ffb000;width:18px;height:18px}
+.sp-cookie-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:18px}
+@media(max-width:600px){.sp-cookie-panel{padding:19px}.sp-cookie-actions .btn{flex:1}}
