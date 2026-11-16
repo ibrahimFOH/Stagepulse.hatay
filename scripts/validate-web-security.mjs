@@ -116,8 +116,8 @@ requireMatch(/name=["']phone["']/.test(teklif), 'teklif.html must expose the pho
 requireMatch(publicScript.includes('/script-controller.js'), 'script.js must load the local public controller.');
 requireMatch(!publicScript.includes('cdn.jsdelivr.net/gh/ibrahimFOH'), 'Public controller must not fall back to a remote repository.');
 requireMatch(!controller.includes('/core.js'), 'script-controller.js must not load the retired duplicate core controller.');
-requireMatch(publicScript.includes("supabase.from('teklifler').insert"), 'Public quote form must submit through the active teklifler insert path.');
-requireMatch(publicScript.includes('https://itasctyjzyewcykozuex.supabase.co') && !publicScript.includes('mtjcqqrogjqaxkagwkti'), 'Public quote form must use the current Supabase project, not the retired project.');
+requireMatch(!publicScript.includes("supabase.from('teklifler').insert") && !publicScript.includes('FORMSPREE_ENDPOINT') && !publicScript.includes('loadSupabase') && publicScript.includes('https://wa.me/905320683012'), 'Public quote form must prepare a user-controlled WhatsApp message without automatic server submission.');
+requireMatch(!publicScript.includes('itasctyjzyewcykozuex.supabase.co') && !publicScript.includes('SUPABASE_ANON_KEY') && !teklif.includes('cf-turnstile'), 'Public quote form must not initialize Supabase or Cloudflare Turnstile.');
 requireMatch(/submit\.type\s*=\s*['"]submit['"]/.test(conversionScript), 'Offer enhancement must preserve native form submission.');
 
 requireMatch(/analytics_storage:\s*['"]denied['"]/.test(consentScript), 'Consent defaults must deny analytics storage.');
@@ -168,9 +168,9 @@ for (const [path, html] of [['admin/index.html', adminHtml], ['portal/index.html
   requireMatch(hasStaticSri || hasDynamicPinnedFallback, `${path} must pin the Supabase JS version and use an approved loading strategy.`);
   requireMatch(!/<input[^>]+(?:id=["']login(?:Username|Password|User|Pass)["'])[^>]+name=/i.test(html), `${path} login credentials must not be successful controls during an unhandled native submit.`);
 }
-requireMatch(publicScript.includes("supabase-js@2.112.4") && publicScript.includes(supabaseSri) && /script\.integrity\s*=\s*['"]/.test(publicScript) && /script\.crossOrigin\s*=\s*['"]anonymous['"]/.test(publicScript), 'Public Supabase loader must pin the verified asset and enforce SRI.');
+requireMatch(!publicScript.includes('supabase-js@') && !publicScript.includes('SUPABASE_ANON_KEY'), 'Public quote form must not load a Supabase client or expose a public project key.');
 requireMatch(quoteView.includes('supabase-js@2.112.4') && quoteView.includes(`integrity="${supabaseSri}"`), 'Public quote view must pin the verified Supabase asset and enforce SRI.');
-requireMatch(!publicScript.includes("supabase-js@2\'"), "Public Supabase loader must not use a floating major-version CDN URL.");
+requireMatch(!publicScript.includes("supabase-js@2\'"), "Public quote form must not include a floating Supabase client CDN URL.");
 requireMatch(!quoteView.includes('supabase-js@2"'), 'Public quote view must not use a floating major-version CDN URL.');
 requireMatch(quoteAclMigration.includes('revoke execute on function public.get_public_quote(text) from public, authenticated;') && quoteAclMigration.includes('revoke execute on function public.respond_to_quote(text, text) from public, authenticated;') && quoteAclMigration.includes('grant execute on function public.get_public_quote(text) to anon;') && quoteAclMigration.includes('grant execute on function public.respond_to_quote(text, text) to anon;'), 'Customer quote RPCs must remain token-accessible to anon but not executable by authenticated users.');
 requireMatch(quoteView.includes('persistSession: false') && quoteView.includes('autoRefreshToken: false') && quoteView.includes('detectSessionInUrl: false'), 'Public quote view must use an isolated anonymous Supabase client even when a portal session exists.');
