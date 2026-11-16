@@ -3,7 +3,7 @@
   'use strict';
   const KEY = 'sp_consent';
   const GA_ID = 'G-4BFSFS0SGM';
-  const CONSENT_VERSION = '2';
+  const CONSENT_VERSION = '3';
   let current = null;
 
   global.dataLayer = global.dataLayer || [];
@@ -19,10 +19,11 @@
   function readChoice() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw === 'accepted') return { version: '1', analytics: true };
-      if (raw === 'rejected') return { version: '1', analytics: false };
-      const parsed = JSON.parse(raw || 'null');
-      return parsed && parsed.version === CONSENT_VERSION ? parsed : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && parsed.version === CONSENT_VERSION && typeof parsed.analytics === 'boolean'
+        ? parsed
+        : null;
     } catch (_) { return null; }
   }
 
