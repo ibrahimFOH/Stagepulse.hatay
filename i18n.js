@@ -80,7 +80,7 @@ const translations = {
     btn_pack: "Paket Teklifi Al",
 
     s4_title: "Neden Stagepulse?",
-    s4_desc: "Hatay / Antakya merkezli ses mühendisliği hizmeti kapsamında, her projede sadece ses seviyesini değil, mekânın akustik karakterini, seyirci dağılımını ve sanatçının ihtiyaçlarını birlikte değerlendiriyorum. Amacım “yüksek ses” değil, salonun her noktasında net, dengeli ve yorulmayan bir dinleme deneyimi yaratmak. Stagepulse, FOH mühendisi İbrahim Kavasoğlu tarafından yürütülmektedir. 2019'dan bu yana konser, festival ve kurumsal etkinliklerde front of house miks ve sistem mühendisliği yapıyorum. Midas M32, Behringer X32, Yamaha CL5, Allen & Heath Avantis ve Soundcraft Si Impact konsollarıyla çalışıyorum; Dante tabanlı ağ altyapılarında kurulum ve yönlendirme yapıyorum. İşin kapsamına göre ölçüm ve planlama sunuyorum. Hedefimiz, sahne sesinin salon boyunca tutarlı ve anlaşılır duyulmasıdır.",
+    s4_desc: "Hatay / Antakya merkezli ses mühendisliği hizmeti kapsamında, her projede sadece ses seviyesini değil, mekânın akustik karakterini, seyirci dağılımını ve sanatçının ihtiyaçlarını birlikte değerlendiriyorum. Amacım “yüksek ses” değil, salonun her noktasında net, dengeli ve yorulmayan bir dinleme deneyimi yaratmak. Stagepulse, FOH mühendisi İbrahim Kavasoğlu tarafından yürütülmektedir. 2019'dan bu yana konser, festival ve kurumsal etkinliklerde front of house miks ve sistem mühendisliği yapıyorum. Midas M32, Behringer X32, Yamaha CL5, Allen & Heath Avantis ve Soundcraft Si Impact konsollarıyla çalışıyorum; Dante tabanlı ağ altyapılarında kurulum ve yönlendirme yapıyorum. İşin kapsamına göre ölçüm ve planlama sunuyorum. Hedefim, sahne sesinin salon boyunca tutarlı ve anlaşılır duyulmasına katkı sağlamaktır.",
     c8_t: "Uçtan Uca Yönetim",
     c8_d: "Planlamadan kuruluma, miksten söküme kadar tüm süreci yönetiyoruz.",
     c9_t: "Çalışılan Sistemler",
@@ -265,7 +265,7 @@ const translations = {
     btn_pack: "Get Package Quote",
 
     s4_title: "Why Stagepulse?",
-    s4_desc: "I don’t just focus on volume. I consider the room’s acoustics, audience distribution and the artist’s needs together. My goal is not “loud sound”, but a clear, balanced and non-fatiguing listening experience in every seat. Since 2019, I have worked in front of house mixing and system engineering for concerts, festivals and corporate events. I work with Midas M32, Behringer X32, Yamaha CL5, Allen & Heath Avantis and Soundcraft Si Impact consoles, and build Dante-based audio networks. Measurement and planning are provided according to each project's scope. Result: the sound from the stage reaches the back of the room with the same character.",
+    s4_desc: "I don’t just focus on volume. I consider the room’s acoustics, audience distribution and the artist’s needs together. My goal is not “loud sound”, but a clear, balanced and non-fatiguing listening experience in every seat. Since 2019, I have worked in front of house mixing and system engineering for concerts, festivals and corporate events. I work with Midas M32, Behringer X32, Yamaha CL5, Allen & Heath Avantis and Soundcraft Si Impact consoles, and build Dante-based audio networks. Measurement and planning are provided according to each project's scope. My goal is consistent and intelligible sound throughout the venue.",
     c8_t: "End-to-End Management",
     c8_d: "I manage the entire process from planning to setup, mix and teardown.",
     c9_t: "Systems We Work With",
