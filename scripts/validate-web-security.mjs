@@ -121,7 +121,7 @@ requireMatch(publicScript.includes('https://itasctyjzyewcykozuex.supabase.co') &
 requireMatch(/submit\.type\s*=\s*['"]submit['"]/.test(conversionScript), 'Offer enhancement must preserve native form submission.');
 
 requireMatch(/analytics_storage:\s*['"]denied['"]/.test(consentScript), 'Consent defaults must deny analytics storage.');
-requireMatch(consentScript.includes("const CONSENT_VERSION = '3';") && consentScript.includes("typeof parsed.analytics === 'boolean'") && consentScript.includes("analytics_storage: enabled ? 'granted' : 'denied'") && consentScript.includes("saveChoice(!!analytics)") && !consentScript.includes("raw === 'accepted'"), 'Analytics must load only after a current-version, granular opt-in; legacy blanket choices must be discarded.');
+requireMatch(consentScript.includes("const CONSENT_VERSION = '3';") && consentScript.includes("typeof parsed.analytics === 'boolean'") && consentScript.includes("analytics_storage: enabled ? 'granted' : 'denied'") && consentScript.includes("saveChoice(!!(choice && choice.checked))") && !consentScript.includes("raw === 'accepted'"), 'Analytics must load only after a current-version, granular opt-in; legacy blanket choices must be discarded.');
 requireMatch(consentScript.includes('cookie-preferences-reset'), 'Public consent UI must expose a preference reset control.');
 requireMatch(consentScript.indexOf("global.gtag('consent', 'update'") < consentScript.indexOf("document.getElementById('sp-google-analytics')"), 'Re-consent must restore analytics permission even when the analytics script is already loaded.');
 for (const name of readdirSync(root).filter(name => name.endsWith('.html'))) {
