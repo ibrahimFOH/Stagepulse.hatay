@@ -445,7 +445,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Alanları güvenli şekilde al
       const nameEl     = this.querySelector('[name="name"]')     || document.getElementById('name');
-      const companyEl  = this.querySelector('[name="company"]')  || document.getElementById('company');
       const emailEl    = this.querySelector('[name="email"]')    || document.getElementById('email');
       const eventTypeEl= this.querySelector('[name="event_type"]') || document.getElementById('eventType');
       const phoneEl    = this.querySelector('[name="phone"]')    || document.getElementById('phone');
@@ -454,36 +453,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const peopleEl   = this.querySelector('[name="people"]')   || document.getElementById('people');
       const dateEl     = this.querySelector('[name="date"]')     || document.getElementById('eventDate');
       const messageEl  = this.querySelector('[name="message"]')  || document.getElementById('message');
-      const kvkkEl     = this.querySelector('[name="kvkk"]')     || document.getElementById('kvkk');
-      const hpEl       = this.querySelector('[name="website"]');
-
-      // Honeypot: görünmez alan doluysa bot — sessizce reddet
-      if (hpEl && hpEl.value.trim() !== '') {
-        return;
-      }
-
-      // Turnstile token — widget gerçekten görünür ve yanıt verdiyse zorunlu
-      let turnstileToken = '';
-      if (TURNSTILE_SITE_KEY) {
-        if (turnstileLoadFailed) {
-          showFormError(
-            t('form_err_turnstile_unavailable', 'Güvenlik doğrulaması yüklenemedi. Lütfen sayfayı yenileyip tekrar deneyin veya WhatsApp üzerinden ulaşın.')
-          );
-          return;
-        }
-        if (typeof turnstile !== 'undefined' && turnstileWidgetId !== null) {
-          try {
-            turnstileToken = turnstile.getResponse(turnstileWidgetId) || '';
-          } catch (_) {}
-          const tw = document.getElementById('turnstileWrap');
-          const widgetVisible = tw && tw.offsetParent !== null && tw.style.display !== 'none';
-          if (widgetVisible && !turnstileToken) {
-            showFormError(t('form_err_turnstile', 'Lütfen güvenlik doğrulamasını tamamlayın.'));
-            return;
-          }
-        }
-      }
-
       const name     = nameEl     ? nameEl.value.trim()     : '';
       const email    = emailEl    ? emailEl.value.trim()    : '';
       const eventType= eventTypeEl? eventTypeEl.value       : '';
@@ -493,7 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const people   = peopleEl   ? peopleEl.value.trim()   : '';
       const date     = dateEl     ? dateEl.value            : '';
       const message  = messageEl  ? messageEl.value.trim()  : '';
-      const kvkk     = kvkkEl     ? kvkkEl.checked          : false;
 
       function showFormError(msg, focusEl) {
         form.dataset.submitting = '0';
@@ -550,10 +518,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // Zorunlu alan kontrolleri (hepsi) — hata varsa return, submitting zaten 0
       if (!name) {
         showFormError(t('form_err_name', 'Lütfen Ad Soyad / Firma alanını doldurun.'), nameEl);
-        return;
-      }
-      if (!company && companyEl && false) {
-        showFormError(t('form_err_company', 'Firma bilgisi girin.'), companyEl);
         return;
       }
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
