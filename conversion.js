@@ -45,7 +45,7 @@
         eyebrow: 'İLETİŞİM',
         title: 'Size nasıl ulaşalım?',
         text: 'Teklifinizi hazırladığımızda doğrudan size ulaşabilmemiz için iletişim bilgilerinizi bırakın.',
-        ids: ['name', 'company', 'phone', 'email']
+        ids: ['name', 'phone', 'email']
       },
       {
         key: 'details',
@@ -142,13 +142,6 @@
     const submit = $('button[type="submit"]', form);
     const success = $('#formSuccess');
     const error = $('#formError');
-    const honeypot = form.querySelector('input[name="website"]');
-
-    if (honeypot) {
-      const hpWrap = honeypot.closest('.form-group') || honeypot;
-      footer.appendChild(hpWrap);
-    }
-    if (turnstile) footer.appendChild(turnstile);
     if (kvkk) footer.appendChild(kvkk);
 
     const submitRow = document.createElement('div');
