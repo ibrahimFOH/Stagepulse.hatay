@@ -116,31 +116,11 @@
   }
 
 
-  function loadFirstPartyFeatures() {
-    const path = location.pathname || '/';
-    if (/^\/(admin|portal)\//.test(path) || /^(\/Kvkk\.html|\/(gizlilik|cerezler|kullanim-kosullari|mesafeli-satis|on-bilgilendirme|iade-iptal|veri-talebi)\.html)$/.test(path)) return;
-    if (!document.getElementById('sp-site-ai-js')) {
-      const siteAi = document.createElement('script');
-      siteAi.id = 'sp-site-ai-js';
-      siteAi.src = '/site-ai.js?v=20261007-1';
-      siteAi.async = true;
-      document.head.appendChild(siteAi);
-    }
-    if (!document.getElementById('sp-stagepulse-jarvis')) {
-      const jarvis = document.createElement('script');
-      jarvis.id = 'sp-stagepulse-jarvis';
-      jarvis.src = '/jarvis/public/site-jarvis.js?v=20261007-1';
-      jarvis.defer = true;
-      document.head.appendChild(jarvis);
-    }
-  }
-
   function init() {
     current = readChoice();
     if (current) updateConsent(!!current.analytics);
     else showBanner();
     addResetControl();
-    loadFirstPartyFeatures();
   }
 
   global.StagepulseConsent = {
