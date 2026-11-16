@@ -2,50 +2,12 @@
    STAGEPULSE – script.js (Güvenlik güçlendirmeli)
    - Network-first uyumlu
    - Proper GA Consent Mode v2
-   - Supabase dinamik yükleme
-   - Honeypot + Turnstile + client rate-limit
+   - Teklif verileri yalnızca kullanıcı WhatsApp'ta gönderirse iletilir
+   - Sunucuya otomatik form kaydı / Formspree / Turnstile yok
+   - Client-side rate-limit
    - Daha sağlam cookie / form yönetimi
    - Her türlü dosya adı (Türkçe, boşluk, özel karakter) destekli
    ============================================ */
-
-const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xrpzeegb';
-
-/* ===== Cloudflare Turnstile =====
-   Cloudflare Dashboard → Turnstile → Site Key buraya yaz.
-   Boş bırakılırsa widget gösterilmez; honeypot + rate-limit aktif kalır.
-*/
-const TURNSTILE_SITE_KEY = '0x4AAAAAAENv1kw4YHXe-Gih';
-
-/* ===== Supabase ===== */
-const SUPABASE_URL = 'https://itasctyjzyewcykozuex.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_tP3CMhVAjv6FNtrkYfVEOA_dbF9m8Jb';
-
-let supabase = null;
-
-// Supabase kütüphanesini dinamik yükle (sadece gerektiğinde)
-function loadSupabase() {
-  return new Promise((resolve) => {
-    if (window.supabase && window.supabase.createClient) {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      resolve(supabase);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4';
-    script.integrity = 'sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV';
-    script.crossOrigin = 'anonymous';
-    script.async = true;
-    script.onload = () => {
-      if (window.supabase && window.supabase.createClient) {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      }
-      resolve(supabase);
-    };
-    script.onerror = () => resolve(null);
-    document.head.appendChild(script);
-  });
-}
 
 /* ===== Dil Yönetimi ===== */
 function t(key, fallbackTr, vars) {
@@ -419,50 +381,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })();
 
-  // ===== Turnstile + rate-limit yardımcıları =====
-  let turnstileWidgetId = null;
-  let turnstileLoadFailed = false;
-  let lastSubmitTs = 0;
-  const SUBMIT_COOLDOWN_MS = 15000; // 15 sn client-side rate limit
-
-  function initTurnstile(attempt) {
-    attempt = attempt || 0;
-    const el = document.getElementById('cfTurnstile');
-    const wrap = document.getElementById('turnstileWrap');
-    if (!el || !TURNSTILE_SITE_KEY) {
-      if (wrap) wrap.style.display = 'none';
-      return;
-    }
-    if (typeof turnstile === 'undefined') {
-      // API henüz yüklenmediyse kısa gecikmeyle tekrar dene (en fazla ~6 saniye)
-      if (attempt >= 15) {
-        // Widget yüklenemedi — sessizce geçmek yerine kullanıcıyı bilgilendir
-        // ve gönderim sırasında net bir uyarı gösterilmesi için işaretle.
-        turnstileLoadFailed = true;
-        console.warn('Turnstile script did not load in time.');
-        return;
-      }
-      setTimeout(() => initTurnstile(attempt + 1), 400);
-      return;
-    }
-    try {
-      turnstileWidgetId = turnstile.render(el, {
-        sitekey: TURNSTILE_SITE_KEY,
-        theme: 'dark',
-        size: 'normal',
-        'error-callback': () => { turnstileLoadFailed = true; }
-      });
-    } catch (err) {
-      console.warn('Turnstile render error', err);
-      turnstileLoadFailed = true;
-    }
-  }
-
   // ===== Teklif Formu =====
+  let lastSubmitTs = 0;
+  const SUBMIT_COOLDOWN_MS = 15000;
   const form = document.getElementById('offerForm');
   if (form) {
-    initTurnstile();
-
     function getTodayStr() {
       const now = new Date();
       return now.getFullYear() + '-' +
@@ -562,7 +485,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const name     = nameEl     ? nameEl.value.trim()     : '';
-      const company  = companyEl  ? companyEl.value.trim()  : '';
       const email    = emailEl    ? emailEl.value.trim()    : '';
       const eventType= eventTypeEl? eventTypeEl.value       : '';
       const phone    = phoneEl    ? phoneEl.value.trim()    : '';
@@ -704,73 +626,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const lang = localStorage.getItem('lang') || 'tr';
 
-      // Supabase'e kayıt
-      let supabaseSaved = false;
-      try {
-        await loadSupabase();
-        if (supabase) {
-          const { error } = await supabase.from('teklifler').insert([{
-            name: name,
-            phone: phone || null,
-            company: company || null,
-            email: email || null,
-            type: type,
-            event_type: eventType,
-            location: location || null,
-            people: people ? Number(people) : null,
-            event_date: date || null,
-            message: message,
-            status: 'new'
-          }]);
-          if (error) { console.error('Supabase hatası:', error); throw error; }
-          supabaseSaved = true;
-        }
-      } catch (err) {
-        console.error('Supabase bağlantı hatası:', err);
-        form.dataset.submitting = '0';
-        const errBox = document.getElementById('formError') || document.createElement('div');
-        errBox.id='formError'; errBox.setAttribute('role','alert'); errBox.style.cssText='background:#ff3333;color:#fff;padding:12px 16px;border-radius:8px;margin:12px 0;font-size:14px;text-align:center;';
-        errBox.textContent = t('form_err_submit', 'Talebiniz kaydedilemedi. Lütfen birkaç dakika sonra tekrar deneyin veya WhatsApp üzerinden ulaşın.');
-        if(!errBox.parentNode) form.insertBefore(errBox,form.querySelector('button[type=submit]'));
-        if(submitBtn){submitBtn.disabled=false;submitBtn.style.opacity='1';}
-        try { if (waWindow && !waWindow.closed) waWindow.close(); } catch (_) {}
-        return;
-      }
-
-      // E-posta bildirimi — Formspree yanıtını gerçekten doğrula.
-      let emailSent = false;
-      if (FORMSPREE_ENDPOINT) {
-        try {
-          const formData = new FormData(form);
-          if (turnstileToken) formData.append('cf-turnstile-response', turnstileToken);
-          formData.delete('website');
-
-          const mailResponse = await fetch(FORMSPREE_ENDPOINT, {
-            method: 'POST',
-            body: formData,
-            headers: { Accept: 'application/json' }
-          });
-
-          emailSent = mailResponse.ok;
-
-          if (!mailResponse.ok) {
-            let detail = '';
-            try {
-              const payload = await mailResponse.json();
-              detail = payload?.errors?.map(x => x.message).join(' ') || payload?.error || '';
-            } catch (_) {}
-            console.warn('Formspree rejected quote notification:', mailResponse.status, detail);
-          }
-        } catch (err) {
-          console.warn('Quote email notification failed:', err);
-        }
-      }
-
-      // Turnstile widget'ı sıfırla (yeniden kullanım)
-      if (TURNSTILE_SITE_KEY && typeof turnstile !== 'undefined' && turnstileWidgetId !== null) {
-        try { turnstile.reset(turnstileWidgetId); } catch (_) {}
-      }
-
       // WhatsApp
       const waText =
         'Yeni Teklif Talebi%0A%0A' +
@@ -807,7 +662,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {}
       }
 
-      // Başarı mesajı — DB kaydı kesinleşmeden başarı göstermiyoruz.
+      // Mesaj taslağı hazırlanır; kullanıcı WhatsApp'ta ayrıca Gönder'e basmalıdır.
       let msg = document.getElementById('formSuccess');
       if (!msg) {
         msg = document.createElement('div');
@@ -817,22 +672,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       msg.innerHTML = `
-        <strong>${t('form_success_title', 'Talebiniz başarıyla alındı.')}</strong>
-        <span>${t('form_success_saved', 'Bilgileriniz Stagepulse sistemine kaydedildi.')}</span>
-        <span>${emailSent
-          ? t('form_success_email_ok', 'Bildirim e-postası da oluşturuldu.')
-          : t('form_success_email_fail', 'Bildirim e-postası gönderilemedi; talebiniz sistemde kayıtlı.')}</span>
+        <strong>${t('form_success_title', 'WhatsApp mesajınız hazırlandı.')}</strong>
+        <span>${t('form_success_saved', 'Mesaj henüz gönderilmedi. WhatsApp ekranında bilgileri kontrol edip Gönder düğmesine basın.')}</span>
         <a class="form-success-wa" href="${waUrl}" target="_blank" rel="noopener">
           <i class="fa-brands fa-whatsapp"></i> ${t('form_success_wa_btn', "WhatsApp'tan devam et")}
         </a>
       `;
       msg.classList.add('show');
-
-      // Analytics event
-      trackEvent('generate_lead', {
-        event_category: 'form',
-        event_label: type
-      });
 
       form.reset();
 
