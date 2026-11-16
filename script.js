@@ -191,11 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Supabase'i arka planda yükle (form varsa)
-  if (document.getElementById('offerForm')) {
-    loadSupabase();
-  }
-
   // ===== Hamburger Menü =====
   const hamburger = document.getElementById('hamburger');
   const navLinks = document.getElementById('navLinks');
