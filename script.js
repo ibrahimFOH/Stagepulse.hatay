@@ -179,7 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ['mesafeli-satis.html', 'Mesafeli Satış'],
     ['on-bilgilendirme.html', 'Ön Bilgilendirme'],
     ['iade-iptal.html', 'İade / İptal'],
-    ['veri-talebi.html', 'Veri Başvurusu']
+    ['veri-talebi.html', 'Veri Başvurusu'],
+    ['isletme-bilgileri.html', 'İşletme Bilgileri']
   ];
   document.querySelectorAll('.footer-links').forEach((nav) => {
     legalLinks.forEach(([href, label]) => {
