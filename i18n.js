@@ -80,7 +80,7 @@ const translations = {
     btn_pack: "Paket Teklifi Al",
 
     s4_title: "Neden Stagepulse?",
-    s4_desc: "Hatay / Antakya merkezli ses şirketi olarak, her projede sadece ses seviyesini değil, mekânın akustik karakterini, seyirci dağılımını ve sanatçının ihtiyaçlarını birlikte düşünüyoruz. Amacımız “yüksek ses” değil, salonun her noktasında net, dengeli ve yorulmayan bir dinleme deneyimi yaratmak. Stagepulse'a FOH mühendisi İbrahim Kavasoğlu liderlik etmektedir. 2019'dan bu yana konser, festival ve kurumsal etkinliklerde front of house miks ve sistem mühendisliği yapıyoruz. Midas M32, Behringer X32, Yamaha CL5, Allen & Heath Avantis ve Soundcraft Si Impact konsollarıyla çalışıyor, Dante tabanlı ağ altyapıları kuruyoruz. Her işe ölçüm ve planlama ile başlıyoruz. Hedefimiz, sahne sesinin salon boyunca tutarlı ve anlaşılır duyulmasıdır.",
+    s4_desc: "Hatay / Antakya merkezli ses mühendisliği hizmeti kapsamında, her projede sadece ses seviyesini değil, mekânın akustik karakterini, seyirci dağılımını ve sanatçının ihtiyaçlarını birlikte düşünüyoruz. Amacımız “yüksek ses” değil, salonun her noktasında net, dengeli ve yorulmayan bir dinleme deneyimi yaratmak. Stagepulse'a FOH mühendisi İbrahim Kavasoğlu liderlik etmektedir. 2019'dan bu yana konser, festival ve kurumsal etkinliklerde front of house miks ve sistem mühendisliği yapıyorum. Midas M32, Behringer X32, Yamaha CL5, Allen & Heath Avantis ve Soundcraft Si Impact konsollarıyla çalışıyor, Dante tabanlı ağ altyapıları kuruyoruz. Her işe ölçüm ve planlama ile başlıyoruz. Hedefimiz, sahne sesinin salon boyunca tutarlı ve anlaşılır duyulmasıdır.",
     c8_t: "Uçtan Uca Yönetim",
     c8_d: "Planlamadan kuruluma, miksten söküme kadar tüm süreci yönetiyoruz.",
     c9_t: "Çalışılan Sistemler",
@@ -89,8 +89,8 @@ const translations = {
     c10_d: "Proje öncesi ve etkinlik sırasında teknik destek sağlıyoruz.",
 
     s5_title: "Projeniz için teklif alın",
-    s5_desc: "Etkinliğinizin detaylarını paylaşın. Ücretsiz teknik ön değerlendirme + Stage Plot / sistem önerisi hazırlayalım. İster sadece teknik danışmanlık, ister kiralama + operasyon paketi olsun, uygulanabilir bir çözüm sunuyoruz.",
-    btn_cta: "Ücretsiz Teknik Ön Değerlendirme Al",
+    s5_desc: "Etkinliğinizin detaylarını paylaşın. Teknik ön değerlendirme ve Stage Plot / sistem önerisi talebinizi iletin. Kapsam ve varsa ücret, yazılı teklifte açıkça belirtilir.",
+    btn_cta: "Teknik Ön Değerlendirme Talep Edin",
 
     h_title: "Hizmetler",
     h_desc: "Ses, ışık ve sahne kiralama + operasyon.",
@@ -275,7 +275,7 @@ const translations = {
 
     s5_title: "Get a quote for your project",
     s5_desc: "Share your event details. Get a free technical pre-assessment + Stage Plot / system proposal. Whether you need consulting only or a full rental + operations package, you get a practical solution.",
-    btn_cta: "Get Free Technical Pre-Assessment",
+    btn_cta: "Request a Technical Pre-Assessment",
 
     h_title: "Services",
     h_desc: "Audio, lighting and stage rental + operations.",
