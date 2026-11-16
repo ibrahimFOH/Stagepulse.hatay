@@ -576,10 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.style.opacity = '0.7';
       }
 
-      // iOS Safari / mobil popup blocker'lar, window.open'ı yalnızca kullanıcı
-      // tıklamasının SENKRON bağlamında izin verir. await'lerden sonra çağrılırsa
-      // engellenir. Bu yüzden sekmeyi hemen (boş olarak) açıp, veriler hazır
-      // olunca adresini ayarlıyoruz.
+      // WhatsApp yalnızca kullanıcının açık form gönderme eylemiyle açılır.
       const waWindow = (() => {
         try {
           return window.open('about:blank', '_blank', 'noopener,noreferrer');
@@ -587,8 +584,6 @@ document.addEventListener('DOMContentLoaded', () => {
           return null;
         }
       })();
-
-      const lang = localStorage.getItem('lang') || 'tr';
 
       // WhatsApp
       const waText =
