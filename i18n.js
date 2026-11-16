@@ -17,7 +17,7 @@ const translations = {
     copyright: "© 2026 Stagepulse – İbrahim Kavasoğlu",
 
     hero_title: "Salondaki her noktada aynı netlik.<br><span>FOH mühendisliği + profesyonel ses kiralama</span>",
-    hero_sub: "FOH Engineer • Stagepulse • Hatay / Antakya · 8+ yıl saha deneyimi",
+    hero_sub: "FOH Engineer • Stagepulse • Hatay / Antakya · 2019'dan bu yana saha deneyimi",
     hero_brand: "Ölçüm odaklı yaklaşım • Dante ağ ses altyapısı",
     btn_offer: "Hemen Teklif Al",
     btn_wa: "WhatsApp'tan Yaz",
@@ -182,7 +182,7 @@ const translations = {
     form_success_email_ok: "Bildirim e-postası da oluşturuldu.",
     form_success_email_fail: "Bildirim e-postası gönderilemedi; talebiniz sistemde kayıtlı.",
     form_success_wa_btn: "WhatsApp'tan devam et",
-    cookie_text: "Bu site deneyimi iyileştirmek ve teklif süreçlerini yönetmek için çerezler kullanır. Devam ederek <a href=\"Kvkk.html\" target=\"_blank\" rel=\"noopener\">KVKK Aydınlatma Metni</a>’ni kabul etmiş olursunuz.",
+    cookie_text: "Zorunlu depolama site işlevleri için kullanılır. Analitik çerezleri yalnızca tercihinizle etkinleştirilir. Çerez tercihlerinizi dilediğiniz zaman değiştirebilirsiniz.",
     cookie_accept: "Kabul Et",
     cookie_reject: "Reddet",
 
@@ -364,7 +364,7 @@ const translations = {
     form_err_date: "Please select an Event Date.",
     form_err_date_past: "The Event Date cannot be in the past. Please choose today or a later date.",
     form_err_message: "Please write your message / event details.",
-    form_err_kvkk: "You must check the consent checkbox to continue.",
+    form_err_kvkk: "Aydınlatma metni açık rıza yerine geçmez; ayrıca izin gerekirse ayrı sunulur.",
     form_err_turnstile: "Please complete the security verification.",
     form_err_turnstile_unavailable: "Security verification failed to load. Please refresh the page and try again, or reach us via WhatsApp.",
     form_err_submit: "Your request could not be saved. Please try again in a few minutes or reach us via WhatsApp.",
