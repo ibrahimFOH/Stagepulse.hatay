@@ -36,6 +36,17 @@
     if (!enabled) {
       const analyticsScript = document.getElementById('sp-google-analytics');
       if (analyticsScript) analyticsScript.remove();
+      document.cookie.split(';').forEach(function (item) {
+        const name = item.split('=')[0].trim();
+        if (!/^_ga(?:_|$)|^_gid$|^_gat/.test(name)) return;
+        document.cookie = name + '=; Max-Age=0; path=/; SameSite=Lax';
+        document.cookie = name + '=; Max-Age=0; path=/; domain=' + location.hostname + '; SameSite=Lax';
+        document.cookie = name + '=; Max-Age=0; path=/; domain=.' + location.hostname + '; SameSite=Lax';
+      });
+      try {
+        Object.keys(localStorage).filter(function (key) { return /^_ga(?:_|$)/.test(key); })
+          .forEach(function (key) { localStorage.removeItem(key); });
+      } catch (_) {}
       return;
     }
     if (document.getElementById('sp-google-analytics')) return;
