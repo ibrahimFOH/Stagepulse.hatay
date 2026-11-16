@@ -94,62 +94,11 @@ function setLanguage(lang) {
 
 /* ===== Cookie / KVKK Consent + GA Consent Mode v2 ===== */
 function initCookieConsent() {
-  const consent = localStorage.getItem('sp_consent');
-
-  if (consent === 'accepted') {
-    updateGAConsent(true);
-    return;
-  }
-
-  if (consent === 'rejected') {
-    updateGAConsent(false);
-    return;
-  }
-
-  // Banner göster
-  const banner = document.createElement('div');
-  banner.id = 'cookie-banner';
-  banner.setAttribute('role', 'dialog');
-  banner.setAttribute('aria-label', 'Çerez onayı');
-  banner.innerHTML = `
-    <div class="cookie-inner">
-      <p data-i18n="cookie_text">Bu site deneyimi iyileştirmek ve teklif süreçlerini yönetmek için çerezler kullanır. Devam ederek <a href="Kvkk.html" target="_blank" rel="noopener">KVKK Aydınlatma Metni</a>’ni kabul etmiş olursunuz.</p>
-      <div class="cookie-actions">
-        <button id="cookie-accept" class="btn btn-primary" data-i18n="cookie_accept">Kabul Et</button>
-        <button id="cookie-reject" class="btn btn-outline" data-i18n="cookie_reject">Reddet</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(banner);
-  document.body.classList.add('has-cookie-banner');
-
-  // Dil uygula
-  setLanguage(localStorage.getItem('lang') || 'tr');
-
-  const dismissCookie = (accepted) => {
-    localStorage.setItem('sp_consent', accepted ? 'accepted' : 'rejected');
-    banner.remove();
-    document.body.classList.remove('has-cookie-banner');
-    updateGAConsent(accepted);
-  };
-
-  document.getElementById('cookie-accept').addEventListener('click', () => dismissCookie(true));
-  document.getElementById('cookie-reject').addEventListener('click', () => dismissCookie(false));
-}
-
-function updateGAConsent(granted) {
-  if (typeof gtag === 'function') {
-    gtag('consent', 'update', {
-      analytics_storage: granted ? 'granted' : 'denied',
-      ad_storage: 'denied',
-      ad_user_data: 'denied',
-      ad_personalization: 'denied'
-    });
-  }
+  if (window.StagepulseConsent) window.StagepulseConsent.init();
 }
 
 function trackEvent(name, params = {}) {
-  if (typeof gtag === 'function' && localStorage.getItem('sp_consent') === 'accepted') {
+  if (typeof gtag === 'function' && window.StagepulseConsent && window.StagepulseConsent.hasAnalyticsConsent()) {
     gtag('event', name, params);
   }
 }
@@ -714,11 +663,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showFormError(t('form_err_message', 'Lütfen mesaj / etkinlik detaylarını yazın.'), messageEl);
         return;
       }
-      if (!kvkk) {
-        showFormError(t('form_err_kvkk', 'Devam etmek için KVKK onay kutusunu işaretlemeniz gerekmektedir.'), kvkkEl);
-        return;
-      }
-
       // Validasyon geçti — gönderim kilidini burada al
       form.dataset.submitting = '1';
       lastSubmitTs = Date.now();
