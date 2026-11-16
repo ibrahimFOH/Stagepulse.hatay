@@ -209,7 +209,7 @@ const translations = {
     copyright: "© 2026 Stagepulse – İbrahim Kavasoğlu",
 
     hero_title: "The same clarity at every point in the room.<br><span>FOH engineering + professional audio rental</span>",
-    hero_sub: "FOH Engineer • Stagepulse • Hatay / Antakya · 8+ years of field experience",
+    hero_sub: "FOH Engineer • Stagepulse • Hatay / Antakya · Working in live sound since 2019",
     hero_brand: "Measurement-driven approach • Dante network audio",
     hero_desc: "Based in Hatay / Antakya. Audio system rental, Stage Plot, SPL calculation, 3D stage design and FOH operations for concerts, festivals and corporate events.",
     btn_offer: "Get Quote",
