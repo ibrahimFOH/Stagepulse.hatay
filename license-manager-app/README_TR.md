@@ -20,8 +20,8 @@ Windows EXE, Android APK ve web yönetim arayüzü aynı Supabase Auth hesabın�
 - JARVIS için lisans aktivasyonu isteğe bağlıdır. Lisans eklenmemiş kurulumlarda temel uygulama işlevleri kilitlenmez.
 
 ## Derleme
-- Windows: `desktop/BUILD_WINDOWS.bat` çalıştır. EXE `desktop/dist/StagepulseLisansYonetimi.exe` konumuna çıkar.
-- Android: `android` klasörünü Android Studio'da aç ve `assembleDebug` görevini çalıştır.
+- Windows: GitHub Actions `Stagepulse Lisans Yönetimi Uygulamaları` iş akışı EXE üretir. Masaüstü arayüzü `127.0.0.1:5173` üzerinden sunulur; Supabase CORS izin listesiyle eşleşir.
+- Android: GitHub Actions aynı iş akışında debug APK üretir. WebView yerel dosya (`file://`) yerine `https://appassets.androidplatform.net` kullanır; bu origin Supabase CORS listesinde tanımlıdır.
 - Web: `assets/index.html` ve `assets/app.js` dosyaları aynı ortak API'yi kullanır.
 
 ## Canlı altyapı
