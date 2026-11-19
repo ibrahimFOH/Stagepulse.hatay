@@ -23,7 +23,13 @@ jobs:
         working-directory: license-manager-app/desktop
       - name: Build Windows EXE
         working-directory: license-manager-app/desktop
-        run: pyinstaller --noconfirm --clean --onefile --windowed --name StagepulseLisansYonetimi --add-data "..\assets;assets" main.py
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed --name StagepulseLisansYonetimi-1.0.1 --add-data "..\\assets;assets" main.py
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller başarısız oldu." }
+          $exe = "dist/StagepulseLisansYonetimi-1.0.1.exe"
+          if (-not (Test-Path $exe) -or (Get-Item $exe).Length -lt 1000000) { throw "Windows EXE çıktısı eksik veya beklenenden küçük." }
+          Get-FileHash -Algorithm SHA256 $exe
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: Stagepulse-Lisans-Yonetimi-Windows-EXE-1.0.1
