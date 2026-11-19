@@ -45,6 +45,7 @@ const licenseDenyMigration = read('supabase/migrations/20261101075844_explicit_d
 const licenseCoreFunction = read('supabase/functions/license-core/index.ts');
 const licenseAdminFunction = read('supabase/functions/license-admin/index.ts');
 const sesMerkeziFunction = read('supabase/functions/ses-merkezi-desktop/index.ts');
+const sharedSecurity = read('supabase/functions/_shared/security.ts');
 const licenseAdminOriginMatch = licenseAdminFunction.match(/new Set\(\[([^\]]+)\]\)\.has\(req\.headers\.get\("origin"\)/);
 const licenseAdminOrigins = licenseAdminOriginMatch
   ? [...licenseAdminOriginMatch[1].matchAll(/"([^"]+)"/g)].map(match => match[1])
@@ -79,6 +80,7 @@ requireMatch(sesmAdminCreateGuard >= 0 && sesmAdminCreateCore > sesmAdminCreateG
   && licenseCoreFunction.includes('BANK_TRANSFER_APPROVAL_REQUIRED'),
   'Ses Merkezi licenses must only be created through the owner-approved purchase review flow.');
 requireMatch(!licenseAdminFunction.includes('Access-Control-Allow-Origin": "*"') && JSON.stringify(licenseAdminOrigins) === JSON.stringify(['https://stagepulse.com.tr','https://www.stagepulse.com.tr','https://appassets.androidplatform.net','http://localhost:5173','http://127.0.0.1:5173']), 'License admin Edge Function must validate CORS with an exact origin allowlist.');
+requireMatch(sharedSecurity.includes('"https://appassets.androidplatform.net"') && sharedSecurity.includes('if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;') && !sharedSecurity.includes('const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : "https://stagepulse.com.tr";'), 'Shared admin authentication CORS must allow Android WebView and never substitute another origin.');
 requireMatch(!sesMerkeziFunction.includes('Access-Control-Allow-Origin": "*"') && sesMerkeziFunction.includes('const ALLOWED_ORIGINS = new Set([') && sesMerkeziFunction.includes('content-type, x-client-info') && sesMerkeziFunction.includes('https://appassets.androidplatform.net'), 'Ses Merkezi Edge Function must use the Stagepulse CORS origin allowlist.');
 const publicSignupStart = sesMerkeziFunction.indexOf('if (action === "student_signup")');
 const authenticatedActionGate = sesMerkeziFunction.indexOf('const { user, token } = await requireUser(req);');
