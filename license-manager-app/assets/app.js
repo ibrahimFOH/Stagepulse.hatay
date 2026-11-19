@@ -8,16 +8,24 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function message(id,value,kind=''){const el=$(id);if(!el)return;el.textContent=value||'';el.className=kind;}
 function logged(on){$('login').classList.toggle('hidden',on);$('app').classList.toggle('hidden',!on);$('logout').classList.toggle('hidden',!on);$('conn').textContent=on?'Ortak hesap bağlı':'Oturum kapalı';}
 function clearSession(){token='';expiresAt=0;logged(false);}
+async function fetchWithTimeout(url,options,context){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+ try{return await fetch(url,{...options,signal:controller.signal,cache:'no-store'});}
+ catch(error){
+  if(error.name==='AbortError')throw Error(context+' 20 saniye içinde yanıt vermedi. Supabase Edge Function durumunu kontrol et.');
+  throw Error(context+' bağlantısı kurulamadı. DNS, TLS veya CORS engeli olabilir. İnternet bağlantısını ve uygulama sunucu adresini kontrol et.');
+ }finally{clearTimeout(timer);}
+}
 async function authLogin(email,password){
- const response=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify({email:email.trim(),password})});
+ const response=await fetchWithTimeout(SUPABASE_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify({email:email.trim(),password})},'Supabase Auth');
  const data=await response.json().catch(()=>({}));
  if(!response.ok||!data.access_token)throw Error(data.msg||data.message||'E-posta veya şifre doğrulanamadı.');
  token=data.access_token;expiresAt=Date.now()+Number(data.expires_in||3600)*1000;
 }
 async function call(action,data={}){
  if(!token||Date.now()>=expiresAt){clearSession();throw Error('Oturum sona erdi. Yeniden giriş yap.');}
- const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+token},body:JSON.stringify({action,...data})});
- const result=await response.json().catch(()=>({error:'Sunucudan geçersiz yanıt alındı.'}));
+ const response=await fetchWithTimeout(API,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+token},body:JSON.stringify({action,...data})},'Lisans API');
+ const result=await response.json().catch(()=>({error:'Sunucudan geçersiz JSON yanıtı alındı.'}));
  if(response.status===401){clearSession();throw Error(result.error||'Oturum sona erdi.');}
  if(!response.ok||result.ok===false)throw Error(result.error||('HTTP '+response.status));
  return result;
