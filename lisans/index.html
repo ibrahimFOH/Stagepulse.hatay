@@ -28,9 +28,11 @@ function showLogin(){token="";expiresAt=0;$("loginPanel").classList.remove("hidd
 async function api(action,data={},auth=true){
  if(auth&&(!token||Date.now()>=expiresAt)){showLogin();throw new Error("Oturum sona erdi. Yeniden giriş yap.")}
  const headers={"Content-Type":"application/json","apikey":KEY};if(auth&&token)headers.Authorization="Bearer "+token;
- let response;try{response=await fetch(API,{method:"POST",headers,body:JSON.stringify({action,...data}),cache:"no-store"})}
- catch(e){throw new Error("Lisans sunucusuna ulaşılamadı. DNS, internet bağlantısı veya CORS ayarını kontrol edin. ("+(e&&e.message?e.message:"Ağ hatası")+")")}
- const body=await response.json().catch(()=>({error:"Sunucudan geçersiz yanıt alındı."}));
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+ let response;try{response=await fetch(API,{method:"POST",headers,body:JSON.stringify({action,...data}),cache:"no-store",signal:controller.signal})}
+ catch(e){if(e&&e.name==="AbortError")throw new Error("Lisans sunucusu 20 saniye içinde yanıt vermedi. Supabase license-admin fonksiyonunu kontrol edin.");throw new Error("Lisans API bağlantısı kurulamadı. DNS, TLS veya CORS engeli olabilir. İnternet bağlantısını ve Supabase license-admin fonksiyonunu kontrol edin. ("+(e&&e.message?e.message:"Ağ hatası")+")")}
+ finally{clearTimeout(timer)}
+ const body=await response.json().catch(()=>({error:"Sunucudan geçersiz JSON yanıtı alındı."}));
  if(response.status===401&&auth){showLogin();throw new Error(body.error||"Yönetici oturumu geçersiz veya süresi dolmuş.")}
  if(!response.ok)throw new Error(body.error||("HTTP "+response.status));return body
 }
