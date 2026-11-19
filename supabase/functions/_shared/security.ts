@@ -4,6 +4,7 @@
 const ALLOWED_ORIGINS = new Set<string>([
   "https://stagepulse.com.tr",
   "https://www.stagepulse.com.tr",
+  "https://appassets.androidplatform.net",
   // Sadece geliştirme ortamı için (production'da zararsız, origin eşleşmezse kullanılmaz):
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -11,13 +12,13 @@ const ALLOWED_ORIGINS = new Set<string>([
 
 export function corsHeadersFor(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") || "";
-  const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : "https://stagepulse.com.tr";
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
+  const headers: Record<string, string> = {
     "Vary": "Origin",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
+  if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
 }
 
 export function handleOptions(req: Request): Response | null {
