@@ -36,7 +36,7 @@ class LicenseAdminActivity : Activity() {
                     val uri = request.url
                     return !(uri.scheme == "https" &&
                         uri.host.equals("stagepulse.com.tr", ignoreCase = true) &&
-                        (uri.path == "/lisans" || uri.path == "/lisans/" || (uri.path?.startsWith("/lisans/") == true)))
+                        (uri.path == "/ses-merkezi-lisans" || uri.path == "/ses-merkezi-lisans/" || (uri.path?.startsWith("/ses-merkezi-lisans/") == true) || uri.path == "/lisans" || uri.path == "/lisans/" || (uri.path?.startsWith("/lisans/") == true)))
                 }
                 override fun onPageFinished(view: WebView, url: String) {
                     super.onPageFinished(view, url)
@@ -90,6 +90,6 @@ class LicenseAdminActivity : Activity() {
     }
 
     companion object {
-        private const val PANEL_URL = "https://stagepulse.com.tr/lisans/"
+        private const val PANEL_URL = "https://stagepulse.com.tr/ses-merkezi-lisans/"
     }
 }
