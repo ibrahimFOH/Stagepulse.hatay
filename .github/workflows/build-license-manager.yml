@@ -26,8 +26,8 @@ jobs:
         run: pyinstaller --noconfirm --clean --onefile --windowed --name StagepulseLisansYonetimi --add-data "..\assets;assets" main.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: Stagepulse-Lisans-Yonetimi-Windows-EXE
-          path: license-manager-app/desktop/dist/StagepulseLisansYonetimi.exe
+          name: Stagepulse-Lisans-Yonetimi-Windows-EXE-1.0.1
+          path: license-manager-app/desktop/dist/StagepulseLisansYonetimi-1.0.1.exe
           if-no-files-found: error
           retention-days: 30
   android-apk:
@@ -47,12 +47,22 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
         with:
           gradle-version: '8.9'
+      - name: Verify Android CORS-safe WebView and version
+        shell: bash
+        run: |
+          grep -q 'https://appassets.androidplatform.net/assets/index.html' license-manager-app/android/app/src/main/java/com/stagepulse/licenseadmin/MainActivity.kt
+          grep -q 'versionName = "1.0.1"' license-manager-app/android/app/build.gradle.kts
+          cmp license-manager-app/assets/app.js license-manager-app/android/app/src/main/assets/app.js
       - name: Build Android debug APK
         working-directory: license-manager-app/android
         run: gradle --no-daemon assembleDebug
+      - name: Verify Android APK output
+        run: |
+          test -s license-manager-app/android/app/build/outputs/apk/debug/app-debug.apk
+          test "$(stat -c%s license-manager-app/android/app/build/outputs/apk/debug/app-debug.apk)" -gt 100000
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: Stagepulse-Lisans-Yonetimi-Android-APK
+          name: Stagepulse-Lisans-Yonetimi-Android-APK-1.0.1
           path: license-manager-app/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
