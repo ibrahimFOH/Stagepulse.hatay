@@ -1,0 +1,50 @@
+name: Stagepulse Production Education Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/sesm-education-admin/**"
+      - "supabase/functions/ses-merkezi-desktop/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/deploy-education-production.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stagepulse-production-education-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Apply guarded migrations and deploy affected Edge Functions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359
+        with:
+          version: 2.117.0
+      - name: Validate and apply missing production migrations
+        env:
+          APPLY_MISSING: "true"
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          python3 scripts/sync-supabase-migrations.py
+      - name: Deploy education and desktop Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test -n "$SUPABASE_PROJECT_REF"
+          supabase functions deploy sesm-education-admin --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy ses-merkezi-desktop --project-ref "$SUPABASE_PROJECT_REF"
