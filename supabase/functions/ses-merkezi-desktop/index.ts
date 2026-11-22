@@ -442,20 +442,57 @@ Deno.serve(async (req: Request) => {
         .eq("created_by", user.id).order("created_at", { ascending: false }).limit(500);
       if (error) return fail("LICENSE_LIST_FAILED", 500);
       const ids = (licenses ?? []).map((lic: any) => lic.id);
-      const activations = ids.length
-        ? await admin.from("sesm_activations").select("license_id,device_hash,is_active").in("license_id", ids)
+      const legacy = ids.length
+        ? await admin.from("sesm_activations")
+          .select("license_id,device_hash,is_active,activated_at,last_seen_at").in("license_id", ids)
         : { data: [], error: null };
-      if (activations.error) return fail("LICENSE_ACTIVATION_LIST_FAILED", 500);
-      const counts = new Map<string, Set<string>>();
-      for (const item of activations.data ?? []) {
-        if (item.is_active) {
-          if (!counts.has(item.license_id)) counts.set(item.license_id, new Set<string>());
-          counts.get(item.license_id)!.add(item.device_hash);
+      if (legacy.error) return fail("LICENSE_ACTIVATION_LIST_FAILED", 500);
+      const coreLicenses = ids.length
+        ? await admin.from("license_core")
+          .select("id,legacy_license_id").eq("legacy_system", "ses-merkezi").in("legacy_license_id", ids)
+        : { data: [], error: null };
+      if (coreLicenses.error) return fail("LICENSE_CORE_LINK_LOOKUP_FAILED", 500);
+      const coreIds = (coreLicenses.data ?? []).map((row: any) => row.id);
+      const coreDevices = coreIds.length
+        ? await admin.from("license_core_devices")
+          .select("license_id,device_hash,is_active,activated_at,last_seen_at")
+          .in("license_id", coreIds)
+        : { data: [], error: null };
+      if (coreDevices.error) return fail("LICENSE_CORE_DEVICE_LIST_FAILED", 500);
+      const legacyByCoreId = new Map<string, string>();
+      for (const row of coreLicenses.data ?? []) legacyByCoreId.set(row.id, row.legacy_license_id);
+      const devicesByLicense = new Map<string, Map<string, any>>();
+      const mergeDevice = (licenseId: string, row: any) => {
+        const hash = String(row.device_hash ?? "");
+        if (!hash) return;
+        if (!devicesByLicense.has(licenseId)) devicesByLicense.set(licenseId, new Map<string, any>());
+        const current = devicesByLicense.get(licenseId)!.get(hash);
+        if (!current) {
+          devicesByLicense.get(licenseId)!.set(hash, {
+            is_active: !!row.is_active,
+            activated_at: row.activated_at ?? null,
+            last_seen_at: row.last_seen_at ?? null,
+          });
+          return;
         }
+        current.is_active = current.is_active || !!row.is_active;
+        if (row.activated_at && (!current.activated_at || Date.parse(row.activated_at) < Date.parse(current.activated_at))) current.activated_at = row.activated_at;
+        if (row.last_seen_at && (!current.last_seen_at || Date.parse(row.last_seen_at) > Date.parse(current.last_seen_at))) current.last_seen_at = row.last_seen_at;
+      };
+      for (const row of legacy.data ?? []) mergeDevice(row.license_id, row);
+      for (const row of coreDevices.data ?? []) {
+        const legacyId = legacyByCoreId.get(row.license_id);
+        if (legacyId) mergeDevice(legacyId, row);
       }
-      return reply({ ok: true, licenses: (licenses ?? []).map((lic: any) => ({
-        ...lic, active_activations: counts.get(lic.id)?.size ?? 0,
-      })) });
+      return reply({ ok: true, licenses: (licenses ?? []).map((lic: any) => {
+        const devices = devicesByLicense.get(lic.id);
+        const values = devices ? [...devices.values()] : [];
+        return {
+          ...lic,
+          active_activations: values.filter((device: any) => device.is_active).length,
+          total_activations: values.length,
+        };
+      }) });
     }
     if (action === "license_activations") {
       await requireOwner(user.id);
@@ -468,10 +505,40 @@ Deno.serve(async (req: Request) => {
         .select("id,device_hash,activated_at,last_seen_at,is_active")
         .eq("license_id", licenseId).order("activated_at", { ascending: false }).limit(100);
       if (error) return fail("LICENSE_ACTIVATION_LIST_FAILED", 500);
-      return reply({ ok: true, activations: (rows ?? []).map((row: any) => ({
-        id: row.id, device_hint: String(row.device_hash ?? "").slice(0, 8).toUpperCase(),
-        activated_at: row.activated_at, last_seen_at: row.last_seen_at, is_active: !!row.is_active,
-      })) });
+      const { data: coreLicense, error: coreLinkError } = await admin.from("license_core")
+        .select("id").eq("legacy_system", "ses-merkezi").eq("legacy_license_id", licenseId).maybeSingle();
+      if (coreLinkError) return fail("LICENSE_CORE_LINK_LOOKUP_FAILED", 500);
+      const coreRows = coreLicense
+        ? await admin.from("license_core_devices")
+          .select("device_hash,activated_at,last_seen_at,is_active")
+          .eq("license_id", coreLicense.id).order("activated_at", { ascending: false }).limit(100)
+        : { data: [], error: null };
+      if (coreRows.error) return fail("LICENSE_CORE_DEVICE_LIST_FAILED", 500);
+      const merged = new Map<string, any>();
+      const addActivation = (row: any) => {
+        const hash = String(row.device_hash ?? "");
+        if (!hash) return;
+        const existing = merged.get(hash);
+        if (!existing) {
+          merged.set(hash, {
+            device_hint: hash.slice(0, 8).toUpperCase(),
+            activated_at: row.activated_at ?? null,
+            last_seen_at: row.last_seen_at ?? null,
+            is_active: !!row.is_active,
+          });
+          return;
+        }
+        existing.is_active = existing.is_active || !!row.is_active;
+        if (row.activated_at && (!existing.activated_at || Date.parse(row.activated_at) < Date.parse(existing.activated_at))) existing.activated_at = row.activated_at;
+        if (row.last_seen_at && (!existing.last_seen_at || Date.parse(row.last_seen_at) > Date.parse(existing.last_seen_at))) existing.last_seen_at = row.last_seen_at;
+      };
+      for (const row of rows ?? []) addActivation(row);
+      for (const row of coreRows.data ?? []) addActivation(row);
+      const activations = [...merged.values()].sort((a, b) =>
+        Date.parse(b.last_seen_at ?? b.activated_at ?? 0) - Date.parse(a.last_seen_at ?? a.activated_at ?? 0)
+      );
+      return reply({ ok: true, activations, total_activations: activations.length,
+        active_activations: activations.filter((row: any) => row.is_active).length });
     }
     if (action === "activation_revoke") {
       await requireOwner(user.id);
