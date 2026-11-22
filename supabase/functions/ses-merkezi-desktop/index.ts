@@ -662,7 +662,7 @@ Deno.serve(async (req: Request) => {
       const completed = body.completed === true;
       const note = String(body.teacher_note ?? "").trim().slice(0, 1000);
       if (!target || !MODULES.has(moduleId)) return fail("PROGRESS_INPUT_INVALID", 400);
-      const { data: student } = await admin.from("sesm_students").select("user_id,license_id").eq("user_id", target).eq("teacher_user_id", user.id).eq("is_active", true).maybeSingle();
+      const { data: student } = await admin.from("sesm_students").select("user_id,license_id").eq("user_id", target).eq("teacher_user_id", user.id).maybeSingle();
       if (!student) return fail("STUDENT_NOT_FOUND", 404);
       const row = { student_user_id: target, module_id: moduleId, completed, marked_by: completed ? user.id : null, marked_at: completed ? new Date().toISOString() : null, teacher_note: note, updated_at: new Date().toISOString() };
       const { data, error } = await admin.from("sesm_progress").upsert(row, { onConflict: "student_user_id,module_id" }).select().single();
