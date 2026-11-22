@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const MODULES = new Set(["frequency", "ear", "calculators", "acoustics", "rta", "mixer", "wav", "lufs", "cues", "checklists", "docs"]);
+const MODULES = new Set(["frequency", "ear", "calculators", "protocol", "acoustics", "rta", "mixer", "wav", "lufs", "cues", "checklists", "docs"]);
 const APP_URL = "https://stagepulse.com.tr";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
