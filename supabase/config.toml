@@ -40,7 +40,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.sesm-education-admin]
-verify_jwt = false
+verify_jwt = true
 
 [functions.staff-manage]
 verify_jwt = false
