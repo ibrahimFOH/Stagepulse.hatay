@@ -112,10 +112,24 @@ Deno.serve(async(req:Request)=>{
       const id=text(b.student_user_id,80);if(!id||id===user.id)return bad(req,"STUDENT_NOT_FOUND",404);
       const {data:s,error}=await supabase.from("sesm_students").select("user_id,email,display_name").eq("user_id",id).eq("teacher_user_id",user.id).maybeSingle();
       if(error||!s)return bad(req,"STUDENT_NOT_FOUND",404);
-      await audit(user.id,"student_deleted",null,{student_user_id:id,email:s.email,display_name:s.display_name});
-      await supabase.from("sesm_progress").update({marked_by:null}).eq("marked_by",id);
-      const r=await supabase.auth.admin.deleteUser(id);if(r.error)throw new Error("STUDENT_DELETE_FAILED");
-      return send(req,{ok:true});
+      // Keep the audit record independent from the Auth FK, then detach any
+      // teacher attribution before deleting the student's Auth identity.
+      const auditResult=await supabase.from("sesm_audit_events").insert({
+        actor_user_id:user.id,
+        action:"student_deleted",
+        subject_user_id:null,
+        details:{area:"education_admin",student_user_id:id,email:s.email,display_name:s.display_name}
+      });
+      if(auditResult.error)throw new Error("STUDENT_DELETE_AUDIT_FAILED");
+
+      const progressResult=await supabase.from("sesm_progress")
+        .update({marked_by:null})
+        .eq("marked_by",id);
+      if(progressResult.error)throw new Error("STUDENT_DELETE_PROGRESS_CLEANUP_FAILED");
+
+      const deleted=await supabase.auth.admin.deleteUser(id);
+      if(deleted.error)throw new Error("STUDENT_DELETE_FAILED");
+      return send(req,{ok:true,deleted_user_id:id});
     }
 
     if(action==="exams_list"){
