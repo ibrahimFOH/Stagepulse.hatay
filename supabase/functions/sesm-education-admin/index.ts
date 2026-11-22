@@ -15,6 +15,7 @@ const text = (v:unknown,n=500) => typeof v==="string" ? v.trim().slice(0,n) : ""
 const strong = (v:string) => v.length>=10 && v.length<=128 && /[A-Za-zğüşıöçĞÜŞİÖÇ]/.test(v) && /\d/.test(v);
 const norm = (v:unknown) => (Array.isArray(v)?v:[v]).map(x=>String(x??"").trim().toLocaleLowerCase("tr-TR")).filter(Boolean).sort();
 const equalAnswer = (a:unknown,b:unknown) => {const x=norm(a),y=norm(b);return x.length===y.length&&x.every((v,i)=>v===y[i]);};
+const boolAnswer = (v:unknown):boolean|null => v===true||v===1||v==="true"||v==="1" ? true : v===false||v===0||v==="false"||v==="0" ? false : null;
 
 async function caller(req:Request) {
   const token=(req.headers.get("Authorization")??"").replace(/^Bearer\s+/i,"").trim();
@@ -208,9 +209,24 @@ Deno.serve(async(req:Request)=>{
       if(e.error||!e.data)return bad(req,"EXAM_NOT_AVAILABLE",404);
       const q=await supabase.from("sesm_questions").select("id,question_type,correct_answer,points").eq("exam_id",e.data.id);
       if(q.error||!q.data?.length)return bad(req,"EXAM_HAS_NO_QUESTIONS",409);
-      let score=0,max=0,correct=0;for(const item of q.data){const pts=Number(item.points)||0;max+=pts;const supplied=answers[item.id];const ok=item.question_type==="true_false"?Boolean(supplied)===Boolean(item.correct_answer):equalAnswer(supplied,item.correct_answer);if(ok){score+=pts;correct++;}}
+      const allowedIds=new Set(q.data.map((item:any)=>item.id));
+      const safeAnswers:Record<string,unknown>={};
+      for(const [questionId,value] of Object.entries(answers)){
+        if(!allowedIds.has(questionId))continue;
+        if(typeof value==="string"||typeof value==="boolean"||Array.isArray(value))safeAnswers[questionId]=value;
+      }
+      let score=0,max=0,correct=0;
+      for(const item of q.data){
+        const pts=Number(item.points)||0;max+=pts;
+        const supplied=safeAnswers[item.id];
+        const parsed=boolAnswer(supplied);
+        const ok=item.question_type==="true_false"
+          ? parsed!==null && parsed===boolAnswer(item.correct_answer)
+          : equalAnswer(supplied,item.correct_answer);
+        if(ok){score+=pts;correct++;}
+      }
       const percent=max?Math.round(score/max*10000)/100:0,timed=!!e.data.duration_minutes&&Date.now()-Date.parse(a.data.started_at)>e.data.duration_minutes*60000;
-      const result=await supabase.from("sesm_exam_attempts").update({answers,score,max_score:max,percent,passed:!timed&&percent>=Number(e.data.pass_percent),correct_count:correct,question_count:q.data.length,submitted_at:new Date().toISOString(),status:timed?"timed_out":"submitted"}).eq("id",id).eq("student_user_id",user.id).eq("status","in_progress").select("id,score,max_score,percent,passed,correct_count,question_count,submitted_at,status").single();
+      const result=await supabase.from("sesm_exam_attempts").update({answers:safeAnswers,score,max_score:max,percent,passed:!timed&&percent>=Number(e.data.pass_percent),correct_count:correct,question_count:q.data.length,submitted_at:new Date().toISOString(),status:timed?"timed_out":"submitted"}).eq("id",id).eq("student_user_id",user.id).eq("status","in_progress").select("id,score,max_score,percent,passed,correct_count,question_count,submitted_at,status").single();
       if(result.error)throw new Error("EXAM_SUBMIT_FAILED");return send(req,{ok:true,result:result.data});
     }
 
