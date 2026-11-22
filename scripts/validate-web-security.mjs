@@ -45,6 +45,7 @@ const licenseDenyMigration = read('supabase/migrations/20261101075844_explicit_d
 const licenseCoreFunction = read('supabase/functions/license-core/index.ts');
 const licenseAdminFunction = read('supabase/functions/license-admin/index.ts');
 const sesMerkeziFunction = read('supabase/functions/ses-merkezi-desktop/index.ts');
+const sesmEducationFunction = read('supabase/functions/sesm-education-admin/index.ts');
 const sharedSecurity = read('supabase/functions/_shared/security.ts');
 const licenseAdminOriginMatch = licenseAdminFunction.match(/new Set\(\[([^\]]+)\]\)\.has\(req\.headers\.get\("origin"\)/);
 const licenseAdminOrigins = licenseAdminOriginMatch
@@ -60,7 +61,7 @@ const expectedEdgeFunctions = new Map([
   ['license-core', true], ['org-admin-control', true], ['portal-login', false],
   ['production-os', false], ['register-android-device', true],
   ['self-password-change', true], ['send-fcm-notification', false],
-  ['ses-merkezi-desktop', false], ['sesm-education-admin', true], ['staff-manage', false],
+  ['ses-merkezi-desktop', false], ['sesm-education-admin', false], ['staff-manage', false],
 ]);
 const manifestEntries = Array.isArray(edgeManifest.functions) ? edgeManifest.functions : [];
 const manifestNames = manifestEntries.map(item => item.name);
@@ -73,6 +74,7 @@ for (const [name, verifyJwt] of expectedEdgeFunctions) {
   requireMatch(read(`supabase/functions/${name}/index.ts`).length > 0, `Canonical Edge Function source is missing: ${name}.`);
 }
 requireMatch(!manifestNames.includes('staff-login') && !manifestNames.includes('staff-session'), 'Deprecated 410 compatibility endpoints must not be included in the deployment manifest.');
+requireMatch(sesmEducationFunction.includes('if(req.method==="OPTIONS")') && sesmEducationFunction.indexOf('if(req.method==="OPTIONS")') < sesmEducationFunction.indexOf('const user=await caller(req);') && sesmEducationFunction.includes('supabase.auth.getUser(token)') && sesmEducationFunction.includes('if(adminActions.has(action)&&!(await owner(user.id)))'), 'Education admin may bypass gateway JWT only because CORS preflight is handled first and every non-preflight request validates the user token and owner role internally.');
 requireMatch(licenseCoreFunction.includes('const ALLOWED_ORIGINS = new Set([') && licenseCoreFunction.includes('if (ALLOWED_ORIGINS.has(origin)) headers["Access-Control-Allow-Origin"] = origin;') && !licenseCoreFunction.includes('Access-Control-Allow-Origin": "*"'), 'Unified license Edge Function must use the Stagepulse CORS origin allowlist.');
 const sesmAdminCreateGuard = licenseCoreFunction.indexOf('if (appId === "ses-merkezi" || appId === "ses-merkezi-android")');
 const sesmAdminCreateCore = licenseCoreFunction.indexOf('const app = await appFor(appId);', sesmAdminCreateGuard);
